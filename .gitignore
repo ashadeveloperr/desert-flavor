@@ -112,3 +112,6 @@ InitTestScene*.unity*
 .DS_Store
 Thumbs.db
 *.swp
+
+# Local output from deterministic balance simulator
+/Tools/balance_output/

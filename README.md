@@ -13,6 +13,8 @@ Unity 3D 헥스타일 기반 정착지 개발·생산망 최적화·경매 경�
 
 **[구현용 경제 밸런스 v0.8](Docs/economy_balance_v0.8.md)** · **[수치 설정 JSON](Docs/economy_balance_v0.8_config.json)** — 시간당 경제 시뮬레이션과 전략별 매각 가치 검증을 반영한 초기값입니다. 개별 수치는 플레이테스트 대상입니다.
 
+**[시뮬레이터 소스 (Python)](Tools/desert_balance_sim_v08.py)** — `python Tools/desert_balance_sim_v08.py`로 실행합니다. 결과 파일은 `Tools/balance_output/`에 생성되며 Git 추적에서 제외됩니다. Python 표준 라이브러리만 필요합니다.
+
 ## 프로젝트 개요
 
 - **게임 루프:** 지역 정보 → 장비 선택 → 정착지 건설·운영 → 경매 → 매각/보류 → 매각 대금으로 장비 강화 및 다음 지역 개척

@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from math import sqrt
 from typing import Dict, List, Tuple
 import json, csv, sys, random, statistics
+from pathlib import Path
+
+OUTPUT_DIR = Path(__file__).resolve().parent / "balance_output"
 
 LOSS_HALF = sqrt(0.95)
 
@@ -235,9 +238,10 @@ def do_tests():
     assert minehouse.summary(229)['saleBid']>mineup.summary(229)['saleBid']
     assert minehouse.F>=0.99
     assert stonebuy.completed_hour['auction']==32 and stonebuy.first_auction==128
-    with open('/mnt/data/desert_balance_v08_results.json','w',encoding='utf-8') as f:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(OUTPUT_DIR / 'desert_balance_v08_results.json','w',encoding='utf-8') as f:
         json.dump([s.summary(h) for s,h in [(base,133),(nochange,229),(mineup,229),(minehouse,229),(farmup,229),(quarryup,229),(waterup,229),(closeq,133),(close_end,229),(third,229),(stonebuy,128),(dry,133),(dryhelp,133)]],f,ensure_ascii=False,indent=2)
-    with open('/mnt/data/desert_balance_v08_hourly.csv','w',encoding='utf-8',newline='') as f:
+    with open(OUTPUT_DIR / 'desert_balance_v08_hourly.csv','w',encoding='utf-8',newline='') as f:
         rows=minehouse.log
         w=csv.DictWriter(f,fieldnames=rows[0].keys());w.writeheader();w.writerows(rows)
 
@@ -259,7 +263,8 @@ def sensitivity(n=200,seed=42):
          max=round(max(arr),2),insolvent=sum(r['bankrupt'] for r in outcomes),
          food_shortage=sum(r['f']<0.99999 for r in outcomes),
          ending_food0=sum(r['food']<0.0001 for r in outcomes))
-    with open('/mnt/data/desert_balance_v08_sensitivity.json','w',encoding='utf-8') as f:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(OUTPUT_DIR / 'desert_balance_v08_sensitivity.json','w',encoding='utf-8') as f:
         json.dump(stats,f,ensure_ascii=False,indent=2)
     return stats
 

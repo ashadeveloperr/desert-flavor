@@ -94,6 +94,47 @@ namespace DesertSettlement.Core.Economy
         public override string ToString() => Success ? $"OK(job {JobId})" : "실패: " + Message;
     }
 
+    /// <summary>생산 시설이 만드는 자원.</summary>
+    public enum ResourceKind
+    {
+        None,
+        Food,
+        Stone,
+        Ore,
+    }
+
+    /// <summary>
+    /// 시설 하나의 시간당 생산·소비 예상치(가장 최근 물 배분과 현재 식량 계수 F 기준).
+    /// 실제 정산은 다음 정각의 <see cref="Settlement.AdvanceHour"/>에서 일어나므로 약간 다를 수 있다.
+    /// </summary>
+    public readonly struct FacilityOutput
+    {
+        public readonly ResourceKind Resource;
+        /// <summary>지금 상태의 시간당 생산량 = 최대 × 물 가동률 × F.</summary>
+        public readonly double ProducedPerHour;
+        /// <summary>물 100%·F 100%일 때의 시간당 생산량.</summary>
+        public readonly double MaxPerHour;
+        /// <summary>운영 중일 때의 고정 식량 소비(가동률과 무관).</summary>
+        public readonly double FoodUsePerHour;
+        public readonly double WaterRate;
+        public readonly double FoodCoefficient;
+
+        public FacilityOutput(ResourceKind resource, double produced, double max, double foodUse, double waterRate, double f)
+        {
+            Resource = resource;
+            ProducedPerHour = produced;
+            MaxPerHour = max;
+            FoodUsePerHour = foodUse;
+            WaterRate = waterRate;
+            FoodCoefficient = f;
+        }
+
+        public bool IsProducer => Resource != ResourceKind.None;
+
+        /// <summary>농장이 자기 식량 소비보다 적게 생산하는지(농장 하나의 식량 수지 적자).</summary>
+        public bool FarmBelowOwnUpkeep => Resource == ResourceKind.Food && ProducedPerHour < FoodUsePerHour;
+    }
+
     /// <summary>한 게임 시간 정산 기록. 경매 가치(직전 24시간 실적) 계산에 쓴다.</summary>
     public sealed class HourRecord
     {

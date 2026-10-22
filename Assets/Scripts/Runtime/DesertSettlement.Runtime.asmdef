@@ -2,7 +2,9 @@
     "name": "DesertSettlement.Runtime",
     "rootNamespace": "DesertSettlement.Runtime",
     "references": [
-        "DesertSettlement.Core"
+        "DesertSettlement.Core",
+        "Unity.InputSystem",
+        "Unity.Cinemachine"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

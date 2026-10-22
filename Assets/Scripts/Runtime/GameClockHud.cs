@@ -24,7 +24,9 @@ namespace DesertSettlement.Runtime
             if (_session == null || !_session.IsReady) return;
             GameClock clock = _session.Clock;
 
-            GUILayout.BeginArea(new Rect(position.x, position.y, 360f, 90f), GUI.skin.box);
+            var area = new Rect(position.x, position.y, 360f, 90f);
+            HudInputBlocker.SetRects(this, area);
+            GUILayout.BeginArea(area, GUI.skin.box);
 
             int hour = (int)clock.HourOfDay;
             int minute = (int)((clock.HourOfDay - hour) * 60.0);

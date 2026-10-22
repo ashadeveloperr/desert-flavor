@@ -50,19 +50,46 @@ namespace DesertSettlement.Core.Tests
         };
 
         [Test]
-        public void SerialLayout_ReproducesV08Regression()
+        public void SerialLayout_VertexIntake()
         {
+            // 원본 v0.8 직렬 배치. 꼭짓점 취수(W2 변경)라 농장은 우물과 꼭짓점을 공유해 거리 0,
+            // 채석장·광산은 수로 끝 꼭짓점에서 받는다 → 원본(변 중간점, 광산 74.28%)보다 손실이 적다.
             WaterAllocation a = Solve(Canals(SerialA), new[] { Well(100) },
                 new[] { Use("farm", 1, -1, 30), Use("quarry", 2, -1, 25), Use("mine", 2, 0, 50) });
 
             Assert.AreEqual(1.0, a.RateOf("farm"), Tol);
             Assert.AreEqual(1.0, a.RateOf("quarry"), Tol);
-            Assert.AreEqual(0.7427964, a.RateOf("mine"), 1e-6, "v0.8 광산 가동률 74.28%");
-            Assert.AreEqual(1, a.Consumers["farm"].PriorityDistance);
-            Assert.AreEqual(3, a.Consumers["quarry"].PriorityDistance);
-            Assert.AreEqual(5, a.Consumers["mine"].PriorityDistance);
+            Assert.AreEqual(0.7885, a.RateOf("mine"), 1e-4);
+            Assert.AreEqual(0, a.Consumers["farm"].PriorityDistance);
+            Assert.AreEqual(2, a.Consumers["quarry"].PriorityDistance);
+            Assert.AreEqual(4, a.Consumers["mine"].PriorityDistance);
             Assert.AreEqual(WaterShortageReason.SourceSupply, a.Consumers["mine"].Shortage);
             Assert.AreEqual(100.0, a.TotalReleased, Tol);
+        }
+
+        [Test]
+        public void CanalTouchingOnlyOneCornerOfTheTile_StillSupplies()
+        {
+            // 수로 하나(우물 북동 꼭짓점 → 바깥)의 끝점만 닿는 (2,-1) 타일.
+            CanalGraph g = Canals(E(1, -1, HexDirection.SouthEast));
+            WaterAllocation a = Solve(g, new[] { Well(100) }, new[] { Use("quarry", 2, -1, 25) });
+            Assert.AreEqual(1.0, a.RateOf("quarry"), Tol, "변이 아니라 꼭짓점 하나만 닿아도 취수");
+            Assert.AreEqual(2, a.Consumers["quarry"].PriorityDistance);
+            Assert.AreEqual(VertexId.Of(new HexCoord(1, 0), HexCorner.North), a.Consumers["quarry"].Intakes[0].IntakeVertex);
+        }
+
+        [Test]
+        public void FacilityTouchingTheWellTile_NeedsNoCanal()
+        {
+            // 우물과 꼭짓점을 공유하지만 수로가 하나도 없으면 연결 없음(우물 자체는 수로망 노드가 아니다).
+            WaterAllocation none = Solve(Canals(), new[] { Well(100) }, new[] { Use("farm", 1, 0, 30) });
+            Assert.AreEqual(WaterShortageReason.Unreachable, none.Consumers["farm"].Shortage);
+
+            // 우물 꼭짓점에 수로가 하나라도 닿으면, 그 꼭짓점을 공유하는 이웃 시설은 손실 없이 받는다.
+            WaterAllocation some = Solve(Canals(E(1, -1, HexDirection.SouthEast)), new[] { Well(100) }, new[] { Use("farm", 1, 0, 30) });
+            Assert.AreEqual(1.0, some.RateOf("farm"), Tol);
+            Assert.AreEqual(0, some.Consumers["farm"].PriorityDistance);
+            Assert.AreEqual(30.0, some.TotalReleased, Tol, "거리 0 → 손실 없음");
         }
 
         [Test]
@@ -73,26 +100,29 @@ namespace DesertSettlement.Core.Tests
             WaterAllocation a = Solve(g, new[] { Well(100) },
                 new[] { Use("farm", 1, 0, 30), Use("quarry", 0, 1, 25), Use("mine", 1, 1, 50) });
 
-            Assert.AreEqual(1, a.Consumers["farm"].PriorityDistance);
-            Assert.AreEqual(1, a.Consumers["quarry"].PriorityDistance, "두 번째 변도 우물 꼭짓점에서 시작");
-            Assert.AreEqual(3, a.Consumers["mine"].PriorityDistance);
-            Assert.AreEqual(0.8069, a.RateOf("mine"), 1e-4);
+            Assert.AreEqual(0, a.Consumers["farm"].PriorityDistance);
+            Assert.AreEqual(0, a.Consumers["quarry"].PriorityDistance);
+            Assert.AreEqual(2, a.Consumers["mine"].PriorityDistance, "두 번째 변도 우물 꼭짓점에서 시작");
+            Assert.AreEqual(0.8550, a.RateOf("mine"), 1e-4);
         }
+
+        // 우물 북동·남서 꼭짓점에서 바깥으로 한 구간씩. 끝점에만 닿는 (2,-1)과 (-2,1)은 우물에서 같은 거리(2).
+        private CanalGraph TwoArms() => Canals(E(1, -1, HexDirection.SouthEast), E(-1, 1, HexDirection.NorthWest));
 
         [Test]
         public void SameDistance_SplitsInProportionToDemand()
         {
-            CanalGraph g = Canals(E(1, -1, HexDirection.SouthEast), E(-1, 1, HexDirection.NorthWest));
-            WaterAllocation a = Solve(g, new[] { Well(100) }, new[] { Use("mineA", 1, -1, 50), Use("mineB", -1, 1, 50) });
+            WaterAllocation a = Solve(TwoArms(), new[] { Well(100) }, new[] { Use("mineA", 2, -1, 50), Use("mineB", -2, 1, 50) });
+            Assert.AreEqual(2, a.Consumers["mineA"].PriorityDistance);
+            Assert.AreEqual(2, a.Consumers["mineB"].PriorityDistance);
             Assert.AreEqual(a.RateOf("mineA"), a.RateOf("mineB"), Tol);
-            Assert.AreEqual(Math.Sqrt(0.95), a.RateOf("mineA"), 1e-9, "각 50 방출 → 반쪽 변 손실 후 도착");
+            Assert.AreEqual(0.95, a.RateOf("mineA"), 1e-9, "각 50 방출 → 변 하나 손실 5% 후 도착");
         }
 
         [Test]
         public void SameDistance_DifferentDemands_GetEqualFulfillmentRatio()
         {
-            CanalGraph g = Canals(E(1, -1, HexDirection.SouthEast), E(-1, 1, HexDirection.NorthWest));
-            WaterAllocation a = Solve(g, new[] { Well(60) }, new[] { Use("big", 1, -1, 60), Use("small", -1, 1, 30) });
+            WaterAllocation a = Solve(TwoArms(), new[] { Well(60) }, new[] { Use("big", 2, -1, 60), Use("small", -2, 1, 30) });
             Assert.AreEqual(a.RateOf("big"), a.RateOf("small"), Tol);
             Assert.AreEqual(2.0, a.Consumers["big"].Delivered / a.Consumers["small"].Delivered, Tol);
         }
@@ -101,9 +131,12 @@ namespace DesertSettlement.Core.Tests
         public void CloserConsumerIsServedFirst()
         {
             CanalGraph g = Canals(E(1, -1, HexDirection.SouthEast), E(-1, 1, HexDirection.NorthWest), E(-1, 0, HexDirection.SouthWest));
-            WaterAllocation a = Solve(g, new[] { Well(100) }, new[] { Use("near", 1, -1, 50), Use("far", -2, 1, 50) });
+            WaterAllocation a = Solve(g, new[] { Well(100) }, new[] { Use("near", 2, -1, 50), Use("far", -2, 0, 50) });
+            Assert.AreEqual(2, a.Consumers["near"].PriorityDistance);
+            Assert.AreEqual(4, a.Consumers["far"].PriorityDistance);
             Assert.AreEqual(1.0, a.RateOf("near"), Tol);
-            Assert.AreEqual(0.9019, a.RateOf("far"), 1e-4);
+            double expectedFar = (100 - 50 / 0.95) * 0.95 * 0.95 / 50;
+            Assert.AreEqual(expectedFar, a.RateOf("far"), 1e-9, "가까운 쪽이 다 받은 뒤 남은 물");
         }
 
         // 가지 A(광산 2개를 거쳐 농장)와 가지 B(같은 길이로 농장)에 모두 접한 농장.
@@ -124,30 +157,30 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void ConsumerBlockedOnOneCanal_TakesRestFromAnotherCanal()
         {
-            WaterAllocation a = Solve(Canals(BranchA.Concat(BranchB).ToArray()), new[] { Well(140) }, TwoBranchUsers);
+            // 수로 용량 60, 농장 수요 60: 같은 거리의 두 가지 중 어느 하나만으로는 농장을 다 채울 수 없다.
+            var settings = new WaterNetworkSettings { CapacityOf = _ => 60 };
+            var users = new[] { TwoBranchUsers[0], TwoBranchUsers[1], Use("farm", 2, 0, 60) };
+            WaterAllocation a = Solve(Canals(BranchA.Concat(BranchB).ToArray()), new[] { Well(190) }, users, settings);
 
-            Assert.AreEqual(1.0, a.RateOf("farm"), Tol, "가지 A가 막혀도 가지 B로 받는다");
-            Assert.AreEqual(0.9019, a.RateOf("mine2"), 1e-4);
-            Assert.AreEqual(WaterShortageReason.CanalCapacity, a.Consumers["mine2"].Shortage);
-            Assert.AreEqual(BranchA[0], a.Consumers["mine2"].BlockingEdge);
-            Assert.AreEqual(100.0, a.EdgeLoads[BranchA[0]], Tol, "첫 변은 용량까지 찬다");
-            Assert.IsTrue(a.Consumers["farm"].Intakes.All(i => i.IntakeEdge == BranchB[2]));
+            Assert.AreEqual(1.0, a.RateOf("mine2"), Tol);
+            Assert.AreEqual(1.0, a.RateOf("farm"), Tol, "한 가지가 용량에 막히면 나머지는 다른 가지로 받는다");
+            Assert.AreEqual(2, a.Consumers["farm"].Intakes.Count, "두 경로에서 나눠 받음");
+            double firstA = a.EdgeLoads[BranchA[0]], firstB = a.EdgeLoads[BranchB[0]];
+            Assert.AreEqual(60.0, Math.Max(firstA, firstB), Tol, "먼저 쓴 가지의 첫 변은 용량까지 찬다");
         }
 
         [Test]
         public void ClosedGate_ReroutesToOtherCanal()
         {
             CanalGraph g = Canals(BranchA.Concat(BranchB).ToArray());
-            WaterAllocation open = Solve(g, new[] { Well(140) }, new[] { Use("farm", 2, 0, 30) });
-            EdgeId first = open.Consumers["farm"].Intakes[0].IntakeEdge;
-
-            Assert.IsTrue(g.TrySetGate(first, true));
-            Assert.IsTrue(g.TrySetGateOpen(first, false));
+            EdgeId gated = BranchA[1];
+            Assert.IsTrue(g.TrySetGate(gated, true));
+            Assert.IsTrue(g.TrySetGateOpen(gated, false));
             WaterAllocation closed = Solve(g, new[] { Well(140) }, new[] { Use("farm", 2, 0, 30) });
 
-            Assert.AreEqual(1.0, closed.RateOf("farm"), Tol);
-            Assert.AreNotEqual(first, closed.Consumers["farm"].Intakes[0].IntakeEdge);
-            Assert.IsFalse(closed.EdgeLoads.ContainsKey(first), "닫힌 수문 변에는 물이 흐르지 않는다");
+            Assert.AreEqual(1.0, closed.RateOf("farm"), Tol, "가지 A가 막히면 가지 B로");
+            Assert.IsFalse(closed.EdgeLoads.ContainsKey(gated), "닫힌 수문 변에는 물이 흐르지 않는다");
+            Assert.IsTrue(closed.EdgeLoads.ContainsKey(BranchB[1]));
         }
 
         [Test]
@@ -186,16 +219,18 @@ namespace DesertSettlement.Core.Tests
             string json = File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json"));
             WaterNetworkSettings settings = WaterNetworkSettings.FromConfig(EconomyConfigLoader.Parse(json));
             CanalGraph g = Canals(SerialA);
+            // m1은 우물과 꼭짓점을 공유(수로 불필요), m2·m3은 첫 변을 지나야 한다. 우물 L3(190)으로 우물이 아닌 수로가 병목이 되게.
             var users = new[] { Use("m1", 1, -1, 50), Use("m2", 2, -1, 50), Use("m3", 2, 0, 50) };
 
-            WaterAllocation l1 = Solve(g, new[] { Well(140) }, users, settings);
-            Assert.AreEqual(0.0, l1.RateOf("m3"), Tol, "L1 수로(100) 하나로는 우물 L2(140)를 다 못 쓴다");
-            Assert.AreEqual(40.0, l1.TotalSupply - l1.TotalReleased, Tol);
+            WaterAllocation l1 = Solve(g, new[] { Well(190) }, users, settings);
+            Assert.Less(l1.RateOf("m3"), 1.0, "L1 수로(100)가 병목");
+            Assert.AreEqual(WaterShortageReason.CanalCapacity, l1.Consumers["m3"].Shortage);
+            Assert.AreEqual(SerialA[0], l1.Consumers["m3"].BlockingEdge);
+            Assert.AreEqual(100.0, l1.EdgeLoads[SerialA[0]], Tol);
 
             g.TrySetLevel(SerialA[0], 2);
-            WaterAllocation l2 = Solve(g, new[] { Well(140) }, users, settings);
-            Assert.AreEqual(0.6105, l2.RateOf("m3"), 1e-4, "첫 변을 L2(150)로 올리면 우물을 다 쓴다");
-            Assert.AreEqual(140.0, l2.TotalReleased, Tol);
+            WaterAllocation l2 = Solve(g, new[] { Well(190) }, users, settings);
+            Assert.AreEqual(1.0, l2.RateOf("m3"), Tol, "첫 변을 L2(150)로 올리면 모두 받는다");
         }
 
         [Test]

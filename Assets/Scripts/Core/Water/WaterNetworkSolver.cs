@@ -12,7 +12,8 @@ namespace DesertSettlement.Core.Water
     /// 그래프: 노드 = 육각형 꼭짓점 + 수로 변 중간점, 간선 = 반쪽 변(길이 1, 손실 1-√(1-L)).
     ///   닫힌 수문이 있는 변은 그래프에서 빠진다.
     /// 1. 우물마다 타일 꼭짓점 6개(수로가 닿은 곳)에서 BFS → 우물별 최단 경로 트리 (W3, W5)
-    /// 2. 시설마다 인접 수로 변의 중간점을 취수점으로, 모든 우물에 대한 경로 후보를 만든다 (W2, W4, W5′)
+    /// 2. 시설마다 타일 꼭짓점 6개 중 수로가 닿은 점을 취수점으로, 모든 우물에 대한 경로 후보를 만든다 (W2, W4, W5′)
+    ///    (W2 변경 2026-10-22: 변 중간점 → 꼭짓점. 수로가 시설 타일의 꼭짓점 하나에만 닿아도 물을 받는다)
     /// 3. 경로 길이(반쪽 변 수) 오름차순으로 그룹을 만들어 처리한다 — 상류 우선, B안 (W1)
     ///    그룹 안에서는 progressive filling: 모든 시설의 충족률을 같은 속도로 올리고(수요 비례),
     ///    수로 용량(변 입구 기준, W6)이나 우물 생산량에 걸린 시설은 그 자리에서 고정한다.
@@ -57,7 +58,7 @@ namespace DesertSettlement.Core.Water
         {
             public int Consumer;
             public int Source;
-            public EdgeId IntakeEdge;
+            public VertexId IntakeVertex;
             public string IntakeKey;
             public int Length;
             public double SourceFactor;                // 전달 1당 우물 방출량
@@ -116,9 +117,9 @@ namespace DesertSettlement.Core.Water
             for (int c = 0; c < consumers.Count; c++)
             {
                 var candidates = new List<Route>();
-                foreach (EdgeId edge in HexTopology.EdgesOf(consumers[c].Tile))
+                foreach (VertexId corner in HexTopology.VerticesOf(consumers[c].Tile))
                 {
-                    Node intake = Node.AtMidpoint(edge);
+                    Node intake = Node.AtVertex(corner);
                     if (!adjacency.ContainsKey(intake)) continue;
                     for (int s = 0; s < orderedSources.Count; s++)
                     {
@@ -182,7 +183,7 @@ namespace DesertSettlement.Core.Water
                 foreach (Route r in routesByConsumer[c])
                 {
                     if (r.Delivered <= Epsilon) continue;
-                    result._intakes.Add(new WaterIntakeFlow(r.IntakeEdge, orderedSources[r.Source].Id, r.Length, r.Delivered));
+                    result._intakes.Add(new WaterIntakeFlow(r.IntakeVertex, orderedSources[r.Source].Id, r.Length, r.Delivered));
                 }
 
                 if (consumers[c].DemandPerHour - delivered[c] <= Epsilon) result.Shortage = WaterShortageReason.None;
@@ -264,7 +265,7 @@ namespace DesertSettlement.Core.Water
             {
                 Consumer = consumer,
                 Source = source,
-                IntakeEdge = intake.Edge,
+                IntakeVertex = intake.Vertex,
                 IntakeKey = intakeKey,
                 Length = n,
                 SourceFactor = 1.0 / Math.Pow(halfGain, n),

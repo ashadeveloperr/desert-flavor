@@ -73,18 +73,19 @@ namespace DesertSettlement.Core.Water
         SourceSupply,
     }
 
-    /// <summary>시설 하나가 한 경로(취수 변 + 우물)로 받은 물.</summary>
+    /// <summary>시설 하나가 한 경로(취수 꼭짓점 + 우물)로 받은 물.</summary>
     public readonly struct WaterIntakeFlow
     {
-        public readonly EdgeId IntakeEdge;
+        /// <summary>물을 받은 시설 타일의 꼭짓점(수로가 닿은 점).</summary>
+        public readonly VertexId IntakeVertex;
         public readonly string SourceId;
-        /// <summary>우물 방출 꼭짓점 → 취수 중간점까지 반쪽 변 개수.</summary>
+        /// <summary>우물 방출 꼭짓점 → 취수 꼭짓점까지 반쪽 변 개수(변 하나 = 2).</summary>
         public readonly int Distance;
         public readonly double Delivered;
 
-        public WaterIntakeFlow(EdgeId intakeEdge, string sourceId, int distance, double delivered)
+        public WaterIntakeFlow(VertexId intakeVertex, string sourceId, int distance, double delivered)
         {
-            IntakeEdge = intakeEdge;
+            IntakeVertex = intakeVertex;
             SourceId = sourceId;
             Distance = distance;
             Delivered = delivered;

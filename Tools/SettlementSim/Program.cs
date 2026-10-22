@@ -353,7 +353,7 @@ namespace SettlementSim
             Header("Core WaterNetworkSolver ↔ 프로토타입(확정 규칙 조합) 교차 검증");
             var confirmed = new WaterOptions
             {
-                Release = ReleaseMode.TileCorners, Intake = IntakeMode.EdgeMidpoint, Routing = RoutingMode.MultiIntake,
+                Release = ReleaseMode.TileCorners, Intake = IntakeMode.TileCorner, Routing = RoutingMode.MultiIntake,
                 Sources = SourceMode.AllWells, Capacity = CapacityMode.Entry,
             };
             var rng = new Random(7);
@@ -411,9 +411,15 @@ namespace SettlementSim
                 ("h95 식량 30 구매", 133, Array.Empty<(string, string, int)>(), null, new Dictionary<int, int> { [95] = 30 }),
             };
 
+            // 확정 물 규칙(꼭짓점 방출·꼭짓점 취수·다중 경로·모든 우물)으로 계산하는 이식본과 비교한다.
+            var confirmedWater = new WaterOptions
+            {
+                Release = ReleaseMode.TileCorners, Intake = IntakeMode.TileCorner, Routing = RoutingMode.MultiIntake, Sources = SourceMode.AllWells,
+            };
+            Line("  (물 규칙: 꼭짓점 방출 + 꼭짓점 취수 — 원본 v0.8의 변 중간점 취수와 수치가 다르다)");
             foreach (var sc in scenarios)
             {
-                var port = new EconomySim(sc.label, sc.actions);
+                var port = new EconomySim(sc.label, sc.actions) { WaterModel = HexWater(LayoutA, LayoutAUsers, confirmedWater) };
                 if (sc.stone != null) foreach (var kv in sc.stone) port.PurchaseStone[kv.Key] = kv.Value;
                 if (sc.food != null) foreach (var kv in sc.food) port.PurchaseFood[kv.Key] = kv.Value;
                 port.Run(sc.until);
@@ -434,6 +440,9 @@ namespace SettlementSim
                 double coreBid = core.History[sc.until - 1].Cash + DesertSettlement.Core.Economy.SettlementValuation.Evaluate(core, sc.until).Bid(1.05);
                 Check(worst < 1e-6 && Math.Abs(portBid - coreBid) < 1e-6,
                     $"{sc.label,-22} 매각 후 현금 이식본 {portBid:0.00} / Core {coreBid:0.00}, 시간별 최대 차이 {worst:E1}");
+                var v = DesertSettlement.Core.Economy.SettlementValuation.Evaluate(core, sc.until);
+                Line($"      경매장 {core.AuctionHallCompletedHour}h, 경매 직전 현금 {core.History[sc.until - 1].Cash:0.00}, " +
+                     $"광산 물 {Pct(port.Log[sc.until - 1].WaterMine)}, V {v.Value:0.00}, 식량 {core.Food:0.00}, 석재 {core.Stone:0.00}, 폐기 석재 {core.StoneDiscarded:0.00}, F {core.FoodCoefficient:0.0000}");
             }
         }
 

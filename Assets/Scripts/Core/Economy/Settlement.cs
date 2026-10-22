@@ -102,10 +102,67 @@ namespace DesertSettlement.Core.Economy
             return LastWater?.RateOf(f.Id.ToString()) ?? 0.0;
         }
 
+        /// <summary>시설의 시간당 생산·식량 소비 예상치. 운영 중이 아니면 생산·소비 모두 0.</summary>
+        public FacilityOutput OutputOf(Facility f)
+        {
+            BuildingLevel lv = LevelOf(f);
+            ResourceKind resource;
+            double max;
+            switch (f.Kind)
+            {
+                case BuildingKinds.Farm: resource = ResourceKind.Food; max = lv.FoodProduction ?? 0; break;
+                case BuildingKinds.Quarry: resource = ResourceKind.Stone; max = lv.StoneProduction ?? 0; break;
+                case BuildingKinds.Mine: resource = ResourceKind.Ore; max = (lv.OreProduction ?? 0) * Rules.OreMultiplier; break;
+                default: resource = ResourceKind.None; max = 0; break;
+            }
+            if (!f.IsOperating) return new FacilityOutput(resource, 0, max, 0, 0, FoodCoefficient);
+            double rate = WaterRateOf(f);
+            double produced = resource == ResourceKind.None ? 0 : max * rate * FoodCoefficient;
+            return new FacilityOutput(resource, produced, max, lv.FoodUse ?? 0, rate, FoodCoefficient);
+        }
+
         // ───────────────────────── 플레이어 명령 ─────────────────────────
 
         /// <summary>타일 시설 건설 예약. 석재는 착공 때 차감된다.</summary>
         public CommandResult RequestBuild(string kind, HexCoord tile)
+        {
+            CommandResult check = CanBuild(kind, tile);
+            return check.Success ? Enqueue(JobType.Build, kind, tile, null, -1, 1) : check;
+        }
+
+        /// <summary>변 위 수로 건설 예약.</summary>
+        public CommandResult RequestCanal(EdgeId edge)
+        {
+            CommandResult check = CanBuildCanal(edge);
+            return check.Success ? Enqueue(JobType.Build, BuildingKinds.CanalEdge, default, edge, -1, 1) : check;
+        }
+
+        /// <summary>수문 건설 예약. 새 수문은 열린 상태.</summary>
+        public CommandResult RequestGate(EdgeId edge)
+        {
+            CommandResult check = CanBuildGate(edge);
+            return check.Success ? Enqueue(JobType.Build, BuildingKinds.CanalGate, default, edge, -1, 1) : check;
+        }
+
+        public CommandResult RequestUpgrade(int facilityId)
+        {
+            CommandResult check = CanUpgrade(facilityId);
+            if (!check.Success) return check;
+            Facility f = GetFacility(facilityId);
+            return Enqueue(JobType.Upgrade, f.Kind, f.Tile, f.Edge, f.Id, f.Level + 1);
+        }
+
+        public CommandResult RequestDemolish(int facilityId)
+        {
+            CommandResult check = CanDemolish(facilityId);
+            if (!check.Success) return check;
+            Facility f = GetFacility(facilityId);
+            return Enqueue(JobType.Demolish, f.Kind, f.Tile, f.Edge, f.Id, f.Level);
+        }
+
+        // ── 미리 검사(예약하지 않음). UI가 설치 가능 여부와 이유를 보여 줄 때 쓴다. ──
+
+        public CommandResult CanBuild(string kind, HexCoord tile)
         {
             if (SettlementRules.IsEdgeKind(kind)) return CommandResult.Fail("수로·수문은 RequestCanal / RequestGate로 짓습니다.");
             if (Rules.DisabledKinds.Contains(kind)) return CommandResult.Fail($"{kind}은(는) MVP에서 지을 수 없습니다.");
@@ -119,22 +176,22 @@ namespace DesertSettlement.Core.Economy
             {
                 return CommandResult.Fail("이미 시설이 있거나 건설 예약된 타일입니다.");
             }
-            return Enqueue(JobType.Build, kind, tile, null, -1, 1);
+            return CommandResult.Ok();
         }
 
-        /// <summary>변 위 수로 건설 예약. 맵 경계 변도 가능.</summary>
-        public CommandResult RequestCanal(EdgeId edge)
+        /// <summary>맵 경계 변도 가능.</summary>
+        public CommandResult CanBuildCanal(EdgeId edge)
         {
             if (!Topology.Contains(edge)) return CommandResult.Fail("맵 밖의 변입니다.");
             if (FacilityOn(edge, BuildingKinds.CanalEdge) != null || PendingBuildOn(edge, BuildingKinds.CanalEdge))
             {
                 return CommandResult.Fail("이미 수로가 있거나 예약된 변입니다.");
             }
-            return Enqueue(JobType.Build, BuildingKinds.CanalEdge, default, edge, -1, 1);
+            return CommandResult.Ok();
         }
 
-        /// <summary>수로가 있는(또는 예약된) 변에 수문 건설 예약. 새 수문은 열린 상태.</summary>
-        public CommandResult RequestGate(EdgeId edge)
+        /// <summary>수로가 있는(또는 예약된) 변에만 가능.</summary>
+        public CommandResult CanBuildGate(EdgeId edge)
         {
             if (FacilityOn(edge, BuildingKinds.CanalEdge) == null && !PendingBuildOn(edge, BuildingKinds.CanalEdge))
             {
@@ -144,20 +201,20 @@ namespace DesertSettlement.Core.Economy
             {
                 return CommandResult.Fail("이미 수문이 있거나 예약된 변입니다.");
             }
-            return Enqueue(JobType.Build, BuildingKinds.CanalGate, default, edge, -1, 1);
+            return CommandResult.Ok();
         }
 
-        public CommandResult RequestUpgrade(int facilityId)
+        public CommandResult CanUpgrade(int facilityId)
         {
             Facility f = GetFacility(facilityId);
             if (f == null) return CommandResult.Fail("시설이 없습니다.");
             if (HasPendingJob(f)) return CommandResult.Fail("이미 이 시설의 작업이 예약돼 있습니다.");
             if (f.State == FacilityState.Constructing || f.State == FacilityState.Demolishing) return CommandResult.Fail("공사 중인 시설입니다.");
             if (f.Level >= Rules.MaxLevelOf(f.Kind)) return CommandResult.Fail($"최고 레벨(L{Rules.MaxLevelOf(f.Kind)})입니다.");
-            return Enqueue(JobType.Upgrade, f.Kind, f.Tile, f.Edge, f.Id, f.Level + 1);
+            return CommandResult.Ok();
         }
 
-        public CommandResult RequestDemolish(int facilityId)
+        public CommandResult CanDemolish(int facilityId)
         {
             Facility f = GetFacility(facilityId);
             if (f == null) return CommandResult.Fail("시설이 없습니다.");
@@ -169,7 +226,7 @@ namespace DesertSettlement.Core.Economy
             }
             string storage = StorageProblemIfRemoved(f);
             if (storage != null) return CommandResult.Fail(storage);
-            return Enqueue(JobType.Demolish, f.Kind, f.Tile, f.Edge, f.Id, f.Level);
+            return CommandResult.Ok();
         }
 
         /// <summary>

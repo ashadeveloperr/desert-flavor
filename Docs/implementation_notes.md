@@ -15,7 +15,7 @@
 | 2026-10-22 | 낮/밤의 게임 규칙 영향 | 현재는 **시각 표현만**. 생산 보정 등은 넣지 않음(기획서 4.1 "주야간 생산 보정은 도입하지 않는 방향") | [잠정] |
 | 2026-10-22 | 맵 경계 수로 | **맵 바깥 경계 변에도 수로 설치 가능** | [확정] |
 | 2026-10-22 | W1 공급 순위 거리 | 수로를 따라간 **반쪽 변 개수**(정수). 값이 같으면 동순위 → 수요 비례. 균일 헥스라 변 개수·실제 길이와 같은 순서 | [확정] |
-| 2026-10-22 | W2 시설 취수 지점 | 시설 타일 여섯 변 중 수로 변의 **중간점**. 마지막 반쪽 변 손실 `1-√(1-L)` | [확정] |
+| 2026-10-22 | W2 시설 취수 지점 | ~~시설 타일 여섯 변 중 수로 변의 중간점~~ → **변경: 시설 타일의 꼭짓점 6개 중 수로가 닿은 점**(꼭짓점 하나만 닿아도 됨). 우물과 꼭짓점을 공유하는 이웃 시설은 그 꼭짓점에 수로가 닿아 있으면 거리 0 | [확정, 변경] |
 | 2026-10-22 | W3 우물 방출 지점 | 우물 타일의 **꼭짓점 6개**(수로가 닿은 곳). 생산량 하나를 공유. v0.8 회귀값과 일치 | [확정] |
 | 2026-10-22 | W4 취수 경로 수 | **여러 경로에서 차례로**: 가장 가까운 경로부터 채우고, 막히면 다음 경로. 수문 차단 시 재접속도 자동 | [확정] |
 | 2026-10-22 | W5 순환·합류 | **순환 허용.** 물은 우물별 최단 경로 트리로만 흐르고, 남는 변에는 흐르지 않음 | [확정] |
@@ -30,14 +30,22 @@
 | 2026-10-22 | C5 식량·저장 | v0.8 공식 그대로(부족률 비례 F 감소 −20%p/일, 물 받는 농장 있을 때 회복 +30%p/일, 한도 100 + 창고) | [확정] |
 | 2026-10-22 | C6 지형 규칙 | 우물=수원, 광산=광맥, 채석장=암반, 농장·창고·경매장=사막, 장애물=불가. 수로·수문은 변이라 무관 | [확정] |
 | 2026-10-22 | MVP 제한 | 레벨 상한 L2(`initialMvpMaxFacilityLevel`), 물탱크 건설 불가, 창고 수동 폐쇄 불가(v0.8 문서) | [확정] |
+| 2026-10-22 | C7 조작(임시) | 왼쪽 도구 패널(시설 6종·수로·수문·개량·철거·폐쇄). 타일 모드는 클릭한 타일, 수로 모드는 마우스에 가장 가까운 변 강조 + 클릭/드래그 연속 설치. 불가 시 이유 표시. 우클릭 = 도구 해제. IMGUI 임시 UI | [확정] |
+| 2026-10-22 | C8 카메라 | Cinemachine 3 탑다운 약 50°. WASD/화면 가장자리 이동, 휠 줌, Q/E 60° 회전. 새 Input System 사용 | [확정] |
+| 2026-10-22 | 임시 테스트 지형 | 고정 맵 2종(A1) 전까지 `GameSession` 인스펙터의 지형 목록으로 수원·광맥·암반·장애물 배치 | [임시] |
 | 2026-10-22 | 착공 취소 | 대기 중 취소는 무료, 진행 중 취소는 투입 석재 50% 환급 후 원상태(건설은 시설 제거) | [확정 + 구현 해석] |
 
 **개발 순서 (2026-10-22 합의):** 핵심 시스템 하나를 확실히 → 얇은 전체 루프 → 확장.
 1. ~~기반: 헥스 그리드·수로 그래프·GameClock·설정 로딩~~ (완료)
 2. ~~물 배분 계산기 (상류 우선·동순위 비례·용량·손실, 테스트 포함)~~ (완료)
-3. 건설 큐 + 생산·식량·유지비 (경제 틱) — **Core 완료**(`Settlement`), 남은 것: 씬 연결·건설 UI(C7)·카메라(C8)
+3. ~~건설 큐 + 생산·식량·유지비 (경제 틱) + 씬 연결·임시 건설 UI(C7)·카메라(C8)~~ (완료, SampleScene에서 플레이 가능)
 4. 얇은 경매·매각 + 두 번째 맵 → 두 정착지 연속 매각 루프
 5. 미정 항목을 결정하며 확장 (장비·파산·물탱크·입찰자 등)
+
+**W2 변경의 영향(2026-10-22):** 원본 v0.8 수치는 변 중간점 취수 기준이라 Core와 더 이상 같지 않다.
+같은 건설 스크립트에서 광산 물 74.28% → **78.85%**, 첫 경매 V 1732.80 → **1839.41**, 즉시 매각 후 2359.49 → **2471.43**,
+보류+광산 L2+창고 3248.32 → **3441.60**. 경매장 37h·첫 경매 133h·경매 직전 현금 540.05는 그대로.
+새 회귀값은 EditMode 테스트와 `Tools/SettlementSim`(확정 규칙 이식본 ↔ Core 교차 검증)에 고정돼 있다. 원본 v0.8 회귀는 시뮬레이터 0번 섹션에서 계속 확인한다.
 
 **근거:** `dotnet run --project Tools/SettlementSim` 시뮬레이션(원본 v0.8 회귀값 재현 + 규칙 후보 비교). 주요 근거:
 - W3 변 중간점 방출이면 우물 꼭짓점에서 뻗은 수로에 물이 안 가서 원본 배치에서 물 0%.
@@ -57,12 +65,21 @@ Assets/Scripts/
     Timing/      GameClock, GameTimeSettings
     Config/      EconomyConfig(데이터 클래스), EconomyConfigLoader(읽기·검증)
   Runtime/     DesertSettlement.Runtime — Unity 컴포넌트(표시·입력·연결)
-    GameSession        진입점. Core 객체를 만들고 매 프레임 시계를 진행
-    HexMapDebugView    씬 뷰 Gizmo로 타일·수로·수문 표시(임시)
-    DayNightLighting   시각에 따라 태양 회전·색·밝기
-    GameClockHud       시각·배속 표시와 버튼(임시 IMGUI)
+    GameSession          진입점. 설정→맵(지형 목록)→Settlement→GameClock, 정각마다 AdvanceHour
+    SettlementView       게임 화면 표시: 지형 타일, 시설 도형, 수로(물 흐름 색·레벨 폭), 수문, 예약 표시, 머리 위 글자
+    BuildInputController 마우스 도구 적용(C7): 타일/가장 가까운 변 강조, 클릭·드래그, 불가 이유
+    SettlementHud        자원·도구·구매·작업 대기열·선택 시설 패널(임시 IMGUI)
+    HoverTooltip         마우스가 타일·시설 위에 있으면 커서 옆 정보 팝업(생산·물·소비·유지비·불가 이유)
+    FacilityInfo         팝업·HUD·머리 위 글자가 같이 쓰는 한국어 문구(이름·상태·생산 줄·농장 수지 경고)
+    StrategyCameraRig    Cinemachine 탑다운 카메라(C8): WASD·가장자리 이동, 휠 줌, Q/E 회전
+    DebugSessionBuilder  위 구성 한 벌을 코드로 생성(에디터 메뉴·PlayMode 테스트 공용)
+    WorldVisuals, HudInputBlocker  임시 그래픽 도우미, HUD 위 클릭 차단
+    HexMapDebugView      씬 뷰 Gizmo로 타일·꼭짓점·수로 표시(임시)
+    DayNightLighting     시각에 따라 태양 회전·색·밝기
+    GameClockHud         시각·배속 표시와 버튼(임시 IMGUI)
   Editor/      DesertSettlement.EditorTools — 에디터 메뉴
-    DebugSessionMenu   Tools > Desert Settlement > 디버그 세션 만들기
+    DebugSessionMenu     Tools > Desert Settlement > 디버그 세션 만들기 / SetupSampleScene(batch용)
+Assets/Tests/PlayMode/  DesertSettlement.PlayMode.Tests — 디버그 세션 스모크 테스트
 Assets/Tests/EditMode/  DesertSettlement.Core.Tests — Core 단위 테스트
 Assets/Data/Config/     경제 설정 JSON
 ```
@@ -85,6 +102,12 @@ Assets/Data/Config/     경제 설정 JSON
 | 수로 손실률·레벨별 용량 | JSON `prototype.canalLossPerWholeEdge`, `buildingLevels.canalEdge[].capacityPerHour` |
 | 물 배분 규칙 자체(방출·취수 지점, 우선순위) | `Core/Water/WaterNetworkSolver.cs` — 규칙을 바꾸면 `Tools/SettlementSim` 프로토타입과 EditMode 테스트 기대값도 함께 바꾼다 |
 | 물 배분 규칙 후보를 비교·실험 | `Tools/SettlementSim/WaterSolver.cs`의 옵션(WaterOptions) + `Program.cs` 시나리오, `dotnet run --project Tools/SettlementSim` |
+| 임시 테스트 지형(수원·광맥·암반·장애물 위치) | 씬의 `GameSession` 인스펙터 → 맵 → Terrain 목록 |
+| 지형·시설·수로 색, 수로 폭, 머리 위 글자 | `SettlementView` 인스펙터 |
+| 팝업·HUD에 나오는 문구, 시설·지형 한국어 이름 | `Runtime/FacilityInfo.cs` |
+| 팝업 위치·폭·뜨는 지연 | `GameSession` 오브젝트의 `HoverTooltip` 인스펙터 |
+| 카메라 속도·각도·줌 범위·회전 각 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
+| 도구 목록·조작 방식 | `Runtime/BuildInputController.cs`(`BuildTool`, `Apply`), 버튼 배치는 `SettlementHud.cs` |
 | 철거 환급·철거 시간·광물 배율 | `Core/Economy/SettlementRules.cs`의 `DemolishRefundRatio`, `DemolishHoursRatio`, `OreMultiplier` |
 | 지형별 건설 가능 시설, MVP 금지 시설, 폐쇄 불가 시설 | `SettlementRules`의 `AllowedTerrain`, `DisabledKinds`, `CannotClose` |
 | 경제 틱 순서·생산 공식 | `Core/Economy/Settlement.cs`의 `AdvanceHour` — 바꾸면 `Tools/SettlementSim`의 v0.8 교차 검증이 깨지므로 의도된 변경인지 확인 |
@@ -95,7 +118,10 @@ Assets/Data/Config/     경제 설정 JSON
 
 ## 4. 확인 방법
 
-1. Unity에서 `SampleScene`을 열고 메뉴 **Tools > Desert Settlement > 디버그 세션 만들기**를 실행한다.
-2. 씬 뷰에 반경 3 헥스 맵이 보인다(경계선은 주황색).
-3. Play를 누르면 확인용 수로(파란색)와 닫힌 수문(빨간 상자)이 보이고, 왼쪽 위 HUD에 `1일차 12:00 (낮)`이 표시된다. 배속 버튼으로 낮/밤 조명 변화를 볼 수 있다.
-4. 테스트: Window > General > Test Runner > EditMode > Run All, 또는 CLAUDE.md의 batch mode 명령.
+1. Unity에서 `SampleScene`을 열고 Play를 누른다(디버그 세션이 이미 들어 있다. 새 씬이라면 메뉴 **Tools > Desert Settlement > 디버그 세션 만들기**).
+2. 왼쪽 패널의 **샘플 배치 예약**을 누르면 v0.8 직렬 예시(우물·농장·채석장·광산·경매장·수로 3)가 대기열에 들어간다.
+   직접 지으려면 도구 버튼을 고르고 타일(시설) 또는 변(수로·수문)을 클릭한다. 수로는 드래그로 이어 놓을 수 있다.
+3. 왼쪽 위 배속 버튼(4x)으로 시간을 빠르게 돌리며 확인한다: 공사 진행률, 수로의 물 흐름 색, 시설의 물 부족 이유,
+   자원·F 변화, 경매장 완공 후 첫 경매 예정 시각, 낮/밤 조명.
+4. 카메라: WASD/화면 가장자리 이동, 휠 줌, Q/E 회전. 우클릭·Esc는 선택 도구.
+5. 테스트: Window > General > Test Runner > EditMode·PlayMode > Run All, 또는 CLAUDE.md의 batch mode 명령.

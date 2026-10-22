@@ -103,8 +103,12 @@ namespace DesertSettlement.Core.Tests
 
         // ───────────── v0.8 회귀 ─────────────
 
+        // 회귀값: 원본 v0.8 건설 스크립트 + 확정 물 규칙(꼭짓점 방출·꼭짓점 취수).
+        // 원본 v0.8(변 중간점 취수: 광산 74.28%, V 1732.80, 매각 후 2359.49)과는 W2 변경만큼 다르다.
+        // 값의 출처: dotnet run --project Tools/SettlementSim (Core ↔ 이식본 교차 검증 출력).
+
         [Test]
-        public void V08Base_FirstAuctionMatchesRegression()
+        public void BaseScript_FirstAuctionMatchesRegression()
         {
             Script sc = new Script().Run(133);
             Settlement s = sc.S;
@@ -112,18 +116,18 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(37, s.AuctionHallCompletedHour, "경매장 완공 37h");
             Assert.AreEqual(133, s.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, "첫 경매 133h");
             Assert.AreEqual(540.05, sc.CashBefore(133), 0.01, "첫 경매 직전 현금");
-            Assert.AreEqual(0.7427964, s.WaterRateOf(sc.F("mine")), 1e-6, "광산 물 가동률");
+            Assert.AreEqual(0.7885, s.WaterRateOf(sc.F("mine")), 1e-4, "광산 물 가동률");
             Assert.AreEqual(91.5, s.Food, 0.01);
             Assert.AreEqual(100.0, s.Stone, 0.01);
             Assert.AreEqual(8.0, s.StoneDiscarded, 0.01, "초과 석재 폐기 8");
 
             ValuationResult v = SettlementValuation.Evaluate(s, 133);
-            Assert.AreEqual(1732.80, v.Value, 0.01, "첫 경매 기준 가치 V");
-            Assert.AreEqual(2359.49, sc.CashBefore(133) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금");
+            Assert.AreEqual(1839.41, v.Value, 0.01, "첫 경매 기준 가치 V");
+            Assert.AreEqual(2471.43, sc.CashBefore(133) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금");
         }
 
         [Test]
-        public void V08DeferWithMineUpgradeAndWarehouse_MatchesRegression()
+        public void DeferWithMineUpgradeAndWarehouse_MatchesRegression()
         {
             Script sc = new Script();
             sc.Do(133, s => Assert.IsTrue(s.RequestUpgrade(sc.Ids["mine"]).Success));
@@ -131,13 +135,13 @@ namespace DesertSettlement.Core.Tests
             sc.Run(229);
 
             ValuationResult v = SettlementValuation.Evaluate(sc.S, 229);
-            Assert.AreEqual(3248.32, sc.CashBefore(229) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
+            Assert.AreEqual(3441.60, sc.CashBefore(229) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
             Assert.AreEqual(2, sc.F("mine").Level);
             Assert.GreaterOrEqual(sc.S.FoodCoefficient, 0.99);
         }
 
         [Test]
-        public void V08StonePurchaseAtHour20_RushesAuctionHall()
+        public void StonePurchaseAtHour20_RushesAuctionHall()
         {
             Script sc = new Script();
             sc.Do(20, s => Assert.AreEqual(5, s.BuyStone(5)));
@@ -295,8 +299,40 @@ namespace DesertSettlement.Core.Tests
             s.SetGateOpen(gate.Id, false);
             s.AdvanceHour();
             Assert.AreEqual(1.0, s.WaterRateOf(sc.F("farm")), 1e-9, "수문 상류는 그대로");
-            Assert.AreEqual(0.0, s.WaterRateOf(sc.F("quarry")), "수문 하류는 단수");
-            Assert.AreEqual(0.0, s.WaterRateOf(sc.F("mine")));
+            Assert.AreEqual(1.0, s.WaterRateOf(sc.F("quarry")), 1e-9, "채석장은 수로1 끝 꼭짓점에서도 받는다");
+            Assert.AreEqual(0.0, s.WaterRateOf(sc.F("mine")), "수문 하류(수로2 너머)만 닿는 광산은 단수");
+        }
+
+        [Test]
+        public void OutputOf_ReportsProductionAndFoodUse()
+        {
+            Script sc = new Script().Run(133);
+            Settlement s = sc.S;
+
+            FacilityOutput farm = s.OutputOf(sc.F("farm"));
+            Assert.AreEqual(ResourceKind.Food, farm.Resource);
+            Assert.AreEqual(4.0, farm.ProducedPerHour, 1e-9, "물 100%·F 100% → 최대 4/h");
+            Assert.AreEqual(0.75, farm.FoodUsePerHour, 1e-9);
+            Assert.IsFalse(farm.FarmBelowOwnUpkeep);
+
+            FacilityOutput mine = s.OutputOf(sc.F("mine"));
+            Assert.AreEqual(ResourceKind.Ore, mine.Resource);
+            Assert.AreEqual(12.0 * s.WaterRateOf(sc.F("mine")), mine.ProducedPerHour, 1e-9);
+            Assert.AreEqual(s.History.Last().OreProduced, mine.ProducedPerHour, 1e-9, "직전 정산과 같은 조건이면 같은 값");
+
+            Assert.IsFalse(s.OutputOf(sc.F("well")).IsProducer);
+        }
+
+        [Test]
+        public void FarmWithoutWater_IsBelowItsOwnUpkeep()
+        {
+            Settlement s = NewSettlement();
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, FarmTile).Success);
+            s.AdvanceHours(8);
+            Facility farm = s.FacilityAt(FarmTile);
+            FacilityOutput o = s.OutputOf(farm);
+            Assert.AreEqual(0.0, o.ProducedPerHour);
+            Assert.IsTrue(o.FarmBelowOwnUpkeep, "물 없는 농장은 생산 0 < 소비 0.75");
         }
 
         [Test]

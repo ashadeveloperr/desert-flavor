@@ -28,6 +28,13 @@ namespace DesertSettlement.Runtime
         [Tooltip("시각별 환경광 배율. 가로축 0~24시")]
         [SerializeField] private AnimationCurve ambientIntensity = DefaultAmbient();
 
+        /// <summary>코드로 연결할 때 쓴다.</summary>
+        public void Bind(GameSession gameSession, Light sunLight)
+        {
+            session = gameSession;
+            sun = sunLight;
+        }
+
         private void Reset()
         {
             session = FindAnyObjectByType<GameSession>();

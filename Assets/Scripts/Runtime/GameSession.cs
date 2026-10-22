@@ -1,16 +1,34 @@
 using System;
-using DesertSettlement.Core.Canal;
+using System.Collections.Generic;
 using DesertSettlement.Core.Config;
+using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Hex;
 using DesertSettlement.Core.Timing;
 using UnityEngine;
 
 namespace DesertSettlement.Runtime
 {
+    /// <summary>인스펙터에서 편집하는 지형 한 칸.</summary>
+    [Serializable]
+    public struct TerrainEntry
+    {
+        public int q;
+        public int r;
+        public TerrainType terrain;
+
+        public TerrainEntry(int q, int r, TerrainType terrain)
+        {
+            this.q = q;
+            this.r = r;
+            this.terrain = terrain;
+        }
+    }
+
     /// <summary>
     /// 한 정착지의 게임 상태를 만들고 들고 있는 진입점. 씬에 하나만 둔다.
-    /// 인스펙터에서 맵 반경·타일 크기·시간 설정을 바꿀 수 있다.
-    /// 다른 컴포넌트(디버그 뷰, 조명, HUD)는 이 컴포넌트의 Map/Topology/Canals/Clock을 읽기만 한다.
+    /// 설정 JSON → 맵(지형 목록 적용) → <see cref="Settlement"/> → <see cref="GameClock"/>을 만들고,
+    /// 시계의 정각마다 Settlement.AdvanceHour()로 경제를 정산한다.
+    /// 다른 컴포넌트(뷰, 입력, HUD, 조명)는 이 컴포넌트의 속성을 읽고 Settlement의 명령을 호출한다.
     /// 메뉴 Tools > Desert Settlement > 디버그 세션 만들기 로 씬에 추가할 수 있다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -26,25 +44,27 @@ namespace DesertSettlement.Runtime
         [Tooltip("타일 중심~꼭짓점 거리(월드 단위)")]
         [Min(0.1f)]
         [SerializeField] private float tileSize = 1f;
+        [Tooltip("사막이 아닌 타일. 고정 맵 2종(A1)이 정해지기 전까지 쓰는 임시 테스트 지형")]
+        [SerializeField] private List<TerrainEntry> terrain = DefaultTestTerrain();
 
         [Header("시간")]
         [SerializeField] private GameTimeSettings timeSettings = new GameTimeSettings();
         [SerializeField] private bool logClockEvents = true;
 
-        [Header("디버그")]
-        [Tooltip("시작할 때 확인용 수로를 몇 개 설치한다")]
-        [SerializeField] private bool installSampleCanals = true;
-
         public EconomyConfig Config { get; private set; }
         public HexMap Map { get; private set; }
-        public HexTopology Topology { get; private set; }
         public HexLayout Layout { get; private set; }
-        public CanalGraph Canals { get; private set; }
+        public Settlement Settlement { get; private set; }
+        public HexTopology Topology => Settlement?.Topology;
         public GameClock Clock { get; private set; }
         public bool IsReady { get; private set; }
 
         public int MapRadius => mapRadius;
         public float TileSize => tileSize;
+        public IReadOnlyList<TerrainEntry> TerrainEntries => terrain;
+
+        /// <summary>Initialize가 성공할 때마다(새 정착지) 발생.</summary>
+        public event Action Initialized;
 
         private void Awake()
         {
@@ -56,7 +76,10 @@ namespace DesertSettlement.Runtime
             if (IsReady) Clock.Advance(Time.unscaledDeltaTime);
         }
 
-        /// <summary>설정을 읽고 맵·수로망·시계를 새로 만든다. 실패하면 콘솔에 이유를 남기고 IsReady = false.</summary>
+        /// <summary>코드에서 세션을 만들 때(테스트·빌더) 설정 파일을 지정한다. Awake 전에 호출해야 한다.</summary>
+        public void SetConfig(TextAsset config) => economyConfig = config;
+
+        /// <summary>설정을 읽고 맵·정착지·시계를 새로 만든다. 실패하면 콘솔에 이유를 남기고 IsReady = false.</summary>
         public void Initialize()
         {
             IsReady = false;
@@ -66,10 +89,14 @@ namespace DesertSettlement.Runtime
 
                 Config = EconomyConfigLoader.Parse(economyConfig.text);
                 Map = new HexMap(mapRadius);
-                Topology = new HexTopology(Map);
+                foreach (TerrainEntry entry in terrain)
+                {
+                    if (Map.TryGetTile(new HexCoord(entry.q, entry.r), out HexTile tile)) tile.Terrain = entry.terrain;
+                }
                 Layout = new HexLayout(tileSize);
-                Canals = new CanalGraph(Topology);
+                Settlement = new Settlement(Map, SettlementRules.FromConfig(Config));
                 Clock = new GameClock(timeSettings, Config.ConfirmedRules.GameDayRealSecondsAt1x);
+                Clock.HourPassed += _ => Settlement.AdvanceHour();
 
                 if (logClockEvents)
                 {
@@ -77,8 +104,8 @@ namespace DesertSettlement.Runtime
                     Clock.PhaseChanged += t => Debug.Log($"[GameClock] {t} — {(t.Phase == DayPhase.Day ? "낮" : "밤")}이 되었습니다");
                 }
 
-                if (installSampleCanals) InstallSampleCanals();
                 IsReady = true;
+                Initialized?.Invoke();
             }
             catch (Exception e)
             {
@@ -87,25 +114,49 @@ namespace DesertSettlement.Runtime
         }
 
         /// <summary>Core의 평면 좌표(X, Z)를 이 오브젝트 기준 월드 좌표로 바꾼다.</summary>
-        public Vector3 ToWorld(HexPoint point) => transform.TransformPoint(new Vector3((float)point.X, 0f, (float)point.Z));
+        public Vector3 ToWorld(HexPoint point, float height = 0f) =>
+            transform.TransformPoint(new Vector3((float)point.X, height, (float)point.Z));
 
-        // 중앙 타일에서 동쪽 맵 경계까지 타일 윗변을 따라가는 지그재그 수로 + 중앙 타일 동쪽 변 분기.
-        // 동쪽 첫 타일의 수로 하나에는 닫힌 수문을 달고, 맨 끝은 경계 변까지 잇는다.
-        private void InstallSampleCanals()
+        /// <summary>월드 좌표를 Core 평면 좌표로 바꾼다(높이 무시).</summary>
+        public HexPoint ToHexPoint(Vector3 world)
         {
-            HexCoord tile = HexCoord.Zero;
-            Canals.TryInstall(EdgeId.Of(tile, HexDirection.East));
-            for (int i = 0; i <= mapRadius; i++)
-            {
-                Canals.TryInstall(EdgeId.Of(tile, HexDirection.NorthWest));
-                Canals.TryInstall(EdgeId.Of(tile, HexDirection.NorthEast));
-                if (i < mapRadius) tile = tile.Neighbor(HexDirection.East);
-            }
-            Canals.TryInstall(EdgeId.Of(tile, HexDirection.East)); // 경계 변
-
-            EdgeId gated = EdgeId.Of(HexCoord.Zero.Neighbor(HexDirection.East), HexDirection.NorthEast);
-            Canals.TrySetGate(gated, true);
-            Canals.TrySetGateOpen(gated, false);
+            Vector3 local = transform.InverseTransformPoint(world);
+            return new HexPoint(local.x, local.z);
         }
+
+        /// <summary>
+        /// 확인용 샘플 배치 예약: 기본 테스트 지형 기준 우물·농장·채석장·광산·경매장 + 수로 3개
+        /// (원본 v0.8 직렬 배치와 같은 위치). 석재가 부족하면 대기열에서 차례로 착공된다.
+        /// </summary>
+        public List<string> RequestSampleLayout()
+        {
+            var messages = new List<string>();
+            void Try(string what, CommandResult r) { if (!r.Success) messages.Add($"{what}: {r.Message}"); }
+
+            Try("우물", Settlement.RequestBuild(BuildingKinds.Well, new HexCoord(0, 0)));
+            Try("농장", Settlement.RequestBuild(BuildingKinds.Farm, new HexCoord(1, -1)));
+            Try("수로1", Settlement.RequestCanal(EdgeId.Of(new HexCoord(1, -1), HexDirection.SouthEast)));
+            Try("수로2", Settlement.RequestCanal(EdgeId.Of(new HexCoord(1, 0), HexDirection.NorthEast)));
+            Try("채석장", Settlement.RequestBuild(BuildingKinds.Quarry, new HexCoord(2, -1)));
+            Try("광산", Settlement.RequestBuild(BuildingKinds.Mine, new HexCoord(2, 0)));
+            Try("수로3", Settlement.RequestCanal(EdgeId.Of(new HexCoord(2, -1), HexDirection.SouthEast)));
+            Try("경매장", Settlement.RequestBuild(BuildingKinds.AuctionHall, new HexCoord(-1, 0)));
+            foreach (string m in messages) Debug.LogWarning("[GameSession] 샘플 배치 " + m);
+            return messages;
+        }
+
+        /// <summary>임시 테스트 지형: 수원 2·광맥 2·암반 2·장애물 3. 샘플 배치와 맞물린다.</summary>
+        public static List<TerrainEntry> DefaultTestTerrain() => new List<TerrainEntry>
+        {
+            new TerrainEntry(0, 0, TerrainType.WaterSource),
+            new TerrainEntry(-2, 2, TerrainType.WaterSource),
+            new TerrainEntry(2, 0, TerrainType.OreVein),
+            new TerrainEntry(-1, 3, TerrainType.OreVein),
+            new TerrainEntry(2, -1, TerrainType.Bedrock),
+            new TerrainEntry(-2, 0, TerrainType.Bedrock),
+            new TerrainEntry(0, -3, TerrainType.Obstacle),
+            new TerrainEntry(3, -2, TerrainType.Obstacle),
+            new TerrainEntry(-3, 1, TerrainType.Obstacle),
+        };
     }
 }

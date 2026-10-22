@@ -8,6 +8,7 @@ namespace DesertSettlement.Runtime
     /// 씬 뷰에 헥스 타일·꼭짓점·수로를 Gizmo로 그리는 확인용 뷰. 게임 화면(Game 뷰)에는 보이지 않는다
     /// (Game 뷰 상단의 Gizmos 버튼을 켜면 보인다). 실제 그래픽이 아니므로 나중에 지워도 된다.
     /// 플레이 전에는 GameSession의 반경·크기로 빈 맵을 그리고, 플레이 중에는 실제 수로망을 그린다.
+    /// 게임 화면용 표시는 <see cref="SettlementView"/>가 담당한다.
     /// </summary>
     [RequireComponent(typeof(GameSession))]
     public sealed class HexMapDebugView : MonoBehaviour
@@ -40,7 +41,7 @@ namespace DesertSettlement.Runtime
             {
                 topology = _session.Topology;
                 layout = _session.Layout;
-                canals = _session.Canals;
+                canals = _session.Settlement.LastCanals; // 운영 중인 수로·수문만
             }
             else
             {

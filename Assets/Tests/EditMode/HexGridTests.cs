@@ -67,6 +67,40 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(2.0, north.Z, Epsilon);
         }
 
+        [Test]
+        public void PointToHex_RoundTripsCentersAndPointsNearCorners()
+        {
+            var layout = new HexLayout(1.5);
+            foreach (HexCoord c in HexCoord.Range(5))
+            {
+                HexPoint center = layout.TileCenter(c);
+                Assert.AreEqual(c, layout.PointToHex(center));
+                for (int i = 0; i < 6; i++)
+                {
+                    // 중심에서 꼭짓점 방향으로 90% 지점은 아직 같은 타일.
+                    HexPoint corner = layout.CornerPosition(c, (HexCorner)i);
+                    var inside = new HexPoint(center.X + (corner.X - center.X) * 0.9, center.Z + (corner.Z - center.Z) * 0.9);
+                    Assert.AreEqual(c, layout.PointToHex(inside));
+                }
+            }
+        }
+
+        [Test]
+        public void NearestEdge_PicksTheEdgeTowardThePoint()
+        {
+            var layout = new HexLayout(1.0);
+            HexCoord tile = new HexCoord(1, -2);
+            for (int i = 0; i < 6; i++)
+            {
+                EdgeId edge = EdgeId.Of(tile, (HexDirection)i);
+                HexPoint mid = HexTopology.MidpointOf(edge, layout);
+                HexPoint center = layout.TileCenter(tile);
+                // 중심과 변 중간점 사이 80% 지점 → 그 변.
+                var p = new HexPoint(center.X + (mid.X - center.X) * 0.8, center.Z + (mid.Z - center.Z) * 0.8);
+                Assert.AreEqual(edge, layout.NearestEdge(p), $"방향 {(HexDirection)i}");
+            }
+        }
+
         [TestCase(3, 96, 132)]
         [TestCase(5, 216, 306)]
         [TestCase(7, 384, 552)]

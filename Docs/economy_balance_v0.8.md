@@ -2,7 +2,7 @@
 
 > 기준: 2026-10-20 · **Codex 구현용 초기값** · Unity 6 / 6000.3.15f1  
 > 상위 문서: [통합 기획서](desert_settlement_game_design_checkpoint_2026-10-20.md) · 이전 초안: [경제·식량·저장 v0.6](economy_food_storage_v0.6.md)  
-> 수치 데이터: [`economy_balance_v0.8_config.json`](economy_balance_v0.8_config.json)
+> 수치 데이터: [`Assets/Data/Config/economy_balance_v0.8_config.json`](../Assets/Data/Config/economy_balance_v0.8_config.json)
 >
 > **규칙과 수치를 구분할 것.** 사용자가 이미 확정한 건설비 석재 일원화, 24게임시간 경매 실적, 매각 시 현장 재고 잔류, 우물의 식량 계수 예외, 게임시간·경매주기·작업 슬롯·헥스 변/꼭짓점 수로 구조 등은 그대로 유지한다. 아래 가격·생산량·개량 배율·입찰 계수·초기 재고는 **플레이테스트용 기본 설정값**이며, 추후 사용자가 게임을 실행하면서 수정할 대상이다.
 

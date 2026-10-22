@@ -1,0 +1,19 @@
+{
+    "name": "DesertSettlement.EditorTools",
+    "rootNamespace": "DesertSettlement.EditorTools",
+    "references": [
+        "DesertSettlement.Core",
+        "DesertSettlement.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

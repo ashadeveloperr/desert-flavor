@@ -1,0 +1,16 @@
+{
+    "name": "DesertSettlement.Runtime",
+    "rootNamespace": "DesertSettlement.Runtime",
+    "references": [
+        "DesertSettlement.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 사막 정착지 경영 시뮬레이션(Desert Settlement Simulator) — Unity 3D 헥스타일 기반 정착지 개발·생산망·경매 경영 게임 프로토타입.
-현재 기반 코드(헥스 그리드·수로 그래프·GameClock·설정 로딩)와 물 배분 계산기까지 구현됐다. 건설·생산·경매는 아직 없다.
+현재 Core에 헥스 그리드·수로 그래프·GameClock·설정 로딩·물 배분·정착지 경제(건설 큐·생산·식량·유지비·가치 평가)까지 구현됐다.
+씬 연결·건설 UI·경매 진행·두 번째 정착지는 아직 없다.
 구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`.
 
 ## 환경
@@ -47,6 +48,9 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   변 입구 용량·우물 생산량 제약. 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
 - **`Core/Timing/GameClock`:** 1배속 하루 90초, 정착지마다 1일차 12:00 시작, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`.
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
+- **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·수문·개량·철거·취소·순서 변경·폐쇄·구매),
+  `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
+  v0.8 회귀값(첫 경매 133h·현금 540.05·V 1732.80·보류 전략 3248.32)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵·수로망·시계 생성 → `Time.unscaledDeltaTime`으로 시계 진행.
 - **`Tools/desert_balance_sim_v08.py`:** v0.8 경제의 결정론적 시간당 시뮬레이션. 우물 1 + 수로 변 3개의 직렬 취수 그래프로
   시설 레벨표(`LEVELS`), 건설/개량 작업 큐, 식량 계수, 경매 가치를 계산하고 시나리오 테스트(`do_tests`)와

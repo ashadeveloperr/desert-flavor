@@ -31,6 +31,7 @@ namespace SettlementSim
             CapacityMeasurement();
             RandomRobustness();
             CoreSolverCrossCheck();
+            CoreEconomyCrossCheck();
             TickOrderAndQueue();
 
             Line();
@@ -386,6 +387,107 @@ namespace SettlementSim
                 if (diff < 1e-7 && Math.Abs(proto.TotalReleased - core.TotalReleased) < 1e-7) same++;
             }
             Check(same == runs, $"무작위 수로망(우물 1~2개, 순환 포함, L1/L2 혼합) {same}/{runs} 일치, 최대 차이 {worst:E1}");
+        }
+
+        /// <summary>Core Settlement(경제 틱)가 v0.8 이식본과 시간별로 같은 결과를 내는지 여러 전략으로 비교.</summary>
+        private static void CoreEconomyCrossCheck()
+        {
+            Header("Core Settlement ↔ v0.8 이식본 교차 검증 (시간별 현금·재고·F·광물, 경매 입찰가)");
+            string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "economy_balance_v0.8_config.json"));
+            var config = System.Text.Json.JsonSerializer.Deserialize<DesertSettlement.Core.Config.EconomyConfig>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var scenarios = new (string label, int until, (string, string, int)[] actions, Dictionary<int, int> stone, Dictionary<int, int> food)[]
+            {
+                ("첫 경매 즉시 매각", 133, Array.Empty<(string, string, int)>(), null, null),
+                ("보류(투자 없음)", 229, Array.Empty<(string, string, int)>(), null, null),
+                ("보류 + 광산 L2", 229, new[] { ("mine", "upgrade", 133) }, null, null),
+                ("보류 + 광산 L2 + 창고", 229, new[] { ("mine", "upgrade", 133), ("warehouse", "build", 133) }, null, null),
+                ("보류 + 농장 L2", 229, new[] { ("farm", "upgrade", 133) }, null, null),
+                ("보류 + 채석장 L2", 229, new[] { ("quarry", "upgrade", 133) }, null, null),
+                ("보류 + 우물·수로1 L2", 229, new[] { ("well", "upgrade", 133), ("canal1", "upgrade", 133) }, null, null),
+                ("마지막 24h 채석장 폐쇄", 133, new[] { ("quarry", "close", 109) }, null, null),
+                ("h20 석재 5 구매", 128, Array.Empty<(string, string, int)>(), new Dictionary<int, int> { [20] = 5 }, null),
+                ("h95 식량 30 구매", 133, Array.Empty<(string, string, int)>(), null, new Dictionary<int, int> { [95] = 30 }),
+            };
+
+            foreach (var sc in scenarios)
+            {
+                var port = new EconomySim(sc.label, sc.actions);
+                if (sc.stone != null) foreach (var kv in sc.stone) port.PurchaseStone[kv.Key] = kv.Value;
+                if (sc.food != null) foreach (var kv in sc.food) port.PurchaseFood[kv.Key] = kv.Value;
+                port.Run(sc.until);
+
+                var core = RunCoreScript(config, sc.actions, sc.stone, sc.food, sc.until);
+                double worst = 0;
+                for (int h = 0; h < sc.until; h++)
+                {
+                    var a = port.Log[h];
+                    var b = core.History[h];
+                    worst = Math.Max(worst, new[]
+                    {
+                        Math.Abs(a.Cash - b.Cash), Math.Abs(a.Food - b.Food), Math.Abs(a.Stone - b.Stone),
+                        Math.Abs(a.F - b.FoodCoefficient), Math.Abs(a.Ore - b.OreProduced),
+                    }.Max());
+                }
+                double portBid = port.Log[sc.until - 1].Cash + port.Value(sc.until).Bid;
+                double coreBid = core.History[sc.until - 1].Cash + DesertSettlement.Core.Economy.SettlementValuation.Evaluate(core, sc.until).Bid(1.05);
+                Check(worst < 1e-6 && Math.Abs(portBid - coreBid) < 1e-6,
+                    $"{sc.label,-22} 매각 후 현금 이식본 {portBid:0.00} / Core {coreBid:0.00}, 시간별 최대 차이 {worst:E1}");
+            }
+        }
+
+        private static DesertSettlement.Core.Economy.Settlement RunCoreScript(DesertSettlement.Core.Config.EconomyConfig config,
+            (string name, string action, int time)[] extra, Dictionary<int, int> stoneBuys, Dictionary<int, int> foodBuys, int until)
+        {
+            var map = new HexMap(3);
+            map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
+            map.GetTile(new HexCoord(2, -1)).Terrain = TerrainType.Bedrock;
+            map.GetTile(new HexCoord(2, 0)).Terrain = TerrainType.OreVein;
+            var s = new DesertSettlement.Core.Economy.Settlement(map, DesertSettlement.Core.Economy.SettlementRules.FromConfig(config));
+
+            var tiles = new Dictionary<string, HexCoord>
+            {
+                ["well"] = HexCoord.Zero, ["farm"] = new HexCoord(1, -1), ["quarry"] = new HexCoord(2, -1), ["mine"] = new HexCoord(2, 0),
+                ["auction"] = new HexCoord(-1, 0), ["warehouse"] = new HexCoord(0, 1),
+            };
+            var kinds = new Dictionary<string, string>
+            {
+                ["well"] = "well", ["farm"] = "farm", ["quarry"] = "quarry", ["mine"] = "mine", ["auction"] = "auctionHall", ["warehouse"] = "warehouse",
+            };
+            var canals = new Dictionary<string, EdgeId> { ["canal1"] = LayoutA[0], ["canal2"] = LayoutA[1], ["canal3"] = LayoutA[2] };
+            var plan = new List<(string name, string action, int time)>
+            {
+                ("well", "build", 0), ("farm", "build", 0), ("canal1", "build", 6), ("canal2", "build", 8),
+                ("quarry", "build", 10), ("mine", "build", 10), ("canal3", "build", 18), ("auction", "build", 20),
+            };
+            plan.AddRange(extra);
+
+            DesertSettlement.Core.Economy.Facility Find(string name) => canals.TryGetValue(name, out EdgeId e)
+                ? s.FacilityOn(e, "canalEdge")
+                : s.FacilityAt(tiles[name]);
+
+            for (int h = 0; h < until; h++)
+            {
+                foreach (var p in plan.Where(p => p.time == h))
+                {
+                    DesertSettlement.Core.Economy.CommandResult r = p.action switch
+                    {
+                        "build" when canals.ContainsKey(p.name) => s.RequestCanal(canals[p.name]),
+                        "build" => s.RequestBuild(kinds[p.name], tiles[p.name]),
+                        "upgrade" => s.RequestUpgrade(Find(p.name).Id),
+                        "close" => s.SetClosed(Find(p.name).Id, true),
+                        "open" => s.SetClosed(Find(p.name).Id, false),
+                        _ => throw new InvalidOperationException(p.action),
+                    };
+                    if (!r.Success) throw new InvalidOperationException($"h{h} {p.name} {p.action}: {r.Message}");
+                }
+                // 이식본은 시간대 안에서 '착공 전 석재 구매 → 착공 → 식량 구매' 순서다.
+                if (stoneBuys != null && stoneBuys.TryGetValue(h, out int st)) s.BuyStone(st);
+                if (foodBuys != null && foodBuys.TryGetValue(h, out int fd)) s.BuyFood(fd);
+                s.AdvanceHour();
+            }
+            return s;
         }
 
         private static HexCoord RandomTile(Random rng)

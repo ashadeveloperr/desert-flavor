@@ -24,11 +24,18 @@
 | 2026-10-22 | W7 물탱크 | MVP 이후로 미룸 | [확정] |
 | 2026-10-22 | C1 경제 틱 순서 | `economy_balance_v0.8.md` 209행 순서. 기획서 4.2 순서와 결과가 같음을 시뮬레이션으로 확인 | [확정] |
 | 2026-10-22 | C2 자재 부족 작업 | **FIFO 대기**(앞 작업이 막히면 뒤 작업도 대기). 플레이어가 시작 전 작업 순서를 바꿀 수 있음 | [확정] |
+| 2026-10-22 | C3 철거 환급 | 철거 완료 시 **투입 석재(건설+개량)의 50%** 환급(저장 한도 초과분 폐기) | [확정] |
+| 2026-10-22 | 철거 공사 시간 | 해당 시설 L1 건설 시간 × 0.5 (올림, 최소 1시간). 철거 중에는 건설 중처럼 비용 없음 | [잠정 임시값] |
+| 2026-10-22 | C4 지원시설과 F | 창고·경매장은 **식량만 소비**, 저장 용량·경매 일정 등 기능에는 F 미적용 | [확정] |
+| 2026-10-22 | C5 식량·저장 | v0.8 공식 그대로(부족률 비례 F 감소 −20%p/일, 물 받는 농장 있을 때 회복 +30%p/일, 한도 100 + 창고) | [확정] |
+| 2026-10-22 | C6 지형 규칙 | 우물=수원, 광산=광맥, 채석장=암반, 농장·창고·경매장=사막, 장애물=불가. 수로·수문은 변이라 무관 | [확정] |
+| 2026-10-22 | MVP 제한 | 레벨 상한 L2(`initialMvpMaxFacilityLevel`), 물탱크 건설 불가, 창고 수동 폐쇄 불가(v0.8 문서) | [확정] |
+| 2026-10-22 | 착공 취소 | 대기 중 취소는 무료, 진행 중 취소는 투입 석재 50% 환급 후 원상태(건설은 시설 제거) | [확정 + 구현 해석] |
 
 **개발 순서 (2026-10-22 합의):** 핵심 시스템 하나를 확실히 → 얇은 전체 루프 → 확장.
 1. ~~기반: 헥스 그리드·수로 그래프·GameClock·설정 로딩~~ (완료)
 2. ~~물 배분 계산기 (상류 우선·동순위 비례·용량·손실, 테스트 포함)~~ (완료)
-3. 건설 큐 + 생산·식량·유지비 (경제 틱)
+3. 건설 큐 + 생산·식량·유지비 (경제 틱) — **Core 완료**(`Settlement`), 남은 것: 씬 연결·건설 UI(C7)·카메라(C8)
 4. 얇은 경매·매각 + 두 번째 맵 → 두 정착지 연속 매각 루프
 5. 미정 항목을 결정하며 확장 (장비·파산·물탱크·입찰자 등)
 
@@ -46,6 +53,7 @@ Assets/Scripts/
     Hex/         HexCoord, HexLayout, HexMap, VertexId/EdgeId, HexTopology
     Canal/       CanalGraph, CanalSegment
     Water/       WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과)
+    Economy/     Settlement(건설 큐·경제 틱·명령), SettlementRules(규칙 값), SettlementTypes, SettlementValuation(24h 실적 가치)
     Timing/      GameClock, GameTimeSettings
     Config/      EconomyConfig(데이터 클래스), EconomyConfigLoader(읽기·검증)
   Runtime/     DesertSettlement.Runtime — Unity 컴포넌트(표시·입력·연결)
@@ -77,6 +85,9 @@ Assets/Data/Config/     경제 설정 JSON
 | 수로 손실률·레벨별 용량 | JSON `prototype.canalLossPerWholeEdge`, `buildingLevels.canalEdge[].capacityPerHour` |
 | 물 배분 규칙 자체(방출·취수 지점, 우선순위) | `Core/Water/WaterNetworkSolver.cs` — 규칙을 바꾸면 `Tools/SettlementSim` 프로토타입과 EditMode 테스트 기대값도 함께 바꾼다 |
 | 물 배분 규칙 후보를 비교·실험 | `Tools/SettlementSim/WaterSolver.cs`의 옵션(WaterOptions) + `Program.cs` 시나리오, `dotnet run --project Tools/SettlementSim` |
+| 철거 환급·철거 시간·광물 배율 | `Core/Economy/SettlementRules.cs`의 `DemolishRefundRatio`, `DemolishHoursRatio`, `OreMultiplier` |
+| 지형별 건설 가능 시설, MVP 금지 시설, 폐쇄 불가 시설 | `SettlementRules`의 `AllowedTerrain`, `DisabledKinds`, `CannotClose` |
+| 경제 틱 순서·생산 공식 | `Core/Economy/Settlement.cs`의 `AdvanceHour` — 바꾸면 `Tools/SettlementSim`의 v0.8 교차 검증이 깨지므로 의도된 변경인지 확인 |
 | JSON에 새 항목 추가 | JSON에 키 추가 → `Core/Config/EconomyConfig.cs`에 같은 이름의 속성 추가 |
 | 설정 검증 규칙 추가 | `Core/Config/EconomyConfigLoader.cs`의 `Validate` |
 | 새 지형 종류 | `Core/Hex/HexMap.cs`의 `TerrainType` (끝에 추가) |

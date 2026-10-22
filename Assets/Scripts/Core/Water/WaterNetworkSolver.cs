@@ -23,7 +23,13 @@ namespace DesertSettlement.Core.Water
     /// </summary>
     public static class WaterNetworkSolver
     {
-        private const double Epsilon = 1e-9;
+        // 부동소수점 허용 오차. 비교하는 값의 크기가 달라 용도별로 따로 둔다(하나로 합치면 한쪽이 틀어진다).
+        /// <summary>물의 양(시간당 단위) 비교: 남은 수요·흐름·공급이 "사실상 0"인지.</summary>
+        private const double AmountEpsilon = 1e-9;
+        /// <summary>0~1 비율(충족률 진행) 비교: 어느 제약이 먼저 닿는지, 동시에 닿는지, 충족률 1 도달.</summary>
+        private const double RatioEpsilon = 1e-12;
+        /// <summary>나눗셈 분모 보호: 사용 속도가 사실상 0이면 제약 계산에서 뺀다. 키우면 용량 초과 배분이 생길 수 있다.</summary>
+        private const double RateEpsilon = 1e-15;
 
         private readonly struct Node : IEquatable<Node>
         {
@@ -165,7 +171,7 @@ namespace DesertSettlement.Core.Water
                     foreach (Route r in group)
                     {
                         if (used.Contains(r) || seen.Contains(r.Consumer)) continue;
-                        if (consumers[r.Consumer].DemandPerHour - delivered[r.Consumer] <= Epsilon) continue;
+                        if (consumers[r.Consumer].DemandPerHour - delivered[r.Consumer] <= AmountEpsilon) continue;
                         members.Add(r);
                         seen.Add(r.Consumer);
                     }
@@ -182,11 +188,11 @@ namespace DesertSettlement.Core.Water
                 result.Delivered = Math.Min(delivered[c], consumers[c].DemandPerHour);
                 foreach (Route r in routesByConsumer[c])
                 {
-                    if (r.Delivered <= Epsilon) continue;
+                    if (r.Delivered <= AmountEpsilon) continue;
                     result._intakes.Add(new WaterIntakeFlow(r.IntakeVertex, orderedSources[r.Source].Id, r.Length, r.Delivered));
                 }
 
-                if (consumers[c].DemandPerHour - delivered[c] <= Epsilon) result.Shortage = WaterShortageReason.None;
+                if (consumers[c].DemandPerHour - delivered[c] <= AmountEpsilon) result.Shortage = WaterShortageReason.None;
                 else if (routesByConsumer[c].Count == 0) result.Shortage = WaterShortageReason.Unreachable;
                 else
                 {
@@ -198,7 +204,7 @@ namespace DesertSettlement.Core.Water
 
             foreach (KeyValuePair<EdgeId, double> kv in edgeUsed)
             {
-                if (kv.Value > Epsilon) allocation._edgeLoads[kv.Key] = kv.Value;
+                if (kv.Value > AmountEpsilon) allocation._edgeLoads[kv.Key] = kv.Value;
             }
             for (int s = 0; s < orderedSources.Count; s++)
             {
@@ -297,7 +303,7 @@ namespace DesertSettlement.Core.Water
             {
                 target[r] = Math.Max(0, consumers[r.Consumer].DemandPerHour - delivered[r.Consumer]);
                 progress[r] = 0;
-                if (target[r] > Epsilon) active.Add(r);
+                if (target[r] > AmountEpsilon) active.Add(r);
             }
 
             int guard = 0;
@@ -322,10 +328,10 @@ namespace DesertSettlement.Core.Water
                 }
                 foreach (KeyValuePair<EdgeId, double> er in edgeRate)
                 {
-                    if (er.Value <= 1e-15) continue;
+                    if (er.Value <= RateEpsilon) continue;
                     edgeUsed.TryGetValue(er.Key, out double usedNow);
                     double dt = Math.Max(0, capacity[er.Key] - usedNow) / er.Value;
-                    if (dt < step - 1e-12)
+                    if (dt < step - RatioEpsilon)
                     {
                         step = dt;
                         bindingEdge = er.Key;
@@ -334,11 +340,11 @@ namespace DesertSettlement.Core.Water
                 }
                 foreach (KeyValuePair<int, double> sr in sourceRate)
                 {
-                    if (sr.Value <= 1e-15) continue;
+                    if (sr.Value <= RateEpsilon) continue;
                     double dt = Math.Max(0, sources[sr.Key].SupplyPerHour - sourceUsed[sr.Key]) / sr.Value;
                     // 수로 용량과 우물 생산량이 동시에 닿으면 우물 부족을 이유로 보고한다(수로를 늘려도 소용없으므로).
-                    bool tieWithEdge = bindingEdge.HasValue && Math.Abs(dt - step) <= 1e-12;
-                    if (dt < step - 1e-12 || tieWithEdge)
+                    bool tieWithEdge = bindingEdge.HasValue && Math.Abs(dt - step) <= RatioEpsilon;
+                    if (dt < step - RatioEpsilon || tieWithEdge)
                     {
                         step = dt;
                         bindingEdge = null;
@@ -363,7 +369,7 @@ namespace DesertSettlement.Core.Water
                 for (int i = active.Count - 1; i >= 0; i--)
                 {
                     Route r = active[i];
-                    bool full = progress[r] >= 1.0 - 1e-12;
+                    bool full = progress[r] >= 1.0 - RatioEpsilon;
                     bool hitEdge = bindingEdge.HasValue && r.EdgeFactors.Exists(ef => ef.Key == bindingEdge.Value);
                     bool hitSource = bindingSource >= 0 && r.Source == bindingSource;
                     if (!full && !hitEdge && !hitSource) continue;

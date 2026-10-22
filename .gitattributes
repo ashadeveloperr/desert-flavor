@@ -1,0 +1,30 @@
+# 줄바꿈 규칙: 저장소와 작업 폴더 모두 LF.
+# Unity는 씬·에셋·.meta·ProjectSettings를 LF로 저장한다. core.autocrlf=true 환경(Windows)에서
+# 작업 폴더를 CRLF로 기대하면 내용이 같아도 '수정됨'으로 뜨므로, 텍스트 파일은 LF로 고정한다.
+* text=auto eol=lf
+
+# 바이너리(줄바꿈 변환·텍스트 diff 금지)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.psd binary
+*.tif binary
+*.tiff binary
+*.exr binary
+*.hdr binary
+*.fbx binary
+*.obj binary
+*.blend binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.mp4 binary
+*.ttf binary
+*.otf binary
+*.dll binary
+*.so binary
+*.a binary
+*.zip binary
+*.unitypackage binary
+*.pdf binary

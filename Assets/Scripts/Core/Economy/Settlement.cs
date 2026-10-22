@@ -76,9 +76,18 @@ namespace DesertSettlement.Core.Economy
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
             Topology = new HexTopology(map);
             Cash = rules.StartingCash;
-            Stone = rules.StarterStone;
-            Food = rules.StarterFood;
+            Stone = Math.Min(rules.StarterStone, rules.BaseStoneStorage);
+            Food = Math.Min(rules.StarterFood, rules.BaseFoodStorage);
+            foreach (KeyValuePair<string, int> kv in rules.FreeBuilds)
+            {
+                if (kv.Value > 0) _freeBuilds[kv.Key] = kv.Value;
+            }
         }
+
+        private readonly Dictionary<string, int> _freeBuilds = new Dictionary<string, int>();
+
+        /// <summary>남은 무료 완공 배치 수(이 종류). 0이면 일반 건설.</summary>
+        public int FreeBuildsRemaining(string kind) => _freeBuilds.TryGetValue(kind, out int n) ? n : 0;
 
         // ───────────────────────── 조회 ─────────────────────────
 
@@ -123,11 +132,28 @@ namespace DesertSettlement.Core.Economy
 
         // ───────────────────────── 플레이어 명령 ─────────────────────────
 
-        /// <summary>타일 시설 건설 예약. 석재는 착공 때 차감된다.</summary>
+        /// <summary>
+        /// 타일 시설 건설 예약. 석재는 착공 때 차감된다.
+        /// 무료 완공 배치(<see cref="FreeBuildsRemaining"/>)가 남아 있으면 대기열 없이 바로 운영 중인 L1 시설이 생긴다(JobId -1).
+        /// </summary>
         public CommandResult RequestBuild(string kind, HexCoord tile)
         {
             CommandResult check = CanBuild(kind, tile);
-            return check.Success ? Enqueue(JobType.Build, kind, tile, null, -1, 1) : check;
+            if (!check.Success) return check;
+            if (FreeBuildsRemaining(kind) > 0)
+            {
+                _freeBuilds[kind]--;
+                var f = new Facility
+                {
+                    Id = _nextFacilityId++, Kind = kind, Tile = tile, State = FacilityState.Operating,
+                    CompletedHour = CurrentHour, ActiveSinceHour = CurrentHour,
+                };
+                _facilities.Add(f.Id, f);
+                if (kind == BuildingKinds.AuctionHall && AuctionHallCompletedHour == null) AuctionHallCompletedHour = CurrentHour;
+                FacilityCompleted?.Invoke(f);
+                return CommandResult.Ok();
+            }
+            return Enqueue(JobType.Build, kind, tile, null, -1, 1);
         }
 
         /// <summary>변 위 수로 건설 예약.</summary>
@@ -407,12 +433,14 @@ namespace DesertSettlement.Core.Economy
                     case JobType.Build:
                         f.State = FacilityState.Operating;
                         f.CompletedHour = h;
+                        f.ActiveSinceHour = h;
                         if (f.Kind == BuildingKinds.AuctionHall && AuctionHallCompletedHour == null) AuctionHallCompletedHour = h;
                         FacilityCompleted?.Invoke(f);
                         break;
                     case JobType.Upgrade:
                         f.Level = job.TargetLevel;
                         f.State = FacilityState.Operating;
+                        f.ActiveSinceHour = h;
                         FacilityCompleted?.Invoke(f);
                         break;
                     case JobType.Demolish:
@@ -480,28 +508,51 @@ namespace DesertSettlement.Core.Economy
 
         private WaterAllocation SolveWater()
         {
-            var canals = new CanalGraph(Topology);
-            foreach (Facility c in OperatingOf(BuildingKinds.CanalEdge))
+            CanalGraph canals;
+            LastWater = SolveWater(assumeJobsComplete: false, out canals);
+            LastCanals = canals;
+            return LastWater;
+        }
+
+        /// <summary>
+        /// 진행 중인 건설·개량이 모두 끝났다고 가정한 물 배분(개발 중 자산 가치 평가용). 폐쇄·철거 중 시설은 빠진다.
+        /// 실제 상태에는 영향을 주지 않는다.
+        /// </summary>
+        public WaterAllocation SolveWaterAssumingJobsComplete() => SolveWater(assumeJobsComplete: true, out _);
+
+        /// <summary>가정 배분에서 시설이 쓸 레벨(진행 중 개량이면 목표 레벨).</summary>
+        public int AssumedLevelOf(Facility f)
+        {
+            ConstructionJob job = _jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress && j.Type == JobType.Upgrade);
+            return job?.TargetLevel ?? f.Level;
+        }
+
+        private WaterAllocation SolveWater(bool assumeJobsComplete, out CanalGraph canals)
+        {
+            bool Counts(Facility f) => f.IsOperating ||
+                (assumeJobsComplete && (f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading));
+            BuildingLevel Level(Facility f) => assumeJobsComplete ? Rules.Level(f.Kind, AssumedLevelOf(f)) : LevelOf(f);
+
+            canals = new CanalGraph(Topology);
+            foreach (Facility c in _facilities.Values.Where(x => x.Kind == BuildingKinds.CanalEdge && Counts(x)))
             {
                 canals.TryInstall(c.Edge.Value);
-                canals.TrySetLevel(c.Edge.Value, c.Level);
+                canals.TrySetLevel(c.Edge.Value, assumeJobsComplete ? AssumedLevelOf(c) : c.Level);
             }
-            foreach (Facility g in OperatingOf(BuildingKinds.CanalGate))
+            foreach (Facility g in _facilities.Values.Where(x => x.Kind == BuildingKinds.CanalGate && Counts(x)))
             {
                 if (!canals.IsInstalled(g.Edge.Value)) continue;
                 canals.TrySetGate(g.Edge.Value, true);
                 canals.TrySetGateOpen(g.Edge.Value, g.GateOpen);
             }
 
-            List<WaterSource> sources = OperatingOf(BuildingKinds.Well)
-                .Select(w => new WaterSource(w.Id.ToString(), w.Tile, LevelOf(w).WaterSupply ?? 0)).ToList();
+            List<WaterSource> sources = _facilities.Values.Where(x => x.Kind == BuildingKinds.Well && Counts(x))
+                .Select(w => new WaterSource(w.Id.ToString(), w.Tile, (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier)).ToList();
             List<WaterConsumer> consumers = _facilities.Values
-                .Where(x => x.IsOperating && !x.Edge.HasValue && (LevelOf(x).WaterDemand ?? 0) > 0)
-                .Select(x => new WaterConsumer(x.Id.ToString(), x.Tile, LevelOf(x).WaterDemand.Value)).ToList();
+                .Where(x => Counts(x) && !x.Edge.HasValue && (Level(x).WaterDemand ?? 0) > 0)
+                .Select(x => new WaterConsumer(x.Id.ToString(), x.Tile, Level(x).WaterDemand.Value)).ToList();
 
-            LastCanals = canals;
-            LastWater = WaterNetworkSolver.Solve(canals, sources, consumers, Rules.Water);
-            return LastWater;
+            return WaterNetworkSolver.Solve(canals, sources, consumers, Rules.Water);
         }
 
         // ───────────────────────── 내부 도우미 ─────────────────────────

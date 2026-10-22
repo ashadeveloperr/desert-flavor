@@ -77,6 +77,18 @@ namespace DesertSettlement.Runtime
             }
         }
 
+        /// <summary>다음 정착지 혜택 문구. 예: " + 다음 정착지 완공된 농장 1개". 없으면 빈 문자열.</summary>
+        public static string PerkText(double foodBonus, IReadOnlyDictionary<string, int> freeBuilds)
+        {
+            var parts = new List<string>();
+            if (foodBonus > 0) parts.Add($"시작 식량 +{foodBonus:0}");
+            if (freeBuilds != null)
+            {
+                foreach (KeyValuePair<string, int> kv in freeBuilds.Where(kv => kv.Value > 0)) parts.Add($"완공된 {KindName(kv.Key)} {kv.Value}개");
+            }
+            return parts.Count == 0 ? "" : " + 다음 정착지 " + string.Join(", ", parts);
+        }
+
         /// <summary>생산 줄. 예: "생산: 식량 3.20/h (최대 4.00 · 물 80% · F 100%)". 생산 시설이 아니면 null.</summary>
         public static string ProductionLine(Settlement s, Facility f)
         {
@@ -115,7 +127,9 @@ namespace DesertSettlement.Runtime
             }
             if (lv.WaterSupply.HasValue && water != null && water.SourceReleased.TryGetValue(f.Id.ToString(), out double released))
             {
-                lines.Add($"방출: {released:0.0} / {lv.WaterSupply:0} (식량 계수 영향 없음)");
+                double supply = (lv.WaterSupply ?? 0) * s.Rules.WellSupplyMultiplier;
+                string bonus = s.Rules.WellSupplyMultiplier > 1.0001 ? $", 장비 ×{s.Rules.WellSupplyMultiplier:0.00}" : "";
+                lines.Add($"방출: {released:0.0} / {supply:0} (식량 계수 영향 없음{bonus})");
             }
             if (f.Kind == BuildingKinds.CanalEdge)
             {

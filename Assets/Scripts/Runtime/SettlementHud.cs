@@ -68,16 +68,21 @@ namespace DesertSettlement.Runtime
             {
                 GUILayout.Label($"지난 1시간: 식량 +{last.FoodProduced:0.00} −{last.FoodDemand:0.00}, 석재 +{last.StoneProduced:0.00}, 광물 +{last.OreProduced:0.00}, 유지비 −{last.Upkeep:0.00}");
             }
-            if (s.AuctionHallCompletedHour.HasValue)
+            var campaign = _session.Campaign;
+            var auctions = _session.Auctions;
+            GUILayout.Label($"정착지 {campaign.SettlementNumber}: {campaign.CurrentMap.Name}  · 장비 {(campaign.OwnedEquipment.Count == 0 ? "없음" : string.Join(", ", campaign.Shop.Where(e => campaign.Owns(e.Id)).Select(e => e.Name)))}");
+            if (auctions.NextAuctionHour.HasValue)
             {
-                long first = s.AuctionHallCompletedHour.Value + s.Rules.Config.ConfirmedRules.AuctionRepeatsGameHours;
-                GUILayout.Label($"첫 경매 예정: 정착지 {first}시간째 (지금 {s.CurrentHour}시간째)");
+                string bidders = string.Join(", ", auctions.AnnouncedBidders.Select(b => b.Name));
+                GUILayout.Label($"다음 경매: {auctions.NextAuctionHour}시간째 (지금 {s.CurrentHour}, {auctions.NextAuctionHour - s.CurrentHour}시간 남음) · 예고 입찰자: {bidders}");
             }
             else
             {
-                GUILayout.Label("경매장 완공 후 4일 뒤 첫 경매");
+                GUILayout.Label("경매장 완공 후 4일 뒤 첫 경매 · 경매장이나 광산이 없으면 자금 0이 되는 즉시 파산");
             }
-            if (s.FirstInsolvencyHour.HasValue) GUILayout.Label($"⚠ 자금이 음수가 된 적 있음 ({s.FirstInsolvencyHour}h)");
+            if (auctions.HoursUntilBankruptcy.HasValue) GUILayout.Label($"⚠ 자금 음수 — {auctions.HoursUntilBankruptcy}시간 뒤 파산");
+            int freeFarms = s.FreeBuildsRemaining(BuildingKinds.Farm);
+            if (freeFarms > 0) GUILayout.Label($"농장주 혜택: 완공된 농장 {freeFarms}개를 무료로 배치할 수 있습니다(농장 도구로 클릭).");
         }
 
         private void DrawTools(Settlement s)
@@ -93,7 +98,9 @@ namespace DesertSettlement.Runtime
                     string kind = BuildInputController.KindOf(tool);
                     string label = BuildInputController.Label(tool);
                     BuildingLevel lv = kind != null ? s.Rules.Config.GetLevel(kind, 1) : null;
-                    if (lv != null) label += $"\n석{lv.Stone:0}·{lv.Hours:0}h";
+                    int free = kind != null ? s.FreeBuildsRemaining(kind) : 0;
+                    if (free > 0) label += $"\n무료 완공 {free}";
+                    else if (lv != null) label += $"\n석{lv.Stone:0}·{lv.Hours:0}h";
                     bool selected = _input.Tool == tool;
                     if (GUILayout.Toggle(selected, label, GUI.skin.button, GUILayout.Height(lv != null ? 38 : 24)) && !selected)
                     {
@@ -113,7 +120,7 @@ namespace DesertSettlement.Runtime
             if (GUILayout.Button($"식량 +{buyStep}\n(다음 {s.NextPrice(true):0.00})")) s.BuyFood(buyStep);
             if (GUILayout.Button($"석재 +{buyStep}\n(다음 {s.NextPrice(false):0.00})")) s.BuyStone(buyStep);
             GUILayout.EndHorizontal();
-            if (GUILayout.Button("샘플 배치 예약 (v0.8 직렬 예시)")) _session.RequestSampleLayout();
+            if (GUILayout.Button("샘플 배치 예약 (이 맵의 예시)")) _session.RequestSampleLayout();
         }
 
         private void DrawSelected(Settlement s)

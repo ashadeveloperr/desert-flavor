@@ -1,0 +1,27 @@
+{
+  "id": "map_01_oasis_basin",
+  "name": "오아시스 분지",
+  "description": "수원 2·광맥 2·암반 2. 수원과 광맥이 가까운 무난한 첫 정착지. (A1 초안, 플레이테스트 대상)",
+  "radius": 3,
+  "terrain": [
+    { "q": 0, "r": 0, "type": "WaterSource" },
+    { "q": -2, "r": 2, "type": "WaterSource" },
+    { "q": 2, "r": 0, "type": "OreVein" },
+    { "q": -1, "r": 3, "type": "OreVein" },
+    { "q": 2, "r": -1, "type": "Bedrock" },
+    { "q": -2, "r": 0, "type": "Bedrock" },
+    { "q": 0, "r": -3, "type": "Obstacle" },
+    { "q": 3, "r": -2, "type": "Obstacle" },
+    { "q": -3, "r": 1, "type": "Obstacle" }
+  ],
+  "sampleLayout": [
+    { "kind": "well", "q": 0, "r": 0 },
+    { "kind": "farm", "q": 1, "r": -1 },
+    { "kind": "canalEdge", "q": 1, "r": -1, "side": "SouthEast" },
+    { "kind": "canalEdge", "q": 1, "r": 0, "side": "NorthEast" },
+    { "kind": "quarry", "q": 2, "r": -1 },
+    { "kind": "mine", "q": 2, "r": 0 },
+    { "kind": "canalEdge", "q": 2, "r": -1, "side": "SouthEast" },
+    { "kind": "auctionHall", "q": -1, "r": 0 }
+  ]
+}

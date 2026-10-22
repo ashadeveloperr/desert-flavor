@@ -15,5 +15,8 @@
     <Compile Include="../../Assets/Scripts/Core/Water/*.cs" Link="Core/Water/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Config/EconomyConfig.cs" Link="Core/Config/EconomyConfig.cs" />
     <Compile Include="../../Assets/Scripts/Core/Economy/*.cs" Link="Core/Economy/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Auction/*.cs" Link="Core/Auction/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/Campaign.cs" Link="Core/Progression/Campaign.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/MapDefinition.cs" Link="Core/Progression/MapDefinition.cs" />
   </ItemGroup>
 </Project>

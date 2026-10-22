@@ -39,6 +39,15 @@ namespace DesertSettlement.Core.Economy
         public double DemolishHoursRatio { get; set; } = 0.5;
         /// <summary>광물 생산 배율(지형 품질·장비). 장비 시스템 전까지 1.</summary>
         public double OreMultiplier { get; set; } = 1.0;
+        /// <summary>우물 방출량 배율. 영구 장비 '우물 성능 향상'이 올린다(캠페인이 설정).</summary>
+        public double WellSupplyMultiplier { get; set; } = 1.0;
+        /// <summary>
+        /// 이 정착지에서 석재·공사 시간 없이 바로 완공 배치할 수 있는 시설 수(종류 → 개수).
+        /// 농장주에게 매각한 다음 정착지에서 캠페인이 채운다(완공된 농장 1개로 시작).
+        /// </summary>
+        public Dictionary<string, int> FreeBuilds { get; } = new Dictionary<string, int>();
+        /// <summary>개발 중 자산 가치 비율(설정 auction.developmentAssetRatio). 0이면 개발 중 자산을 평가하지 않는다.</summary>
+        public double DevelopmentAssetRatio { get; set; }
 
         /// <summary>
         /// 시설 종류별로 지을 수 있는 지형. [확정 2026-10-22]
@@ -86,6 +95,7 @@ namespace DesertSettlement.Core.Economy
                 FoodRecoveryPerDay = p.FoodRecoveryPerDay,
                 ClosedUpkeepRatio = p.ClosedFacilityUpkeepRatio,
                 MaxFacilityLevel = p.InitialMvpMaxFacilityLevel > 0 ? p.InitialMvpMaxFacilityLevel : int.MaxValue,
+                DevelopmentAssetRatio = config.Auction?.DevelopmentAssetRatio ?? 0,
                 Water = WaterNetworkSettings.FromConfig(config),
             };
         }

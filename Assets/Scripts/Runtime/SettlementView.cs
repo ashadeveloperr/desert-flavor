@@ -265,8 +265,9 @@ namespace DesertSettlement.Runtime
         {
             ConstructionJob job = s.Jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress);
             if (job == null || job.Hours <= 0) return 1f;
-            // StartedHour 틱은 시계가 StartedHour+1 시간에 닿을 때 처리된다.
-            double elapsed = _session.Clock.ElapsedHours - (job.StartedHour + 1);
+            // 정산된 시간(CurrentHour) + 지금 시간 안의 진행분. StartedHour 틱이 끝난 시점이 진행률 0.
+            double fraction = _session.Clock.ElapsedHours - Math.Floor(_session.Clock.ElapsedHours);
+            double elapsed = s.CurrentHour + fraction - (job.StartedHour + 1);
             return Mathf.Clamp01((float)(elapsed / job.Hours));
         }
 

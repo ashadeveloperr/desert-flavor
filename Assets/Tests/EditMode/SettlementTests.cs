@@ -103,8 +103,8 @@ namespace DesertSettlement.Core.Tests
 
         // ───────────── v0.8 회귀 ─────────────
 
-        // 회귀값: 원본 v0.8 건설 스크립트 + 확정 물 규칙(꼭짓점 방출·꼭짓점 취수).
-        // 원본 v0.8(변 중간점 취수: 광산 74.28%, V 1732.80, 매각 후 2359.49)과는 W2 변경만큼 다르다.
+        // 회귀값: 원본 v0.8 건설 스크립트 + 확정 규칙(꼭짓점 방출·꼭짓점 취수, 배율 실적에 폐기분 포함, 광물 가치 계수 2.5).
+        // 원본 v0.8(변 중간점 취수·폐기분 제외: 광산 74.28%, V 1732.80, 매각 후 2359.49)과는 그만큼 다르다.
         // 값의 출처: dotnet run --project Tools/SettlementSim (Core ↔ 이식본 교차 검증 출력).
 
         [Test]
@@ -122,8 +122,9 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(8.0, s.StoneDiscarded, 0.01, "초과 석재 폐기 8");
 
             ValuationResult v = SettlementValuation.Evaluate(s, 133);
-            Assert.AreEqual(1839.41, v.Value, 0.01, "첫 경매 기준 가치 V");
-            Assert.AreEqual(2471.43, sc.CashBefore(133) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금");
+            Assert.AreEqual(1.0, v.StoneAveragePerHour, 1e-9, "석재가 한도(100)에 차서 폐기돼도 생산 실적으로 센다(확정)");
+            Assert.AreEqual(1149.63, v.Value, 0.01, "첫 경매 기준 가치 V (광물 가치 계수 2.5)");
+            Assert.AreEqual(1747.16, sc.CashBefore(133) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금(중립 1.05)");
         }
 
         [Test]
@@ -135,7 +136,7 @@ namespace DesertSettlement.Core.Tests
             sc.Run(229);
 
             ValuationResult v = SettlementValuation.Evaluate(sc.S, 229);
-            Assert.AreEqual(3441.60, sc.CashBefore(229) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
+            Assert.AreEqual(1959.54, sc.CashBefore(229) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
             Assert.AreEqual(2, sc.F("mine").Level);
             Assert.GreaterOrEqual(sc.S.FoodCoefficient, 0.99);
         }

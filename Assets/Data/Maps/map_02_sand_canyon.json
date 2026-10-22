@@ -1,0 +1,28 @@
+{
+  "id": "map_02_sand_canyon",
+  "name": "모래 협곡",
+  "description": "수원 1·광맥 2(하나는 멀리)·암반 2. 장애물이 중앙을 막아 먼 광맥까지 수로가 길어진다. (A1 초안, 플레이테스트 대상)",
+  "radius": 3,
+  "terrain": [
+    { "q": -2, "r": 1, "type": "WaterSource" },
+    { "q": 0, "r": 1, "type": "OreVein" },
+    { "q": 2, "r": -2, "type": "OreVein" },
+    { "q": 0, "r": 0, "type": "Bedrock" },
+    { "q": -1, "r": 3, "type": "Bedrock" },
+    { "q": 1, "r": 0, "type": "Obstacle" },
+    { "q": 1, "r": 1, "type": "Obstacle" },
+    { "q": 2, "r": 0, "type": "Obstacle" },
+    { "q": -1, "r": -1, "type": "Obstacle" },
+    { "q": 0, "r": -2, "type": "Obstacle" }
+  ],
+  "sampleLayout": [
+    { "kind": "well", "q": -2, "r": 1 },
+    { "kind": "farm", "q": -1, "r": 0 },
+    { "kind": "canalEdge", "q": -1, "r": 0, "side": "SouthEast" },
+    { "kind": "canalEdge", "q": -1, "r": 1, "side": "NorthEast" },
+    { "kind": "quarry", "q": 0, "r": 0 },
+    { "kind": "mine", "q": 0, "r": 1 },
+    { "kind": "canalEdge", "q": 0, "r": 0, "side": "SouthEast" },
+    { "kind": "auctionHall", "q": -3, "r": 2 }
+  ]
+}

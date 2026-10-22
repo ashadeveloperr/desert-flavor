@@ -59,6 +59,12 @@ namespace DesertSettlement.Runtime
         private void Awake()
         {
             _session = GetComponent<GameSession>();
+            _session.Initialized += () =>
+            {
+                SelectedFacilityId = -1;
+                Tool = BuildTool.Select;
+                LastResult = null;
+            };
         }
 
         private void Start()
@@ -110,6 +116,16 @@ namespace DesertSettlement.Runtime
         private void Update()
         {
             if (!_session.IsReady || _tileHighlight == null) return;
+            if (!_session.AcceptsWorldInput)
+            {
+                // 경매·상점·파산 화면 중에는 맵 조작을 받지 않는다.
+                HoverTile = null;
+                HoverEdge = null;
+                HoveredFacility = null;
+                _tileHighlight.SetActive(false);
+                _edgeHighlight.SetActive(false);
+                return;
+            }
             Mouse mouse = Mouse.current;
             Camera cam = Camera.main;
             if (mouse == null || cam == null) return;

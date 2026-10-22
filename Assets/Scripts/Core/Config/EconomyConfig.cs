@@ -15,6 +15,10 @@ namespace DesertSettlement.Core.Config
         public PrototypeSettings Prototype { get; set; }
         public PurchaseSettings Purchase { get; set; }
         public AuctionSeed AuctionSeed { get; set; }
+        /// <summary>경매 진행·입찰자 성향(4단계, 잠정).</summary>
+        public AuctionSettings Auction { get; set; }
+        /// <summary>영구 장비 목록(4단계, 잠정).</summary>
+        public List<EquipmentDefinition> Equipment { get; set; }
 
         /// <summary>시설 종류(<see cref="BuildingKinds"/>) → 레벨별 명세. 인덱스 0 = L1.</summary>
         public Dictionary<string, List<BuildingLevel>> BuildingLevels { get; set; }
@@ -91,6 +95,63 @@ namespace DesertSettlement.Core.Config
         public double StoneMaxMultiplier { get; set; }
         public InfraMultipliers Infra { get; set; }
         public double FixedTestBidMultiplier { get; set; }
+    }
+
+    /// <summary>경매 진행 규칙과 입찰자. 값은 모두 플레이테스트 기본값.</summary>
+    public sealed class AuctionSettings
+    {
+        public string Status { get; set; }
+        /// <summary>경매 한 번에 오는 입찰자 수 범위(입찰자 목록에서 무작위, 중복 없음).</summary>
+        public int AttendeesMin { get; set; } = 1;
+        public int AttendeesMax { get; set; } = 2;
+        /// <summary>당일 시세 = MarketCenter × (1 ± MarketSwing 균등 무작위). 경매 당일 공개.</summary>
+        public double MarketCenter { get; set; } = 1.0;
+        public double MarketSwing { get; set; }
+        /// <summary>긴급 매각 입찰가 감액 비율(0.2 = −20%).</summary>
+        public double EmergencyPenalty { get; set; }
+        /// <summary>개발 중 자산 가치 = 기대 생산 × 진행률 × 이 값.</summary>
+        public double DevelopmentAssetRatio { get; set; }
+        /// <summary>자금 &lt; 0 상태가 이 시간 이상 이어지면 파산(경매장이 있을 때).</summary>
+        public int BankruptcyGraceHours { get; set; } = 24;
+        public List<BidderProfile> Bidders { get; set; }
+    }
+
+    /// <summary>
+    /// 입찰자 성향. 가중치 1이면 중립. 배율 가중치는 '배율이 1을 넘는 부분'에 곱한다
+    /// (예: 식량 배율 1.4, 가중치 0.5 → 1.2).
+    /// </summary>
+    public sealed class BidderProfile
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public double OreWeight { get; set; } = 1;
+        public double FoodMultiplierWeight { get; set; } = 1;
+        public double StoneMultiplierWeight { get; set; } = 1;
+        public double InfraWeight { get; set; } = 1;
+        /// <summary>공사 중 시설 종류별 개발 중 자산 가중치(없는 종류는 1).</summary>
+        public Dictionary<string, double> DevelopmentWeights { get; set; }
+        /// <summary>현금으로 주는 비율. 1보다 작으면 그만큼 다음 정착지 혜택으로 보상한다.</summary>
+        public double CashShare { get; set; } = 1;
+        /// <summary>매각 시 다음 정착지 시작 식량 추가분.</summary>
+        public double NextSettlementFoodBonus { get; set; }
+        /// <summary>매각 시 다음 정착지에서 석재·공사 시간 없이 바로 완공 배치할 수 있는 시설 수(종류 → 개수).</summary>
+        public Dictionary<string, int> NextSettlementFreeBuilds { get; set; }
+
+        public double DevelopmentWeight(string kind) =>
+            DevelopmentWeights != null && DevelopmentWeights.TryGetValue(kind, out double w) ? w : 1.0;
+
+        /// <summary>모든 가중치 1인 중립 평가(기준 가치 V).</summary>
+        public static BidderProfile Neutral => new BidderProfile { Id = "neutral", Name = "기준" };
+    }
+
+    /// <summary>영구 장비. 정착지를 옮겨도 유지된다.</summary>
+    public sealed class EquipmentDefinition
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public double Price { get; set; }
+        /// <summary>우물 방출량 배율(1.2 = +20%). 없으면 1.</summary>
+        public double WellSupplyMultiplier { get; set; } = 1;
     }
 
     public sealed class InfraMultipliers

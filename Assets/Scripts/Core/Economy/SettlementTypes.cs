@@ -46,6 +46,8 @@ namespace DesertSettlement.Core.Economy
         public bool GateOpen { get; internal set; } = true;
         /// <summary>운영을 시작한(완공된) 게임 시간. 미완공이면 -1.</summary>
         public long CompletedHour { get; internal set; } = -1;
+        /// <summary>마지막으로 건설·개량을 마치고 지금 레벨로 운영을 시작한 시간. 미완공이면 -1.</summary>
+        public long ActiveSinceHour { get; internal set; } = -1;
 
         public bool IsOperating => State == FacilityState.Operating;
         public override string ToString() => $"#{Id} {Kind} L{Level} {State} @{(Edge.HasValue ? Edge.ToString() : Tile.ToString())}";

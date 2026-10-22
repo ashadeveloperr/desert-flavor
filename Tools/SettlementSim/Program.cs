@@ -32,6 +32,8 @@ namespace SettlementSim
             RandomRobustness();
             CoreSolverCrossCheck();
             CoreEconomyCrossCheck();
+            LateInvestmentWithDevelopmentAssets();
+            TwoSettlementCampaign();
             TickOrderAndQueue();
 
             Line();
@@ -419,7 +421,7 @@ namespace SettlementSim
             Line("  (물 규칙: 꼭짓점 방출 + 꼭짓점 취수 — 원본 v0.8의 변 중간점 취수와 수치가 다르다)");
             foreach (var sc in scenarios)
             {
-                var port = new EconomySim(sc.label, sc.actions) { WaterModel = HexWater(LayoutA, LayoutAUsers, confirmedWater) };
+                var port = new EconomySim(sc.label, sc.actions) { WaterModel = HexWater(LayoutA, LayoutAUsers, confirmedWater), CountDiscardedInValuation = true, OreValueFactor = config.AuctionSeed.OreProduction24hValueFactor };
                 if (sc.stone != null) foreach (var kv in sc.stone) port.PurchaseStone[kv.Key] = kv.Value;
                 if (sc.food != null) foreach (var kv in sc.food) port.PurchaseFood[kv.Key] = kv.Value;
                 port.Run(sc.until);
@@ -446,14 +448,98 @@ namespace SettlementSim
             }
         }
 
+        private static DesertSettlement.Core.Config.EconomyConfig LoadConfig()
+        {
+            string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "economy_balance_v0.8_config.json"));
+            return System.Text.Json.JsonSerializer.Deserialize<DesertSettlement.Core.Config.EconomyConfig>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+
+        private static List<DesertSettlement.Core.Progression.MapDefinition> LoadMaps()
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return Directory.GetFiles(Path.Combine(FindRepoRoot(), "Assets", "Data", "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
+                .Select(p => System.Text.Json.JsonSerializer.Deserialize<DesertSettlement.Core.Progression.MapDefinition>(File.ReadAllText(p), options))
+                .ToList();
+        }
+
+        /// <summary>A3 재검토: 개발 중 자산 가치를 넣으면 경매 직전 개량이 여전히 손해인지.</summary>
+        private static void LateInvestmentWithDevelopmentAssets()
+        {
+            Header("A3. 늦은 투자: 광산 L2 개량 시작 시각 → 두 번째 경매(229h) 가치 (폐기분 포함 배율)");
+            var config = LoadConfig();
+            var bidders = config.Auction.Bidders;
+            Line("  개량 시작 | V(개발 중 자산 없음) | V(개발 중 자산 50%) | 산업가 | 농장주");
+            foreach (int start in new[] { -1, 133, 170, 190, 200, 205, 210, 215, 220 })
+            {
+                double[] values = new double[4];
+                for (int mode = 0; mode < 2; mode++)
+                {
+                    var actions = start < 0 ? Array.Empty<(string, string, int)>() : new[] { ("mine", "upgrade", start) };
+                    var s = RunCoreScript(config, actions, null, null, 229, mode == 0 ? 0.0 : (double?)null);
+                    values[mode] = DesertSettlement.Core.Economy.SettlementValuation.Evaluate(s, 229).Value;
+                    if (mode == 1)
+                    {
+                        values[2] = DesertSettlement.Core.Economy.SettlementValuation.EvaluateFor(s, 229, bidders[0]).Value;
+                        values[3] = DesertSettlement.Core.Economy.SettlementValuation.EvaluateFor(s, 229, bidders[1]).Value;
+                    }
+                }
+                Line($"  {(start < 0 ? "안 함" : start + "h"),8} | {values[0],10:0.0} | {values[1],10:0.0} | {values[2],8:0.0} | {values[3],8:0.0}");
+            }
+        }
+
+        /// <summary>두 고정 맵을 샘플 배치로 연속 매각하는 캠페인(MVP 루프 검증).</summary>
+        private static void TwoSettlementCampaign()
+        {
+            Header("4단계. 두 정착지 연속 매각 (고정 맵 2종, 샘플 배치, 매번 현금 최대 입찰 수락)");
+            var config = LoadConfig();
+            var maps = LoadMaps();
+            var campaign = new DesertSettlement.Core.Progression.Campaign(config, maps);
+            for (int n = 0; n < 2; n++)
+            {
+                var s = campaign.StartNextSettlement();
+                var failures = campaign.CurrentMap.RequestSampleLayout(s);
+                Check(failures.Count == 0, $"{campaign.CurrentMap.Name}: 샘플 배치 예약 {(failures.Count == 0 ? "성공" : string.Join("; ", failures))}");
+                Line($"    시작 자금 {s.Cash:0.0}, 식량 {s.Food:0.0}, 우물 배율 {s.Rules.WellSupplyMultiplier:0.00}");
+                var auctions = campaign.Auctions;
+                int guard = 0;
+                while (!auctions.IsOpen && !auctions.IsFinished && guard++ < 1000) s.AdvanceHour();
+                if (!auctions.IsOpen)
+                {
+                    Check(false, $"{campaign.CurrentMap.Name}: 경매가 열리지 않음 ({auctions.Phase}, {auctions.BankruptcyReason})");
+                    return;
+                }
+                var a = auctions.CurrentAuction;
+                Line($"    경매장 {s.AuctionHallCompletedHour}h 완공 → {a.Kind} 경매 {a.Hour}h, 시세 {a.Market:0.000}, 직전 현금 {s.Cash:0.0}");
+                foreach (var bid in a.Bids)
+                {
+                    string perk = string.Join(", ", bid.NextSettlementFreeBuilds.Where(kv => kv.Value > 0).Select(kv => $"완공 {kv.Key} {kv.Value}개"));
+                    Line($"      {bid.Bidder.Name}: 총액 {bid.TotalOffer:0.0} (현금 {bid.Cash:0.0}{(perk.Length > 0 ? " + 다음 정착지 " + perk : "")}) " +
+                         $"V {bid.Valuation.Value:0.0} [광물24h {bid.Valuation.OreLast24h:0.0}, 식량 ×{bid.Valuation.FoodMultiplier:0.00}, 석재 ×{bid.Valuation.StoneMultiplier:0.00}, 인프라 ×{bid.Valuation.InfraMultiplier:0.00}]");
+                }
+                int best = a.Bids.Select((b, i) => (b, i)).OrderByDescending(x => x.b.Cash).First().i;
+                auctions.Sell(best);
+                Line($"    → {a.Bids[best].Bidder.Name}에게 매각, 캠페인 자금 {campaign.Cash:0.0}");
+                if (n == 0)
+                {
+                    var buy = campaign.BuyEquipment("wellPump");
+                    Line($"    장비 '우물 성능 향상' 구매: {(buy.Success ? "성공" : buy.Message)}, 남은 자금 {campaign.Cash:0.0}");
+                }
+            }
+            Check(campaign.Sales.Count == 2, $"두 정착지 연속 매각 완료 (최종 자금 {campaign.Cash:0.0})");
+        }
+
         private static DesertSettlement.Core.Economy.Settlement RunCoreScript(DesertSettlement.Core.Config.EconomyConfig config,
-            (string name, string action, int time)[] extra, Dictionary<int, int> stoneBuys, Dictionary<int, int> foodBuys, int until)
+            (string name, string action, int time)[] extra, Dictionary<int, int> stoneBuys, Dictionary<int, int> foodBuys, int until,
+            double? developmentRatio = 0.0)
         {
             var map = new HexMap(3);
             map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
             map.GetTile(new HexCoord(2, -1)).Terrain = TerrainType.Bedrock;
             map.GetTile(new HexCoord(2, 0)).Terrain = TerrainType.OreVein;
-            var s = new DesertSettlement.Core.Economy.Settlement(map, DesertSettlement.Core.Economy.SettlementRules.FromConfig(config));
+            var rules = DesertSettlement.Core.Economy.SettlementRules.FromConfig(config);
+            if (developmentRatio.HasValue) rules.DevelopmentAssetRatio = developmentRatio.Value; // 이식본엔 개발 중 자산이 없으므로 비교 시 0
+            var s = new DesertSettlement.Core.Economy.Settlement(map, rules);
 
             var tiles = new Dictionary<string, HexCoord>
             {

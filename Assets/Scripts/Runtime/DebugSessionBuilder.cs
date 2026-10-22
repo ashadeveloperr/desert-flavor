@@ -20,12 +20,13 @@ namespace DesertSettlement.Runtime
             public Camera MainCamera;
         }
 
-        public static Result Build(TextAsset economyConfig)
+        public static Result Build(TextAsset economyConfig, System.Collections.Generic.IEnumerable<TextAsset> maps)
         {
             var sessionObject = new GameObject("GameSession");
             sessionObject.SetActive(false); // 설정을 넣은 뒤 Awake가 돌도록
             var session = sessionObject.AddComponent<GameSession>();
             session.SetConfig(economyConfig);
+            if (maps != null) session.SetMaps(maps);
             EnsureComponents(session);
 
             Camera main = Camera.main;
@@ -78,6 +79,7 @@ namespace DesertSettlement.Runtime
             Ensure<BuildInputController>();
             Ensure<SettlementHud>();
             Ensure<HoverTooltip>();
+            Ensure<AuctionPanel>();
             Ensure<GameClockHud>();
             if (go.GetComponent<DayNightLighting>() == null)
             {

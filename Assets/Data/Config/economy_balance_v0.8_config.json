@@ -42,7 +42,7 @@
     }
   },
   "auctionSeed": {
-    "oreProduction24hValueFactor": 4.5,
+    "oreProduction24hValueFactor": 2.5,
     "foodProductionAverageForFullBonus": 8,
     "foodMaxMultiplier": 1.5,
     "stoneProductionAverageForFullBonus": 2,
@@ -56,6 +56,49 @@
     },
     "fixedTestBidMultiplier": 1.05
   },
+  "auction": {
+    "status": "playtest_seed_2026-10-22",
+    "attendeesMin": 1,
+    "attendeesMax": 2,
+    "marketCenter": 1.05,
+    "marketSwing": 0.1,
+    "emergencyPenalty": 0.2,
+    "developmentAssetRatio": 0.5,
+    "bankruptcyGraceHours": 24,
+    "bidders": [
+      {
+        "id": "industrialist",
+        "name": "산업가",
+        "oreWeight": 1.15,
+        "foodMultiplierWeight": 0.5,
+        "stoneMultiplierWeight": 1.0,
+        "infraWeight": 1.0,
+        "developmentWeights": { "mine": 1.0, "well": 1.0, "quarry": 0.6, "farm": 0.3 },
+        "cashShare": 1.0,
+        "nextSettlementFoodBonus": 0
+      },
+      {
+        "id": "farmer",
+        "name": "농장주",
+        "oreWeight": 0.95,
+        "foodMultiplierWeight": 1.6,
+        "stoneMultiplierWeight": 0.8,
+        "infraWeight": 1.0,
+        "developmentWeights": { "farm": 1.0, "well": 0.6, "quarry": 0.5, "mine": 0.3 },
+        "cashShare": 0.92,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "farm": 1 }
+      }
+    ]
+  },
+  "equipment": [
+    {
+      "id": "wellPump",
+      "name": "우물 성능 향상",
+      "price": 400,
+      "wellSupplyMultiplier": 1.2
+    }
+  ],
   "buildingLevels": {
     "well": [
       {

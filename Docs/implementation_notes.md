@@ -33,19 +33,36 @@
 | 2026-10-22 | C7 조작(임시) | 왼쪽 도구 패널(시설 6종·수로·수문·개량·철거·폐쇄). 타일 모드는 클릭한 타일, 수로 모드는 마우스에 가장 가까운 변 강조 + 클릭/드래그 연속 설치. 불가 시 이유 표시. 우클릭 = 도구 해제. IMGUI 임시 UI | [확정] |
 | 2026-10-22 | C8 카메라 | Cinemachine 3 탑다운 약 50°. WASD/화면 가장자리 이동, 휠 줌, Q/E 60° 회전. 새 Input System 사용 | [확정] |
 | 2026-10-22 | 임시 테스트 지형 | 고정 맵 2종(A1) 전까지 `GameSession` 인스펙터의 지형 목록으로 수원·광맥·암반·장애물 배치 | [임시] |
+| 2026-10-22 | A2 MVP 입찰자 | **산업가 + 농장주** 2종(6종 중). 입찰가 = 입찰자 성향별 기준 가치 × 시세 | [확정] |
+| 2026-10-22 | A3 공사 중 매각 | **개발 중 자산 가치**: 공사 중이거나 완공 24시간 미만 시설은 완공 후 기대 생산 × 진행률(또는 남은 실적 시간) × 50%로 평가 + **입찰자별 잠재 가치**(산업가는 광산·우물, 농장주는 농장을 높게). 매각 시 공사는 종료, 석재는 현장에 남음 | [확정, 계수 잠정] |
+| 2026-10-22 | 석재·식량 배율 실적 | 저장 한도로 **폐기된 생산분도 포함**한 실제 생산량으로 계산(v0.6 잠정안 '폐기분 제외'를 대체). 근거: 폐기분을 빼면 경매 직전 석재를 소모하는 요령이 생김(시뮬레이션) | [확정] |
+| 2026-10-22 | 입찰자 예고 | 다음 경매 참가 입찰자를 **경매장 완공 직후**, 그리고 **경매가 불발(보류)돼 다음 경매가 대기에 들어간 직후**에 공개 | [확정] |
+| 2026-10-22 | 매각 금액 하향(플레이테스트) | 꽤 발전시킨 정착지가 4~5천을 받아 과함 → 2~3천 목표. `auctionSeed.oreProduction24hValueFactor` **4.5 → 2.5**(모든 입찰자 공통, 입찰자 가중치는 유지) | [잠정, 플레이테스트로 조정] |
+| 2026-10-22 | 농장주 혜택 변경(플레이테스트) | 식량 +50(저장 한도에 막혀 가치 0) → **다음 정착지에서 완공된 농장 1개를 무료 배치**(석재·공사 시간·작업 슬롯 없이, 위치는 플레이어가 선택). 설정 `nextSettlementFreeBuilds` | [확정] |
+| 2026-10-22 | A4 MVP 영구 장비 | **우물 성능 향상**(우물 방출량 +20%, 가격 400) | [확정, 수치 잠정] |
+| 2026-10-22 | A5 파산·긴급 매각 | 경매장과 광산(공사 중 포함)이 모두 있으면: 자금이 0이 되는 순간 **긴급 매각 경매**(입찰가 약 −20%). 팔지 않고 자금 < 0이 24시간 지속되면 파산. **경매장이나 광산이 없으면 자금이 0이 되는 즉시 파산**(광산 조건은 플레이테스트 후 추가: 광산 없이는 가치가 0이라 긴급 매각이 의미 없음) | [확정] |
+| 2026-10-22 | 다음 정착지 난이도 (후속) | 다음 정착지로 넘어갈 때 **보유 자금에 비례해 정착지 난이도가 올라간다.** 지금 구현할 루프에는 넣지 않음. 기획서 9.1 "지역 난이도 후보"와 연결 | [확정, 후속 구현] |
 | 2026-10-22 | 착공 취소 | 대기 중 취소는 무료, 진행 중 취소는 투입 석재 50% 환급 후 원상태(건설은 시설 제거) | [확정 + 구현 해석] |
 
 **개발 순서 (2026-10-22 합의):** 핵심 시스템 하나를 확실히 → 얇은 전체 루프 → 확장.
 1. ~~기반: 헥스 그리드·수로 그래프·GameClock·설정 로딩~~ (완료)
 2. ~~물 배분 계산기 (상류 우선·동순위 비례·용량·손실, 테스트 포함)~~ (완료)
 3. ~~건설 큐 + 생산·식량·유지비 (경제 틱) + 씬 연결·임시 건설 UI(C7)·카메라(C8)~~ (완료, SampleScene에서 플레이 가능)
-4. 얇은 경매·매각 + 두 번째 맵 → 두 정착지 연속 매각 루프
+4. ~~얇은 경매·매각 + 두 번째 맵 → 두 정착지 연속 매각 루프~~ (완료: 경매 예고·시세·입찰자 2종·긴급 매각·파산·장비 상점·고정 맵 2종)
 5. 미정 항목을 결정하며 확장 (장비·파산·물탱크·입찰자 등)
 
 **W2 변경의 영향(2026-10-22):** 원본 v0.8 수치는 변 중간점 취수 기준이라 Core와 더 이상 같지 않다.
 같은 건설 스크립트에서 광산 물 74.28% → **78.85%**, 첫 경매 V 1732.80 → **1839.41**, 즉시 매각 후 2359.49 → **2471.43**,
 보류+광산 L2+창고 3248.32 → **3441.60**. 경매장 37h·첫 경매 133h·경매 직전 현금 540.05는 그대로.
 새 회귀값은 EditMode 테스트와 `Tools/SettlementSim`(확정 규칙 이식본 ↔ Core 교차 검증)에 고정돼 있다. 원본 v0.8 회귀는 시뮬레이터 0번 섹션에서 계속 확인한다.
+
+**4단계 반영 후 수치(2026-10-22, 배율에 폐기분 포함):** 같은 건설 스크립트의 첫 경매 기준 V 1839.41 → **2069.34**(석재가 한도에 차도 생산 1/h가 실적으로 잡혀 석재 배율 1.0 → 1.5).
+늦은 투자: 경매 14시간 전 광산 개량 시작 시 V가 개량 안 함 대비 −58% → **−15%**(개발 중 자산 50%). 시작이 205~210h면 오히려 개량 안 함보다 높다.
+두 정착지 샘플 루프: 맵 1 매각 후 2612 → 장비 구매 → 맵 2 매각 후 **4543**. 샘플 배치에서는 두 번 모두 산업가 현금이 농장주(현금 92% + 식량 50)보다 높아,
+농장주가 선택될 이유가 약하다 → 입찰자 가중치·혜택은 플레이테스트로 조정 필요.
+
+**플레이테스트 반영 후 수치(광물 가치 계수 2.5):** 같은 스크립트 첫 경매 V **1149.63**, 즉시 매각 후 1747.16, 보류+광산 L2+창고 1959.54.
+두 정착지 샘플 루프 최종 자금 **2381.6**(맵 1 매각 후 1691 → 장비 → 맵 2 매각). 식량 혜택은 샘플 배치에서 최종 자금 차이 0이었음(근거로 혜택 교체).
 
 **근거:** `dotnet run --project Tools/SettlementSim` 시뮬레이션(원본 v0.8 회귀값 재현 + 규칙 후보 비교). 주요 근거:
 - W3 변 중간점 방출이면 우물 꼭짓점에서 뻗은 수로에 물이 안 가서 원본 배치에서 물 0%.
@@ -61,7 +78,10 @@ Assets/Scripts/
     Hex/         HexCoord, HexLayout, HexMap, VertexId/EdgeId, HexTopology
     Canal/       CanalGraph, CanalSegment
     Water/       WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과)
-    Economy/     Settlement(건설 큐·경제 틱·명령), SettlementRules(규칙 값), SettlementTypes, SettlementValuation(24h 실적 가치)
+    Economy/     Settlement(건설 큐·경제 틱·명령), SettlementRules(규칙 값), SettlementTypes,
+                 SettlementValuation(24h 실적 + 개발 중 자산, 입찰자별 가치)
+    Auction/     AuctionManager(일정·예고·당일 시세·입찰·긴급 매각·파산 판정)
+    Progression/ Campaign(정착지 연속·장비 상점·자금 이월), MapDefinition / MapLoader(고정 맵 파일)
     Timing/      GameClock, GameTimeSettings
     Config/      EconomyConfig(데이터 클래스), EconomyConfigLoader(읽기·검증)
   Runtime/     DesertSettlement.Runtime — Unity 컴포넌트(표시·입력·연결)
@@ -70,6 +90,7 @@ Assets/Scripts/
     BuildInputController 마우스 도구 적용(C7): 타일/가장 가까운 변 강조, 클릭·드래그, 불가 이유
     SettlementHud        자원·도구·구매·작업 대기열·선택 시설 패널(임시 IMGUI)
     HoverTooltip         마우스가 타일·시설 위에 있으면 커서 옆 정보 팝업(생산·물·소비·유지비·불가 이유)
+    AuctionPanel         경매(입찰자별 총액·현금·혜택·가치 내역, 매각/보류), 매각 후 상점·다음 정착지, 파산 화면
     FacilityInfo         팝업·HUD·머리 위 글자가 같이 쓰는 한국어 문구(이름·상태·생산 줄·농장 수지 경고)
     StrategyCameraRig    Cinemachine 탑다운 카메라(C8): WASD·가장자리 이동, 휠 줌, Q/E 회전
     DebugSessionBuilder  위 구성 한 벌을 코드로 생성(에디터 메뉴·PlayMode 테스트 공용)
@@ -81,7 +102,8 @@ Assets/Scripts/
     DebugSessionMenu     Tools > Desert Settlement > 디버그 세션 만들기 / SetupSampleScene(batch용)
 Assets/Tests/PlayMode/  DesertSettlement.PlayMode.Tests — 디버그 세션 스모크 테스트
 Assets/Tests/EditMode/  DesertSettlement.Core.Tests — Core 단위 테스트
-Assets/Data/Config/     경제 설정 JSON
+Assets/Data/Config/     경제 설정 JSON (auction·equipment 항목 포함)
+Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다 파일명 순서대로 사용
 ```
 
 **원칙**
@@ -102,7 +124,11 @@ Assets/Data/Config/     경제 설정 JSON
 | 수로 손실률·레벨별 용량 | JSON `prototype.canalLossPerWholeEdge`, `buildingLevels.canalEdge[].capacityPerHour` |
 | 물 배분 규칙 자체(방출·취수 지점, 우선순위) | `Core/Water/WaterNetworkSolver.cs` — 규칙을 바꾸면 `Tools/SettlementSim` 프로토타입과 EditMode 테스트 기대값도 함께 바꾼다 |
 | 물 배분 규칙 후보를 비교·실험 | `Tools/SettlementSim/WaterSolver.cs`의 옵션(WaterOptions) + `Program.cs` 시나리오, `dotnet run --project Tools/SettlementSim` |
-| 임시 테스트 지형(수원·광맥·암반·장애물 위치) | 씬의 `GameSession` 인스펙터 → 맵 → Terrain 목록 |
+| 맵 지형·샘플 배치, 맵 추가 | `Assets/Data/Maps/*.json` (새 파일은 `GameSession`의 Maps 목록에 추가하거나 메뉴 '디버그 세션 만들기'를 다시 실행) |
+| 입찰자 성향·혜택, 시세 폭, 긴급 감액, 개발 중 자산 비율, 파산 유예 시간 | 설정 JSON `auction` |
+| 영구 장비 가격·효과 | 설정 JSON `equipment` |
+| 다음 맵 선택 규칙(후속: 자금 비례 난이도) | `Core/Progression/Campaign.cs`의 `ChooseNextMap` |
+| 경매 입찰자·시세 무작위 시드 | `GameSession` 인스펙터 → Campaign Seed |
 | 지형·시설·수로 색, 수로 폭, 머리 위 글자 | `SettlementView` 인스펙터 |
 | 팝업·HUD에 나오는 문구, 시설·지형 한국어 이름 | `Runtime/FacilityInfo.cs` |
 | 팝업 위치·폭·뜨는 지연 | `GameSession` 오브젝트의 `HoverTooltip` 인스펙터 |

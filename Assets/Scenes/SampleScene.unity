@@ -136,6 +136,7 @@ GameObject:
   - component: {fileID: 169328205}
   - component: {fileID: 169328204}
   - component: {fileID: 169328211}
+  - component: {fileID: 169328212}
   m_Layer: 0
   m_Name: GameSession
   m_TagString: Untagged
@@ -156,8 +157,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.GameSession
   economyConfig: {fileID: 4900000, guid: 57d75c6f7795eed468362c305d1c2b5e, type: 3}
+  maps:
+  - {fileID: 4900000, guid: d8ce8a084c28b3b438fb9b5ee3b913ca, type: 3}
+  - {fileID: 4900000, guid: 396d14279b1531e4e834fd24dfebb093, type: 3}
+  campaignSeed: 20261022
   mapRadius: 3
-  tileSize: 1
   terrain:
   - q: 0
     r: 0
@@ -186,6 +190,7 @@ MonoBehaviour:
   - q: -3
     r: 1
     terrain: 4
+  tileSize: 1
   timeSettings:
     StartHourOfDay: 12
     DayStartHour: 6
@@ -494,6 +499,19 @@ MonoBehaviour:
   cursorOffset: {x: 18, y: 18}
   width: 330
   delay: 0.15
+--- !u!114 &169328212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169328202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36c13d1423dcbce4c9cd25b066aa7aa6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.AuctionPanel
+  width: 560
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0

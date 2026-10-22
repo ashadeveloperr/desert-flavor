@@ -66,6 +66,10 @@ namespace SettlementSim
         public string Scenario;
         public TickOrder Order = TickOrder.V08CompleteFirst;
         public QueuePolicy Queue = QueuePolicy.FifoBlock;
+        /// <summary>가치 평가에 저장 한도로 폐기된 생산분도 넣을지(확정 규칙 = true, 원본 v0.8 = false).</summary>
+        public bool CountDiscardedInValuation;
+        /// <summary>광물 24h 가치 계수(원본 v0.8 = 4.5, 설정 auctionSeed.oreProduction24hValueFactor).</summary>
+        public double OreValueFactor = 4.5;
         /// <summary>물 모델. null이면 원본의 직렬 3구간 공식.</summary>
         public Func<EconomySim, Dictionary<string, double>> WaterModel;
 
@@ -304,14 +308,15 @@ namespace SettlementSim
             List<HourLog> q = Log.Skip(Math.Max(0, h - 24)).Take(Math.Min(24, h)).ToList();
             if (q.Count < 24) throw new InvalidOperationException("not a full 24h window");
             double ore = q.Sum(x => x.Ore);
-            double food = q.Sum(x => x.FoodValid) / 24;
-            double stone = q.Sum(x => x.StoneValid) / 24;
+            // 원본 v0.8: 저장 한도로 폐기된 양 제외. 2026-10-22 확정 규칙: 폐기분 포함(CountDiscardedInValuation).
+            double food = q.Sum(x => CountDiscardedInValuation ? x.FoodProd : x.FoodValid) / 24;
+            double stone = q.Sum(x => CountDiscardedInValuation ? x.StoneProd : x.StoneValid) / 24;
             double mf = 1 + 0.50 * Math.Min(1, food / 8);
             double ms = 1 + 1.00 * Math.Min(1, stone / 2);
             double infra = 1 + (Active("well") ? 0.04 : 0) + (Active("auction") ? 0.01 : 0)
                 + Enumerable.Range(1, 3).Count(i => Active("canal" + i)) * 0.01 + (Active("warehouse") ? 0.025 : 0);
             infra = Math.Min(1.20, infra);
-            double baseValue = 4.5 * ore;
+            double baseValue = OreValueFactor * ore;
             return new Valuation
             {
                 Ore = ore, FoodAverage = food, StoneAverage = stone, FoodMultiplier = mf, StoneMultiplier = ms, InfraMultiplier = infra,

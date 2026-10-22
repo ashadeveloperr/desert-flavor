@@ -1,25 +1,55 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using DesertSettlement.Core.Config;
+using DesertSettlement.Core.Water;
 
 namespace DesertSettlement.Core.Economy
 {
-    /// <summary>정착지 기준 가치 계산 결과.</summary>
+    /// <summary>공사 중이거나 막 완공한 시설 하나의 개발 중 자산 기여(중립 가중치, 비율 적용 후).</summary>
+    public readonly struct DevelopmentAsset
+    {
+        public readonly int FacilityId;
+        public readonly string Kind;
+        /// <summary>실적 구간에 더할 광물·식량·석재 양(시간 합계).</summary>
+        public readonly double Ore, Food, Stone;
+        /// <summary>인프라 배율에 더할 값(공사 중 우물·수로·창고·경매장).</summary>
+        public readonly double Infra;
+
+        public DevelopmentAsset(int id, string kind, double ore, double food, double stone, double infra)
+        {
+            FacilityId = id;
+            Kind = kind;
+            Ore = ore;
+            Food = food;
+            Stone = stone;
+            Infra = infra;
+        }
+    }
+
+    /// <summary>정착지 가치 계산 결과(한 입찰자 관점).</summary>
     public readonly struct ValuationResult
     {
+        public readonly string BidderId;
+        /// <summary>직전 24시간 실제 광물 생산(개발 중 자산 제외).</summary>
         public readonly double OreLast24h;
+        /// <summary>개발 중 자산에서 온 광물 환산량(입찰자 가중치 적용).</summary>
+        public readonly double DevelopmentOre;
         public readonly double FoodAveragePerHour;
         public readonly double StoneAveragePerHour;
         public readonly double FoodMultiplier;
         public readonly double StoneMultiplier;
         public readonly double InfraMultiplier;
         public readonly double BaseValue;
-        /// <summary>기준 가치 V = 광물 기반 가치 × 식량·석재·인프라 배율.</summary>
+        /// <summary>가치 V = 광물 기반 가치 × 식량·석재·인프라 배율.</summary>
         public readonly double Value;
 
-        public ValuationResult(double ore, double food, double stone, double mf, double ms, double mi, double baseValue)
+        public ValuationResult(string bidderId, double ore, double devOre, double food, double stone,
+            double mf, double ms, double mi, double baseValue)
         {
+            BidderId = bidderId;
             OreLast24h = ore;
+            DevelopmentOre = devOre;
             FoodAveragePerHour = food;
             StoneAveragePerHour = stone;
             FoodMultiplier = mf;
@@ -29,41 +59,132 @@ namespace DesertSettlement.Core.Economy
             Value = baseValue * mf * ms * mi;
         }
 
-        /// <summary>입찰가 = V × 입찰 배율. 입찰자 시스템 전까지는 설정의 fixedTestBidMultiplier(1.05).</summary>
+        /// <summary>입찰가 = V × 배율(시세 등).</summary>
         public double Bid(double multiplier) => Value * multiplier;
     }
 
     /// <summary>
-    /// 경매 기준 가치. 확정: 경매 직전 24게임시간의 실제 생산 실적(저장 한도로 폐기된 양 제외).
-    /// 계수(광물 단가 4.5, 식량·석재 만점 기준, 인프라 보너스)는 설정 auctionSeed의 잠정값.
-    /// 입찰자·경매 진행은 다음 단계(4)에서 구현한다.
+    /// 경매 가치 평가.
+    /// - 확정: 경매 직전 24게임시간의 실제 생산 실적. 식량·석재는 저장 한도로 폐기된 생산분도 포함(2026-10-22 확정).
+    /// - 개발 중 자산(A3 확정): 공사 중인 시설은 '완공 가정 물 배분'의 기대 생산 × 24시간 × 진행률 × 비율,
+    ///   24시간 안에 완공(또는 개량 완료)한 시설은 실적이 없던 시간 × 현재 기대 생산 × 비율을 더한다.
+    ///   공사 중 우물·수로·창고·경매장은 인프라 보너스 × 진행률 × 비율.
+    /// - 입찰자 성향(A2): 광물 가중치, 배율 가중치(1을 넘는 부분에 곱함), 공사 중 시설 종류별 개발 가중치.
+    /// 계수는 설정 auctionSeed / auction의 잠정값.
     /// </summary>
     public static class SettlementValuation
     {
-        /// <summary>auctionHour가 시작되기 직전 24시간 기록으로 가치를 계산한다. 기록이 24시간 미만이면 예외.</summary>
-        public static ValuationResult Evaluate(Settlement s, long auctionHour)
+        /// <summary>중립 기준 가치 V(입찰자 성향 없음).</summary>
+        public static ValuationResult Evaluate(Settlement s, long auctionHour) => EvaluateFor(s, auctionHour, BidderProfile.Neutral);
+
+        /// <summary>auctionHour가 시작되기 직전 24시간 기록 + 개발 중 자산으로 입찰자 관점 가치를 계산한다.</summary>
+        public static ValuationResult EvaluateFor(Settlement s, long auctionHour, BidderProfile bidder)
         {
             AuctionSeed seed = s.Rules.Config.AuctionSeed;
             int window = s.Rules.Config.ConfirmedRules.AuctionHistoryGameHours;
-            var records = s.History.Where(r => r.Hour >= auctionHour - window && r.Hour < auctionHour).ToList();
-            if (records.Count < window) throw new InvalidOperationException($"직전 {window}시간 기록이 부족합니다({records.Count}).");
+            List<HourRecord> records = s.History.Where(r => r.Hour >= auctionHour - window && r.Hour < auctionHour).ToList();
 
             double ore = records.Sum(r => r.OreProduced);
-            double food = records.Sum(r => r.FoodValid) / window;
-            double stone = records.Sum(r => r.StoneValid) / window;
-            double mf = 1 + (seed.FoodMaxMultiplier - 1) * Math.Min(1, food / seed.FoodProductionAverageForFullBonus);
-            double ms = 1 + (seed.StoneMaxMultiplier - 1) * Math.Min(1, stone / seed.StoneProductionAverageForFullBonus);
+            double foodSum = records.Sum(r => r.FoodProduced);
+            double stoneSum = records.Sum(r => r.StoneProduced);
 
-            // 인프라: 미완공·폐쇄 시설은 보너스 없음.
+            double devOre = 0, devFood = 0, devStone = 0, devInfra = 0;
+            foreach (DevelopmentAsset d in DevelopmentAssets(s, auctionHour))
+            {
+                double w = bidder.DevelopmentWeight(d.Kind);
+                devOre += d.Ore * w;
+                devFood += d.Food * w;
+                devStone += d.Stone * w;
+                devInfra += d.Infra * w;
+            }
+
+            double food = (foodSum + devFood) / window;
+            double stone = (stoneSum + devStone) / window;
+            double mfRaw = 1 + (seed.FoodMaxMultiplier - 1) * Math.Min(1, food / seed.FoodProductionAverageForFullBonus);
+            double msRaw = 1 + (seed.StoneMaxMultiplier - 1) * Math.Min(1, stone / seed.StoneProductionAverageForFullBonus);
+
+            // 인프라: 운영 중 시설 + 공사 중 인프라의 개발 중 자산. 미완공·폐쇄 시설 자체는 보너스 없음.
             InfraMultipliers infra = seed.Infra;
-            double mi = 1
+            double miRaw = 1
                 + (s.OperatingOf(BuildingKinds.Well).Any() ? infra.Well : 0)
                 + (s.OperatingOf(BuildingKinds.AuctionHall).Any() ? infra.AuctionHall : 0)
                 + s.OperatingOf(BuildingKinds.CanalEdge).Count() * infra.PerOperationalCanal
-                + s.OperatingOf(BuildingKinds.Warehouse).Count() * infra.PerOperationalWarehouse;
-            mi = Math.Min(infra.Maximum, mi);
+                + s.OperatingOf(BuildingKinds.Warehouse).Count() * infra.PerOperationalWarehouse
+                + devInfra;
+            miRaw = Math.Min(infra.Maximum, miRaw);
 
-            return new ValuationResult(ore, food, stone, mf, ms, mi, seed.OreProduction24hValueFactor * ore);
+            double mf = 1 + (mfRaw - 1) * bidder.FoodMultiplierWeight;
+            double ms = 1 + (msRaw - 1) * bidder.StoneMultiplierWeight;
+            double mi = 1 + (miRaw - 1) * bidder.InfraWeight;
+            double baseValue = seed.OreProduction24hValueFactor * (ore + devOre) * bidder.OreWeight;
+            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue);
+        }
+
+        /// <summary>개발 중 자산 목록(중립 가중치). 비율이 0이면 비어 있다.</summary>
+        public static List<DevelopmentAsset> DevelopmentAssets(Settlement s, long auctionHour)
+        {
+            var list = new List<DevelopmentAsset>();
+            double ratio = s.Rules.DevelopmentAssetRatio;
+            if (ratio <= 0) return list;
+
+            int window = s.Rules.Config.ConfirmedRules.AuctionHistoryGameHours;
+            long windowStart = auctionHour - window;
+            InfraMultipliers infra = s.Rules.Config.AuctionSeed.Infra;
+            WaterAllocation assumed = null;
+
+            foreach (Facility f in s.Facilities)
+            {
+                ConstructionJob job = s.Jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress && j.Type != JobType.Demolish);
+                double progress;
+                double missingHours;
+                if (job != null)
+                {
+                    progress = job.Hours > 0 ? Math.Max(0, Math.Min(1, (auctionHour - job.StartedHour) / (double)job.Hours)) : 1;
+                    missingHours = job.Type == JobType.Build ? window : Math.Min(window, Math.Max(0, auctionHour - job.StartedHour));
+                }
+                else if (f.IsOperating && f.ActiveSinceHour > windowStart)
+                {
+                    progress = 1;
+                    missingHours = f.ActiveSinceHour - windowStart;
+                }
+                else
+                {
+                    continue;
+                }
+
+                if (job != null && job.Type == JobType.Build)
+                {
+                    double bonus = InfraBonus(f.Kind, infra);
+                    if (bonus > 0) list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, 0, bonus * progress * ratio));
+                }
+
+                if (f.Kind != BuildingKinds.Farm && f.Kind != BuildingKinds.Quarry && f.Kind != BuildingKinds.Mine) continue;
+                if (assumed == null) assumed = s.SolveWaterAssumingJobsComplete();
+
+                BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
+                double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(f.Id.ToString()) : 1.0;
+                double perHour = rate * s.FoodCoefficient;
+                double amount = perHour * missingHours * progress * ratio;
+                switch (f.Kind)
+                {
+                    case BuildingKinds.Farm: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, amount * (lv.FoodProduction ?? 0), 0, 0)); break;
+                    case BuildingKinds.Quarry: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, amount * (lv.StoneProduction ?? 0), 0)); break;
+                    case BuildingKinds.Mine: list.Add(new DevelopmentAsset(f.Id, f.Kind, amount * (lv.OreProduction ?? 0) * s.Rules.OreMultiplier, 0, 0, 0)); break;
+                }
+            }
+            return list;
+        }
+
+        private static double InfraBonus(string kind, InfraMultipliers infra)
+        {
+            switch (kind)
+            {
+                case BuildingKinds.Well: return infra.Well;
+                case BuildingKinds.AuctionHall: return infra.AuctionHall;
+                case BuildingKinds.CanalEdge: return infra.PerOperationalCanal;
+                case BuildingKinds.Warehouse: return infra.PerOperationalWarehouse;
+                default: return 0;
+            }
         }
     }
 }

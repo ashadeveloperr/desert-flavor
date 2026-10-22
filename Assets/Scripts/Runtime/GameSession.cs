@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using DesertSettlement.Core.Auction;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Hex;
+using DesertSettlement.Core.Progression;
 using DesertSettlement.Core.Timing;
 using UnityEngine;
 
 namespace DesertSettlement.Runtime
 {
-    /// <summary>인스펙터에서 편집하는 지형 한 칸.</summary>
+    /// <summary>인스펙터에서 편집하는 지형 한 칸(맵 파일이 없을 때의 대체 지형).</summary>
     [Serializable]
     public struct TerrainEntry
     {
@@ -25,10 +28,10 @@ namespace DesertSettlement.Runtime
     }
 
     /// <summary>
-    /// 한 정착지의 게임 상태를 만들고 들고 있는 진입점. 씬에 하나만 둔다.
-    /// 설정 JSON → 맵(지형 목록 적용) → <see cref="Settlement"/> → <see cref="GameClock"/>을 만들고,
-    /// 시계의 정각마다 Settlement.AdvanceHour()로 경제를 정산한다.
-    /// 다른 컴포넌트(뷰, 입력, HUD, 조명)는 이 컴포넌트의 속성을 읽고 Settlement의 명령을 호출한다.
+    /// 게임 진입점. 설정 JSON과 맵 파일로 <see cref="Campaign"/>을 만들고, 지금 정착지의 <see cref="Settlement"/>와
+    /// <see cref="AuctionManager"/>를 시계에 연결한다(정각마다 AdvanceHour).
+    /// - 경매가 열리면 시계를 멈춘다(경매 중 자동 일시정지). 매각하면 상점, 다음 정착지로 가면 맵·시계를 새로 시작한다.
+    /// - 다른 컴포넌트(뷰, 입력, HUD, 경매 패널)는 이 컴포넌트의 속성을 읽고 명령 메서드를 호출한다.
     /// 메뉴 Tools > Desert Settlement > 디버그 세션 만들기 로 씬에 추가할 수 있다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -37,33 +40,42 @@ namespace DesertSettlement.Runtime
         [Header("데이터")]
         [Tooltip("Assets/Data/Config/economy_balance_v0.8_config.json")]
         [SerializeField] private TextAsset economyConfig;
+        [Tooltip("Assets/Data/Maps/*.json. 정착지마다 순서대로 사용. 비어 있으면 아래 대체 지형 한 장")]
+        [SerializeField] private List<TextAsset> maps = new List<TextAsset>();
+        [Tooltip("경매 입찰자·시세 무작위 시드(같으면 같은 결과)")]
+        [SerializeField] private int campaignSeed = 20261022;
 
-        [Header("맵")]
+        [Header("맵 파일이 없을 때")]
         [Range(HexMap.MinRadius, HexMap.MaxRadius)]
         [SerializeField] private int mapRadius = 3;
+        [SerializeField] private List<TerrainEntry> terrain = DefaultTestTerrain();
+
+        [Header("표시")]
         [Tooltip("타일 중심~꼭짓점 거리(월드 단위)")]
         [Min(0.1f)]
         [SerializeField] private float tileSize = 1f;
-        [Tooltip("사막이 아닌 타일. 고정 맵 2종(A1)이 정해지기 전까지 쓰는 임시 테스트 지형")]
-        [SerializeField] private List<TerrainEntry> terrain = DefaultTestTerrain();
 
         [Header("시간")]
         [SerializeField] private GameTimeSettings timeSettings = new GameTimeSettings();
         [SerializeField] private bool logClockEvents = true;
 
         public EconomyConfig Config { get; private set; }
-        public HexMap Map { get; private set; }
-        public HexLayout Layout { get; private set; }
-        public Settlement Settlement { get; private set; }
+        public Campaign Campaign { get; private set; }
+        public Settlement Settlement => Campaign?.Current;
+        public AuctionManager Auctions => Campaign?.Auctions;
+        public HexMap Map => Settlement?.Map;
         public HexTopology Topology => Settlement?.Topology;
+        public HexLayout Layout { get; private set; }
         public GameClock Clock { get; private set; }
         public bool IsReady { get; private set; }
 
-        public int MapRadius => mapRadius;
+        public int MapRadius => Map?.Radius ?? mapRadius;
         public float TileSize => tileSize;
-        public IReadOnlyList<TerrainEntry> TerrainEntries => terrain;
 
-        /// <summary>Initialize가 성공할 때마다(새 정착지) 발생.</summary>
+        /// <summary>지금 맵에서 건설·선택 같은 월드 조작을 받아도 되는지(경매 중·상점·파산이면 false).</summary>
+        public bool AcceptsWorldInput => IsReady && Campaign.State == CampaignState.InSettlement && !Auctions.IsOpen;
+
+        /// <summary>새 정착지(첫 정착지 포함)가 준비될 때마다 발생. 뷰는 이때 맵을 다시 그린다.</summary>
         public event Action Initialized;
 
         private void Awake()
@@ -73,45 +85,92 @@ namespace DesertSettlement.Runtime
 
         private void Update()
         {
-            if (IsReady) Clock.Advance(Time.unscaledDeltaTime);
+            if (!IsReady) return;
+            // 경매·상점·파산 중에는 시간이 흐르지 않는다(HUD의 재개 버튼도 무시).
+            if (!AcceptsWorldInput && !Clock.IsPaused) Clock.SetPaused(true);
+            Clock.Advance(Time.unscaledDeltaTime);
         }
 
         /// <summary>코드에서 세션을 만들 때(테스트·빌더) 설정 파일을 지정한다. Awake 전에 호출해야 한다.</summary>
         public void SetConfig(TextAsset config) => economyConfig = config;
 
-        /// <summary>설정을 읽고 맵·정착지·시계를 새로 만든다. 실패하면 콘솔에 이유를 남기고 IsReady = false.</summary>
+        /// <summary>코드에서 세션을 만들 때 맵 파일 목록을 지정한다. Awake 전에 호출해야 한다.</summary>
+        public void SetMaps(IEnumerable<TextAsset> mapFiles) => maps = mapFiles.ToList();
+
+        /// <summary>설정·맵을 읽고 새 캠페인의 첫 정착지를 시작한다. 실패하면 콘솔에 이유를 남기고 IsReady = false.</summary>
         public void Initialize()
         {
             IsReady = false;
             try
             {
                 if (economyConfig == null) throw new InvalidOperationException("economyConfig(TextAsset)가 지정되지 않았습니다.");
-
                 Config = EconomyConfigLoader.Parse(economyConfig.text);
-                Map = new HexMap(mapRadius);
-                foreach (TerrainEntry entry in terrain)
-                {
-                    if (Map.TryGetTile(new HexCoord(entry.q, entry.r), out HexTile tile)) tile.Terrain = entry.terrain;
-                }
+                List<MapDefinition> definitions = maps.Where(m => m != null).Select(m => MapLoader.Parse(m.text)).ToList();
+                if (definitions.Count == 0) definitions.Add(FallbackMap());
+
                 Layout = new HexLayout(tileSize);
-                Settlement = new Settlement(Map, SettlementRules.FromConfig(Config));
-                Clock = new GameClock(timeSettings, Config.ConfirmedRules.GameDayRealSecondsAt1x);
-                Clock.HourPassed += _ => Settlement.AdvanceHour();
+                Campaign = new Campaign(Config, definitions, campaignSeed);
 
-                if (logClockEvents)
+                if (Clock == null)
                 {
-                    Clock.DayStarted += t => Debug.Log($"[GameClock] {t.Day}일차 시작");
-                    Clock.PhaseChanged += t => Debug.Log($"[GameClock] {t} — {(t.Phase == DayPhase.Day ? "낮" : "밤")}이 되었습니다");
+                    Clock = new GameClock(timeSettings, Config.ConfirmedRules.GameDayRealSecondsAt1x);
+                    Clock.HourPassed += OnHourPassed;
+                    if (logClockEvents)
+                    {
+                        Clock.DayStarted += t => Debug.Log($"[GameClock] {t.Day}일차 시작");
+                        Clock.PhaseChanged += t => Debug.Log($"[GameClock] {t} — {(t.Phase == DayPhase.Day ? "낮" : "밤")}이 되었습니다");
+                    }
                 }
 
-                IsReady = true;
-                Initialized?.Invoke();
+                BeginSettlement();
             }
             catch (Exception e)
             {
                 Debug.LogError($"[GameSession] 초기화 실패: {e.Message}", this);
             }
         }
+
+        private void OnHourPassed(GameTimeStamp _)
+        {
+            if (AcceptsWorldInput) Settlement.AdvanceHour();
+        }
+
+        private void BeginSettlement()
+        {
+            if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement();
+            Auctions.AuctionOpened += e => Debug.Log($"[Auction] {(e.Kind == AuctionKind.Emergency ? "긴급 매각" : "정기")} 경매 개최 — {e.Bids.Count}명 입찰, 시세 {e.Market:0.000}");
+            Auctions.Bankrupted += r => Debug.LogWarning("[Auction] 파산: " + r);
+            Clock.ResetForNewSettlement();
+            Clock.SetPaused(false);
+            IsReady = true;
+            Initialized?.Invoke();
+        }
+
+        // ───────────── 경매·상점 명령(UI가 호출) ─────────────
+
+        public void SellTo(int bidIndex)
+        {
+            if (Auctions != null && Auctions.IsOpen) Auctions.Sell(bidIndex);
+        }
+
+        public void HoldAuction()
+        {
+            if (Auctions == null || !Auctions.IsOpen) return;
+            Auctions.Hold();
+            Clock.SetPaused(false);
+        }
+
+        public CommandResult BuyEquipment(string id) => Campaign.BuyEquipment(id);
+
+        /// <summary>상점에서 다음 정착지로 간다.</summary>
+        public void GoToNextSettlement()
+        {
+            if (Campaign.State != CampaignState.Shopping) return;
+            BeginSettlement();
+        }
+
+        /// <summary>파산 후(또는 아무 때나) 새 캠페인을 시작한다.</summary>
+        public void RestartCampaign() => Initialize();
 
         /// <summary>Core의 평면 좌표(X, Z)를 이 오브젝트 기준 월드 좌표로 바꾼다.</summary>
         public Vector3 ToWorld(HexPoint point, float height = 0f) =>
@@ -124,28 +183,22 @@ namespace DesertSettlement.Runtime
             return new HexPoint(local.x, local.z);
         }
 
-        /// <summary>
-        /// 확인용 샘플 배치 예약: 기본 테스트 지형 기준 우물·농장·채석장·광산·경매장 + 수로 3개
-        /// (원본 v0.8 직렬 배치와 같은 위치). 석재가 부족하면 대기열에서 차례로 착공된다.
-        /// </summary>
+        /// <summary>지금 맵 파일의 샘플 배치를 예약한다. 실패한 항목 설명을 돌려준다.</summary>
         public List<string> RequestSampleLayout()
         {
-            var messages = new List<string>();
-            void Try(string what, CommandResult r) { if (!r.Success) messages.Add($"{what}: {r.Message}"); }
-
-            Try("우물", Settlement.RequestBuild(BuildingKinds.Well, new HexCoord(0, 0)));
-            Try("농장", Settlement.RequestBuild(BuildingKinds.Farm, new HexCoord(1, -1)));
-            Try("수로1", Settlement.RequestCanal(EdgeId.Of(new HexCoord(1, -1), HexDirection.SouthEast)));
-            Try("수로2", Settlement.RequestCanal(EdgeId.Of(new HexCoord(1, 0), HexDirection.NorthEast)));
-            Try("채석장", Settlement.RequestBuild(BuildingKinds.Quarry, new HexCoord(2, -1)));
-            Try("광산", Settlement.RequestBuild(BuildingKinds.Mine, new HexCoord(2, 0)));
-            Try("수로3", Settlement.RequestCanal(EdgeId.Of(new HexCoord(2, -1), HexDirection.SouthEast)));
-            Try("경매장", Settlement.RequestBuild(BuildingKinds.AuctionHall, new HexCoord(-1, 0)));
-            foreach (string m in messages) Debug.LogWarning("[GameSession] 샘플 배치 " + m);
-            return messages;
+            List<string> failures = Campaign.CurrentMap.RequestSampleLayout(Settlement);
+            foreach (string m in failures) Debug.LogWarning("[GameSession] 샘플 배치 " + m);
+            return failures;
         }
 
-        /// <summary>임시 테스트 지형: 수원 2·광맥 2·암반 2·장애물 3. 샘플 배치와 맞물린다.</summary>
+        private MapDefinition FallbackMap()
+        {
+            var def = new MapDefinition { Id = "inspector", Name = "인스펙터 지형", Radius = mapRadius };
+            foreach (TerrainEntry t in terrain) def.Terrain.Add(new MapTerrainEntry { Q = t.q, R = t.r, Type = t.terrain.ToString() });
+            return def;
+        }
+
+        /// <summary>맵 파일이 없을 때의 대체 지형(맵 1과 같음).</summary>
         public static List<TerrainEntry> DefaultTestTerrain() => new List<TerrainEntry>
         {
             new TerrainEntry(0, 0, TerrainType.WaterSource),

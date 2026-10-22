@@ -2,7 +2,8 @@
 
 사막 정착지 경영 시뮬레이션(Desert Settlement Simulator) — Unity 3D 헥스타일 기반 정착지 개발·생산망·경매 경영 게임 프로토타입.
 현재 Core에 헥스 그리드·수로 그래프·GameClock·설정 로딩·물 배분·정착지 경제(건설 큐·생산·식량·유지비·가치 평가)까지 구현됐고,
-`SampleScene`에서 임시 그래픽·IMGUI 건설 UI·탑다운 카메라로 플레이할 수 있다. 경매 진행·두 번째 정착지는 아직 없다.
+`SampleScene`에서 임시 그래픽·IMGUI 건설 UI·탑다운 카메라로 플레이할 수 있다.
+경매(입찰자 예고·당일 시세·산업가/농장주·긴급 매각·파산)와 캠페인(매각 → 장비 상점 → 고정 맵 2종 순환)까지 MVP 루프가 돈다.
 구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`.
 
 ## 환경
@@ -50,8 +51,14 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
 - **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·수문·개량·철거·취소·순서 변경·폐쇄·구매),
   `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
-  `OutputOf(facility)`로 시간당 생산·소비 예상치. 회귀값(v0.8 스크립트 + 꼭짓점 취수: 첫 경매 133h·현금 540.05·V 1839.41·보류 전략 3441.60)을
-  테스트와 `Tools/SettlementSim` 교차 검증으로 고정. 원본 v0.8(변 중간점 취수) 값과 다른 것은 W2 변경 때문이다.
+  `OutputOf(facility)`로 시간당 생산·소비 예상치. 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
+  첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
+  무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.
+- **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +96h 첫 경매·이후 96h, 완공·보류 직후 입찰자 예고,
+  자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
+- 배치 모드 테스트는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`). 그때는 사용자에게 에디터를 닫거나 Test Runner로 돌려 달라고 한다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
+- **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비(우물 ×1.2) 유지, 다음 맵은 `ChooseNextMap`.
+  맵 파일은 `Assets/Data/Maps/*.json`(`MapLoader`).
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵(인스펙터 지형 목록) → `Settlement` → 시계, 정각마다 `AdvanceHour()`.
 - **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), `SettlementHud`(IMGUI),
   `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.

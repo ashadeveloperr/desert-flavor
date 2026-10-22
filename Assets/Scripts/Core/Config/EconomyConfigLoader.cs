@@ -87,6 +87,36 @@ namespace DesertSettlement.Core.Config
                 problems.Add("prototype.economicTickGameHours는 1 이상이어야 합니다.");
             }
 
+            AuctionSettings auction = config.Auction;
+            if (auction == null)
+            {
+                problems.Add("auction이 없습니다.");
+            }
+            else
+            {
+                if (auction.Bidders == null || auction.Bidders.Count == 0) problems.Add("auction.bidders가 비어 있습니다.");
+                if (auction.AttendeesMin < 1 || auction.AttendeesMax < auction.AttendeesMin) problems.Add("auction.attendeesMin/Max 범위가 잘못됐습니다.");
+                if (auction.MarketSwing < 0 || auction.MarketSwing >= 1) problems.Add("auction.marketSwing은 0 이상 1 미만이어야 합니다.");
+                if (auction.EmergencyPenalty < 0 || auction.EmergencyPenalty >= 1) problems.Add("auction.emergencyPenalty는 0 이상 1 미만이어야 합니다.");
+                if (auction.BankruptcyGraceHours < 1) problems.Add("auction.bankruptcyGraceHours는 1 이상이어야 합니다.");
+                if (auction.Bidders != null)
+                {
+                    foreach (BidderProfile b in auction.Bidders)
+                    {
+                        if (string.IsNullOrEmpty(b.Id)) problems.Add("auction.bidders에 id 없는 입찰자가 있습니다.");
+                        if (b.CashShare <= 0 || b.CashShare > 1) problems.Add($"auction.bidders.{b.Id}.cashShare는 0 초과 1 이하여야 합니다.");
+                    }
+                }
+            }
+            if (config.Equipment != null)
+            {
+                foreach (EquipmentDefinition e in config.Equipment)
+                {
+                    if (string.IsNullOrEmpty(e.Id)) problems.Add("equipment에 id 없는 장비가 있습니다.");
+                    if (e.Price < 0) problems.Add($"equipment.{e.Id}.price는 음수일 수 없습니다.");
+                }
+            }
+
             if (config.BuildingLevels == null || config.BuildingLevels.Count == 0)
             {
                 problems.Add("buildingLevels가 비어 있습니다.");

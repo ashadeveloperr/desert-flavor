@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 사막 정착지 경영 시뮬레이션(Desert Settlement Simulator) — Unity 3D 헥스타일 기반 정착지 개발·생산망·경매 경영 게임 프로토타입.
-현재 기반 코드(헥스 그리드·수로 그래프·GameClock·설정 로딩)까지 구현됐다. 물 배분·건설·생산·경매는 아직 없다.
+현재 기반 코드(헥스 그리드·수로 그래프·GameClock·설정 로딩)와 물 배분 계산기까지 구현됐다. 건설·생산·경매는 아직 없다.
 구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`.
 
 ## 환경
@@ -41,7 +41,10 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 
 - **`Core/Hex`:** Pointy-top axial `HexCoord`, `HexLayout`(월드 좌표), `HexMap`(반경 3~7), 공유 꼭짓점·변의 정규화 키
   `VertexId`(타일의 N/S 꼭짓점) / `EdgeId`(타일의 E/SE/SW 변), `HexTopology`(타일↔변↔꼭짓점 조회, 경계 포함).
-- **`Core/Canal/CanalGraph`:** 변 위 수로 설치·제거·레벨·수문, 꼭짓점 간 경로 길이(변 개수, 닫힌 수문 차단), 연결 요소, 순환 감지. 물 배분은 아직 없음.
+- **`Core/Canal/CanalGraph`:** 변 위 수로 설치·제거·레벨·수문, 꼭짓점 간 경로 길이(변 개수, 닫힌 수문 차단), 연결 요소, 순환 감지.
+- **`Core/Water/WaterNetworkSolver`:** 확정 규칙 W1~W6(`Docs/implementation_notes.md`)의 물 배분. 우물 타일 꼭짓점 방출 → 우물별 최단 경로 트리
+  → 시설은 인접 수로 변 중간점에서 여러 경로·여러 우물로 취수 → 반쪽 변 거리 오름차순(상류 우선)·동순위 수요 비례 progressive filling,
+  변 입구 용량·우물 생산량 제약. 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
 - **`Core/Timing/GameClock`:** 1배속 하루 90초, 정착지마다 1일차 12:00 시작, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`.
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵·수로망·시계 생성 → `Time.unscaledDeltaTime`으로 시계 진행.
@@ -88,6 +91,14 @@ $Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"
 ```powershell
 python Tools/desert_balance_sim_v08.py
 ```
+- 이 PC에는 Python이 설치돼 있지 않다(`python`은 Microsoft Store 별칭). 대신 아래 C# 시뮬레이터를 쓴다.
+
+**게임 로직 시뮬레이터 (C#, .NET 10 SDK):** Core의 Hex/Canal 소스를 링크하고, 범용 물 배분기 프로토타입과
+v0.8 경제 시뮬레이터 이식본으로 규칙 후보를 비교한다. 원본 v0.8 회귀값을 함께 검증한다.
+```powershell
+dotnet run --project Tools/SettlementSim
+```
+- 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
 
 ## 규칙
 

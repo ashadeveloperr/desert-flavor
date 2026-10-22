@@ -115,3 +115,7 @@ Thumbs.db
 
 # Local output from deterministic balance simulator
 /Tools/balance_output/
+
+# SettlementSim (.NET) build output
+/Tools/SettlementSim/bin/
+/Tools/SettlementSim/obj/

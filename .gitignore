@@ -119,3 +119,4 @@ Thumbs.db
 # SettlementSim (.NET) build output
 /Tools/SettlementSim/bin/
 /Tools/SettlementSim/obj/
+!/Tools/SettlementSim/SettlementSim.csproj

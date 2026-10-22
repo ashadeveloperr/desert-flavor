@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unity 밖에서 게임 로직을 시뮬레이션하는 콘솔 도구. Core의 Hex/Canal/Water 소스를 그대로 링크해 쓴다. -->
+  <!-- 실행: dotnet run (프로젝트 경로 Tools/SettlementSim) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Assets/Scripts/Core/Hex/*.cs" Link="Core/Hex/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Canal/*.cs" Link="Core/Canal/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Water/*.cs" Link="Core/Water/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Config/EconomyConfig.cs" Link="Core/Config/EconomyConfig.cs" />
+  </ItemGroup>
+</Project>

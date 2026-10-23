@@ -209,6 +209,13 @@ namespace DesertSettlement.Core.Economy
         public CommandResult CanBuildCanal(EdgeId edge)
         {
             if (!Topology.Contains(edge)) return CommandResult.Fail("맵 밖의 변입니다.");
+            // 확정(2026-10-23): 양쪽 타일이 모두 장애물인 변에는 수로 불가. 장애물 지형(산맥·고원) 안으로는 물이 지나가지 못한다.
+            // 맵 경계 변은 맵 안쪽 타일이 하나뿐이라 이 규칙에 걸리지 않는다.
+            IReadOnlyList<HexCoord> sides = Topology.TilesOf(edge);
+            if (sides.Count == 2 && sides.All(t => Map.GetTile(t).Terrain == TerrainType.Obstacle))
+            {
+                return CommandResult.Fail("양쪽이 모두 장애물인 변에는 수로를 놓을 수 없습니다.");
+            }
             if (FacilityOn(edge, BuildingKinds.CanalEdge) != null || PendingBuildOn(edge, BuildingKinds.CanalEdge))
             {
                 return CommandResult.Fail("이미 수로가 있거나 예약된 변입니다.");

@@ -181,6 +181,25 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void Canal_IsBlockedOnlyBetweenTwoObstacles()
+        {
+            Settlement s = NewSettlement();
+            var a = new HexCoord(-2, 1);
+            HexCoord b = a.Neighbor(HexDirection.East);
+            s.Map.GetTile(a).Terrain = TerrainType.Obstacle;
+            s.Map.GetTile(b).Terrain = TerrainType.Obstacle;
+
+            CommandResult between = s.RequestCanal(EdgeId.Of(a, HexDirection.East));
+            Assert.IsFalse(between.Success, "양쪽 모두 장애물");
+            StringAssert.Contains("장애물", between.Message);
+            Assert.IsTrue(s.RequestCanal(EdgeId.Of(a, HexDirection.West)).Success, "한쪽만 장애물이면 가능");
+
+            var edgeTile = new HexCoord(-3, 0);
+            s.Map.GetTile(edgeTile).Terrain = TerrainType.Obstacle;
+            Assert.IsTrue(s.RequestCanal(EdgeId.Of(edgeTile, HexDirection.West)).Success, "맵 경계 변은 바깥이 장애물이 아니므로 가능");
+        }
+
+        [Test]
         public void Upgrade_IsCappedAtMvpLevel2()
         {
             Script sc = new Script().Run(30);

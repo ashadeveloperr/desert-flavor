@@ -60,7 +60,7 @@ namespace DesertSettlement.PlayMode.Tests
 
             Assert.IsTrue(session.IsReady);
             Assert.AreEqual(12, (int)session.Clock.HourOfDay);
-            Assert.IsTrue(session.Clock.IsPaused, "첫 정착지도 일시정지로 시작(C2)");
+            Assert.IsTrue(session.Clock.IsPaused, "첫 정착지도 일시정지로 시작(CK2)");
             Assert.AreEqual("map_01_oasis_basin", session.Campaign.CurrentMap.Id);
             Transform tiles = session.transform.Find("Tiles");
             Assert.IsNotNull(tiles);
@@ -77,7 +77,7 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.IsEmpty(session.RequestSampleLayout(), "샘플 배치가 모두 예약돼야 한다");
             session.Clock.AdvanceGameHours(60);
             Assert.AreEqual(60, s.CurrentHour);
-            Assert.AreEqual(22, s.AuctionHallCompletedHour, "건설 시간 ×0.5(2026-10-23 W2, 원본 37h)");
+            Assert.AreEqual(22, s.AuctionHallCompletedHour, "건설 시간 ×0.5(2026-10-23 FL2, 원본 37h)");
             Assert.AreEqual(8, s.Facilities.Count(f => f.IsOperating), "우물·농장·채석장·광산·경매장 + 수로 3");
 
             yield return null;
@@ -140,8 +140,8 @@ namespace DesertSettlement.PlayMode.Tests
                     Assert.AreEqual(1.1, session.Settlement.Rules.WellSupplyMultiplier, 1e-9);
                     Assert.AreEqual(session.Map.TileCount, session.transform.Find("Tiles").childCount, "새 맵으로 다시 그림");
                     Assert.AreEqual(0, session.transform.Find("Facilities").childCount, "이전 정착지 시설 표시 제거");
-                    Assert.IsTrue(session.Clock.IsPaused, "새 정착지는 일시정지로 시작(C2)");
-                    Assert.AreEqual(0, session.Clock.SpeedIndex, "새 정착지는 1배속(C2)");
+                    Assert.IsTrue(session.Clock.IsPaused, "새 정착지는 일시정지로 시작(CK2)");
+                    Assert.AreEqual(0, session.Clock.SpeedIndex, "새 정착지는 1배속(CK2)");
                     Assert.AreEqual(12, (int)session.Clock.HourOfDay, "새 정착지도 정오에 시작");
                 }
             }

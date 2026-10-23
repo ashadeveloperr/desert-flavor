@@ -30,6 +30,14 @@ namespace DesertSettlement.Runtime
         [SerializeField] private float zoomStep = 1.2f;
         [SerializeField] private float zoomSmoothing = 10f;
 
+        [Header("시작 구도(2026-10-23 검토 UX5)")]
+        [Tooltip("새 정착지마다 맵 전체가 보이게 거리·위치·회전을 맞춘다")]
+        [SerializeField] private bool frameMapOnStart = true;
+        [Tooltip("맵 반지름(칸) + 1 당 카메라 거리(타일 크기 배). 클수록 멀리서 시작")]
+        [SerializeField] private float framingDistancePerRing = 4.0f;
+        [Tooltip("시선 중심을 화면 아래(남쪽)로 옮기는 칸 수. 아래 도구 막대에 맵 아래쪽이 가리지 않게")]
+        [SerializeField] private float framingShiftTiles = 1.0f;
+
         [Header("회전")]
         [SerializeField] private float rotateStep = 60f;
         [SerializeField] private float rotateSmoothing = 10f;
@@ -39,6 +47,7 @@ namespace DesertSettlement.Runtime
         private float _currentDistance = -1f;
         private Vector3 _velocity;
         private CinemachineFollow _follow;
+        private object _framedSettlement;
 
         /// <summary>코드로 리그를 만들 때 연결한다.</summary>
         public void Bind(GameSession gameSession, CinemachineCamera cam)
@@ -64,6 +73,7 @@ namespace DesertSettlement.Runtime
                 }
             }
             if (_currentDistance < 0f) _currentDistance = distance;
+            if (frameMapOnStart && session != null && session.IsReady && !ReferenceEquals(_framedSettlement, session.Settlement)) FrameMap();
 
             Keyboard kb = Keyboard.current;
             Mouse mouse = Mouse.current;
@@ -113,6 +123,19 @@ namespace DesertSettlement.Runtime
                 float rad = pitch * Mathf.Deg2Rad;
                 _follow.FollowOffset = yawRotation * new Vector3(0f, Mathf.Sin(rad) * _currentDistance, -Mathf.Cos(rad) * _currentDistance);
             }
+        }
+
+        /// <summary>새 정착지: 맵 크기에 맞춰 거리를 정하고 가운데(조금 남쪽)를 보게 한다. 회전은 처음 방향으로.</summary>
+        private void FrameMap()
+        {
+            _framedSettlement = session.Settlement;
+            float framed = session.TileSize * (session.MapRadius + 1) * framingDistancePerRing;
+            maxDistance = Mathf.Max(maxDistance, framed * 1.3f); // 큰 맵(반경 7)도 한눈에 보이게
+            distance = Mathf.Clamp(framed, minDistance, maxDistance);
+            _currentDistance = distance;
+            _yaw = _targetYaw = 0f;
+            _velocity = Vector3.zero;
+            transform.position = session.transform.position - Vector3.forward * session.TileSize * framingShiftTiles;
         }
 
         private Vector3 ClampToMap(Vector3 position)

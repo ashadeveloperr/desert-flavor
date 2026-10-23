@@ -23,7 +23,8 @@ namespace DesertSettlement.Runtime.UI
             public static readonly Color ButtonColor = new Color(0.28f, 0.25f, 0.21f, 1f);
             public static readonly Color ButtonOn = new Color(0.62f, 0.47f, 0.24f, 1f);
             public static readonly Color Water = new Color(0.42f, 0.78f, 0.92f);
-            public const int Big = 20, Title = 16, Body = 14, Small = 12;
+            // 글자 크기(px, 1920×1080 기준). 2026-10-23 검토 UX1: 12px이 작아 Small 12 → 14, Body 14 → 15, Title 16 → 17.
+            public const int Big = 20, Title = 17, Body = 15, Small = 14;
         }
 
         private static Font _font;

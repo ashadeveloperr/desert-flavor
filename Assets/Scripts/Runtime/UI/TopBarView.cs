@@ -75,7 +75,7 @@ namespace DesertSettlement.Runtime.UI
             _messageUntil = Time.unscaledTime + 4f;
         }
 
-        /// <summary>새 정착지: 일시정지로 시작한다는 안내(2026-10-23 플레이 피드백 C2).</summary>
+        /// <summary>새 정착지: 일시정지로 시작한다는 안내(2026-10-23 플레이 피드백 CK2).</summary>
         public void Reset()
         {
             _shownMinute = -1;
@@ -84,7 +84,7 @@ namespace DesertSettlement.Runtime.UI
         }
 
         /// <summary>
-        /// 시계 글자는 매 프레임 확인하고 게임 시간 1분이 바뀔 때마다 다시 쓴다(C1). 0.2초 갱신에 묶으면 1배속에서도 1~2분씩 건너뛴다.
+        /// 시계 글자는 매 프레임 확인하고 게임 시간 1분이 바뀔 때마다 다시 쓴다(CK1). 0.2초 갱신에 묶으면 1배속에서도 1~2분씩 건너뛴다.
         /// 4배속(1초 = 게임 32분)은 화면 프레임보다 빨라 몇 분씩 넘어갈 수 있다.
         /// </summary>
         public void TickClock()
@@ -117,7 +117,9 @@ namespace DesertSettlement.Runtime.UI
             _delta.text = last == null ? "" :
                 $"지난 1시간  식량 +{last.FoodProduced:0.0} −{last.FoodDemand:0.0}   석재 +{last.StoneProduced:0.0}   광물 +{last.OreProduced:0.0}   유지비 −{last.Upkeep:0.0}";
 
-            _place.text = $"정착지 {c.SettlementNumber} · {c.CurrentMap.Name}";
+            // 생성 맵 이름에는 시드가 들어 있어(맵 스케치 미리보기용) 화면에는 난이도만 보인다(UX4).
+            string place = c.CurrentGenerated != null ? $"생성 지역 · 난이도 {c.CurrentGenerated.Params.D:0.00}" : c.CurrentMap.Name;
+            _place.text = $"정착지 {c.SettlementNumber} · {place}";
             string traits = string.Join("   ", c.CurrentModifiers.Select(m =>
                 Paint((m.Kind == RegionModifierKind.Weakness ? "약점 " : "강점 ") + m.Name, m.Kind == RegionModifierKind.Weakness ? Theme.Warn : Theme.Good)));
             string gear = c.Loadout.Count == 0 ? "장비 없음" : "장비 " + string.Join(", ", c.Shop.Where(e => c.IsEquipped(e.Id)).Select(e => e.Name));

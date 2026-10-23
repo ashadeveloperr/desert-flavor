@@ -4,7 +4,7 @@ namespace DesertSettlement.Core.Timing
 {
     /// <summary>
     /// 시간 시스템에서 사람이 조정할 값. Unity 인스펙터에서 바로 편집된다(GameSession 컴포넌트).
-    /// 하루 길이(1배속 180초, 2026-10-23 W1)는 여기 없고 설정 JSON의 confirmedRules에서 읽는다.
+    /// 하루 길이(1배속 180초, 2026-10-23 FL1)는 여기 없고 설정 JSON의 confirmedRules에서 읽는다.
     /// </summary>
     [Serializable]
     public sealed class GameTimeSettings

@@ -14,16 +14,18 @@ namespace DesertSettlement.Runtime.UI
     public sealed class ModalContent
     {
         private readonly GameUi _ui;
-        private readonly Transform _root;
+        private readonly Transform _root, _footer;
         private readonly Action _changed;
 
         /// <summary>상점에서 마지막으로 한 일(구매·강화 결과).</summary>
         public string Message { get; private set; }
 
-        public ModalContent(GameUi ui, Transform root, Action changed)
+        /// <param name="footer">창 아래 고정 줄(스크롤 밖). 상점의 출발 버튼을 둔다.</param>
+        public ModalContent(GameUi ui, Transform root, Transform footer, Action changed)
         {
             _ui = ui;
             _root = root;
+            _footer = footer;
             _changed = changed;
         }
 
@@ -101,7 +103,16 @@ namespace DesertSettlement.Runtime.UI
 
             Label(_root, $"다음 지역 (정착지 {c.SettlementNumber + 1}) — 지형은 들어가면 보입니다", Theme.Title, Theme.Accent);
             var offers = c.NextOffers();
-            foreach (RegionOffer offer in offers) OfferCard(offer, offers.Count);
+            foreach (RegionOffer offer in offers) OfferCard(offer);
+            // 출발 버튼은 아래 고정 줄에(UX3): 장비 목록이 길어도 스크롤 없이 보인다.
+            foreach (RegionOffer offer in offers)
+            {
+                int index = offer.Index;
+                string label = offers.Count > 1
+                    ? (offer.IsFixedMap ? $"후보 {index + 1}로 출발" : $"후보 {index + 1}로 출발 (난이도 {offer.Params.D:0.00})")
+                    : "다음 정착지로 출발";
+                Btn(_footer, label, () => { Message = null; _ui.Session.GoToNextSettlement(index); _changed(); }, -1, 38);
+            }
         }
 
         private void EquipmentRow(Campaign c, EquipmentDefinition e)
@@ -131,7 +142,7 @@ namespace DesertSettlement.Runtime.UI
             _changed();
         }
 
-        private void OfferCard(RegionOffer offer, int count)
+        private void OfferCard(RegionOffer offer)
         {
             Transform card = Card(_root);
             if (offer.IsFixedMap)
@@ -150,8 +161,6 @@ namespace DesertSettlement.Runtime.UI
                     Label(card, $"{Paint(weak ? "약점" : "강점", weak ? Theme.Warn : Theme.Good)} {m.Name}: {m.Effects.Describe()}", Theme.Small);
                 }
             }
-            int index = offer.Index;
-            Btn(card, count > 1 ? $"후보 {offer.Index + 1}로 출발" : "다음 정착지로", () => { Message = null; _ui.Session.GoToNextSettlement(index); _changed(); }, -1, 34);
         }
 
         // ───────────── 파산 ─────────────

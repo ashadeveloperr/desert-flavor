@@ -84,7 +84,7 @@ namespace DesertSettlement.Runtime.UI
             if (show)
             {
                 _tooltip.Follow(); // 툴팁은 매 프레임 커서를 따라간다
-                _topBar?.TickClock(); // 시계는 1분 단위로 보이게 매 프레임 확인(C1)
+                _topBar?.TickClock(); // 시계는 1분 단위로 보이게 매 프레임 확인(CK1)
             }
             if (!show || Time.unscaledTime < _nextRefresh) return;
             _nextRefresh = Time.unscaledTime + refreshSeconds;

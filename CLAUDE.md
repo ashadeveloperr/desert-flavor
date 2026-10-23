@@ -23,7 +23,7 @@
 
 ```
 Assets/
-  Scenes/SampleScene.unity        # 기본 빈 씬 (빌드 설정에 등록된 유일한 씬)
+  Scenes/SampleScene.unity        # 플레이 씬: 디버그 세션(GameSession·카메라·조명)이 들어 있다 (빌드 설정에 등록된 유일한 씬)
   Settings/                       # URP 에셋·렌더러·볼륨 프로파일
   InputSystem_Actions.inputactions
   Data/Config/economy_balance_v0.8_config.json   # 경제 수치 원본 (TextAsset)
@@ -62,7 +62,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +72h 첫 경매·이후 72h(설정 `auctionRepeatsGameHours`), 완공·보류 직후 입찰자 예고,
   자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
 - 배치 모드 CLI는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`, Unity는 한 프로젝트를 한 프로세스만 연다). 테스트는 **`bash Tools/unity-tests.sh [EditMode|PlayMode|All]`**로 돌린다: 테스트 전용 사본(`.unity-testcopy/`, git 무시)에 작업 트리를 미러 복사하고 그 사본에서 배치 모드로 실행한다. **사용자가 연 에디터에는 손대지 않는다**(열린 에디터에 테스트를 시키는 방식은 작업을 방해해서 2026-10-23 폐기). 에디터를 닫아 달라고 하지 않는다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
-- **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비(우물 ×1.2) 유지, 다음 맵은 `ChooseNextMap`.
+- **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비 유지(설정 JSON `equipment`, 예: 우물 성능 향상 ×1.1), 다음 맵은 `ChooseNextMap`.
   절차 맵 설정이 있으면 처음 `fixedMapsBeforeGenerated`(1)개 뒤로는 들어가는 순간의 자금으로 D를 정해 생성(`PreviewNextDifficulty`로 상점에 표시).
   상점에서 다음 지역 후보 2곳(`NextOffers`, 약점·강점 `RegionModifiers`) 중 고르고, 현장 장비 슬롯 5개(`Loadout`·`SetEquipped`)에 넣은 장비만 효과.
   장비·모디파이어 효과는 같은 `EconomyEffects` 형식이고 `SettlementRules.ApplyEffects`로 걸린다.
@@ -134,7 +134,7 @@ dotnet run --project Tools/SettlementSim
 - 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
 - 절차 맵: 생성기는 Core 파일을 링크하고 수치는 `procedural_map_config.json`을 읽는다. `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
   난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
-  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign`(`ModifierTuning.cs`). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
+  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign [dPerSettlement] [cashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k]`(`ModifierTuning.cs`, 난이도 기준은 `smart` 숙련 봇). 그 밖에 `-- upgrades`(장비 강화), `-- bidders`(입찰자), `-- savecheck`(저장 재실행), `-- botdiag`(봇 진단), `-- funcheck`(보류·초반 긴장·입찰자 차이). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
   난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
 
 ## 작업 방식 (사용자 선호, 2026-10-23 정리)

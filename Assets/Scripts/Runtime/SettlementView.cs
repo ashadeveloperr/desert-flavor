@@ -47,13 +47,14 @@ namespace DesertSettlement.Runtime
         [SerializeField] private float closedDarken = 0.45f;
 
         [Header("수로")]
-        [SerializeField] private Color canalDry = new Color(0.55f, 0.5f, 0.42f);
+        [Tooltip("물이 없는 수로 색. 2026-10-23 검토 UX6: 사막과 구분되게 더 어둡게(예전 필드 canalDry를 대신함)")]
+        [SerializeField] private Color canalDryColor = new Color(0.38f, 0.31f, 0.23f);
         [SerializeField] private Color canalFull = new Color(0.1f, 0.35f, 0.95f);
         [Tooltip("닫힌 수로 색(2026-10-23 수문 폐지 뒤 수로 폐쇄가 물길 차단)")]
         [SerializeField] private Color canalClosed = new Color(0.9f, 0.15f, 0.15f);
         [SerializeField] private Color planned = new Color(1f, 1f, 1f);
-        [Tooltip("타일 크기 대비 수로 폭(L1). 레벨마다 50%씩 넓어진다")]
-        [SerializeField] private float canalWidth = 0.08f;
+        [Tooltip("타일 크기 대비 수로 폭(L1). 레벨마다 50%씩 넓어진다. 2026-10-23 검토 UX6: 0.08 → 0.14(예전 필드 canalWidth를 대신함)")]
+        [SerializeField] private float canalThickness = 0.14f;
         [Tooltip("물이 흐르는 수로의 반짝임 세기(0이면 끔)")]
         [Range(0f, 0.5f)]
         [SerializeField] private float canalShimmer = 0.18f;
@@ -227,7 +228,7 @@ namespace DesertSettlement.Runtime
             switch (f.Kind)
             {
                 case BuildingKinds.CanalEdge:
-                    return CanalBar(f.Edge.Value, _facilitiesRoot, canalDry, 0.04f, 1f);
+                    return CanalBar(f.Edge.Value, _facilitiesRoot, canalDryColor, 0.06f, 1f);
                 default:
                     return FacilityModels.Build(f.Kind, _facilitiesRoot, KindColor(f.Kind)).gameObject;
             }
@@ -241,7 +242,7 @@ namespace DesertSettlement.Runtime
             GameObject bar = WorldVisuals.Primitive(PrimitiveType.Cube, "Canal " + edge, parent, color);
             bar.transform.position = (a + b) * 0.5f + Vector3.up * height * 0.5f;
             bar.transform.rotation = Quaternion.LookRotation(b - a, Vector3.up);
-            bar.transform.localScale = new Vector3(Size * canalWidth, height, Vector3.Distance(a, b) * lengthRatio);
+            bar.transform.localScale = new Vector3(Size * canalThickness, height, Vector3.Distance(a, b) * lengthRatio);
             return bar;
         }
 
@@ -251,12 +252,12 @@ namespace DesertSettlement.Runtime
 
             if (f.Kind == BuildingKinds.CanalEdge)
             {
-                Color c = canalDry;
+                Color c = canalDryColor;
                 if (f.State == FacilityState.Operating && s.LastWater != null &&
                     s.LastWater.EdgeLoads.TryGetValue(f.Edge.Value, out double load) && load > 1e-6)
                 {
                     float fill = Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f))));
-                    c = Color.Lerp(canalDry, canalFull, fill);
+                    c = Color.Lerp(canalDryColor, canalFull, fill);
                     // 반짝임 띠가 맵을 가로질러 흘러간다(흐름 방향이 아니라 '물이 있다'는 표시, M4).
                     Vector3 p = go.transform.position / Mathf.Max(0.01f, Size);
                     float wave = 0.5f + 0.5f * Mathf.Sin(Time.time * 3f - (p.x + p.z) * 1.7f);
@@ -265,7 +266,7 @@ namespace DesertSettlement.Runtime
                 c = f.State == FacilityState.Closed ? canalClosed : Tint(c, f.State, progress);
                 WorldVisuals.SetColor(go, c);
                 Vector3 scale = go.transform.localScale;
-                scale.x = Size * canalWidth * (1f + 0.5f * (f.Level - 1));
+                scale.x = Size * canalThickness * (1f + 0.5f * (f.Level - 1));
                 go.transform.localScale = scale;
                 return;
             }

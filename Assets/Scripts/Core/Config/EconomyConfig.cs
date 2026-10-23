@@ -54,7 +54,7 @@ namespace DesertSettlement.Core.Config
         public double PostStartCancelStoneRefundRatio { get; set; }
         public double GameDayRealSecondsAt1x { get; set; }
         /// <summary>
-        /// 건설·개량·철거 시간 배율(2026-10-23 흐름 조정, Docs/decision_log_auto.md W1~W3). 레벨표의 시간 × 이 값(반올림, 최소 1).
+        /// 건설·개량·철거 시간 배율(2026-10-23 흐름 조정, Docs/decision_log_auto.md FL1~FL3). 레벨표의 시간 × 이 값(반올림, 최소 1).
         /// 1이면 원본 v0.8. 하루 길이(GameDayRealSecondsAt1x)를 늘리면서 같이 줄여 '여유 있게 많이 짓는' 흐름을 만든다.
         /// </summary>
         public double ConstructionHoursMultiplier { get; set; } = 1;

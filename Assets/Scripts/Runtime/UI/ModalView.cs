@@ -16,8 +16,11 @@ namespace DesertSettlement.Runtime.UI
     {
         private readonly GameUi _ui;
         private readonly RectTransform _shade;
-        private readonly Transform _content;
+        private readonly RectTransform _window, _viewport, _content, _footer;
+        private readonly ScrollRect _scroll;
         private readonly ModalContent _draw;
+        /// <summary>창 폭과 최대 높이(1920×1080 기준). 내용이 짧으면 창도 줄어든다(UX2).</summary>
+        private const float WindowWidth = 820, MaxHeight = 840, MinHeight = 200, FooterHeight = 52;
         private string _key;
 
         public ModalView(GameUi ui, Transform canvas)
@@ -26,9 +29,17 @@ namespace DesertSettlement.Runtime.UI
             _shade = Panel("Modal Shade", canvas, new Color(0, 0, 0, 0.45f));
             Stretch(_shade, Vector2.zero);
 
-            RectTransform window = Panel("Modal Window", _shade, Theme.Panel).Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760, 760));
+            RectTransform window = Panel("Modal Window", _shade, Theme.Panel).Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(WindowWidth, MaxHeight));
+            _window = window;
             RectTransform viewport = Rect("Viewport", window);
             Stretch(viewport, new Vector2(12, 12));
+            _viewport = viewport;
+
+            // 아래 고정 줄(UX3): 상점의 '출발' 버튼처럼 스크롤과 상관없이 늘 보여야 하는 버튼.
+            HorizontalLayoutGroup footer = Row(window, 8);
+            _footer = (RectTransform)footer.transform;
+            _footer.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, 10), new Vector2(-24, FooterHeight - 14));
+            footer.childForceExpandWidth = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             viewport.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, 0.001f); // 스크롤 휠을 받기 위한 투명 면
 
@@ -39,11 +50,12 @@ namespace DesertSettlement.Runtime.UI
             _content = content;
 
             var scroll = window.gameObject.AddComponent<ScrollRect>();
+            _scroll = scroll;
             scroll.viewport = viewport;
             scroll.content = content;
             scroll.horizontal = false;
             scroll.scrollSensitivity = 30;
-            _draw = new ModalContent(ui, _content, () => { _key = null; _ui.RefreshNow(); });
+            _draw = new ModalContent(ui, _content, _footer, () => { _key = null; _ui.RefreshNow(); });
         }
 
         public void Reset()
@@ -65,9 +77,24 @@ namespace DesertSettlement.Runtime.UI
             if (key == _key) return;
             _key = key;
             Clear(_content);
+            Clear(_footer);
             if (c.State == CampaignState.Bankrupt) _draw.Bankrupt(c);
             else if (c.State == CampaignState.Shopping) _draw.Shop(c);
             else _draw.Auction(a.CurrentAuction);
+            FitWindow();
+        }
+
+        /// <summary>창 높이를 내용에 맞추고(최대 MaxHeight, 넘치면 스크롤), 아래 고정 줄이 있으면 그만큼 비워 둔다.</summary>
+        private void FitWindow()
+        {
+            bool footer = _footer.childCount > 0;
+            _footer.gameObject.SetActive(footer);
+            float bottom = footer ? FooterHeight + 8 : 12;
+            _viewport.offsetMin = new Vector2(12, bottom);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
+            float height = Mathf.Clamp(LayoutUtility.GetPreferredHeight(_content) + 12 + bottom, MinHeight, MaxHeight);
+            _window.sizeDelta = new Vector2(WindowWidth, height);
+            _scroll.verticalNormalizedPosition = 1f;
         }
     }
 }

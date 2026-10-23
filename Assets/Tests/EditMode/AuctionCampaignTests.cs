@@ -33,7 +33,7 @@ namespace DesertSettlement.Core.Tests
         private static (Settlement s, AuctionManager a) NewRun(Action<SettlementRules> tweak = null, int seed = 1)
         {
             SettlementRules rules = SettlementRules.FromConfig(_config);
-            rules.ConstructionHoursMultiplier = 1; // 경매 일정 시각은 원본 건설 시간 기준으로 고정(게임 값 0.5는 2026-10-23 W2)
+            rules.ConstructionHoursMultiplier = 1; // 경매 일정 시각은 원본 건설 시간 기준으로 고정(게임 값 0.5는 2026-10-23 FL2)
             tweak?.Invoke(rules);
             var s = new Settlement(_maps[0].CreateMap(), rules);
             var a = new AuctionManager(s, seed);
@@ -51,7 +51,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Config_HasAuctionBiddersAndEquipment()
         {
-            // 2026-10-23 로드맵 1-⑥: 기획서 8.4의 6종(Docs/decision_log_auto.md B1~B6).
+            // 2026-10-23 로드맵 1-⑥: 기획서 8.4의 6종(Docs/decision_log_auto.md BD1~BD6).
             CollectionAssert.AreEquivalent(new[] { "industrialist", "farmer", "distributor", "builder", "waterBroker", "developer" },
                 _config.Auction.Bidders.Select(b => b.Id));
             Assert.AreEqual(0.2, _config.Auction.EmergencyPenalty, 1e-9);

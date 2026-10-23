@@ -147,7 +147,7 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>
         /// 개발 가능한 빈 땅 비율 = 시설·예약이 없는 사막 타일 / 사막 타일 전체(0~1). 부동산 개발업자·건설업자가 본다
-        /// (기획서 8.4 '개발 가능 부지', Docs/decision_log_auto.md B3).
+        /// (기획서 8.4 '개발 가능 부지', Docs/decision_log_auto.md BD3).
         /// </summary>
         public static double OpenLandShare(Settlement s)
         {

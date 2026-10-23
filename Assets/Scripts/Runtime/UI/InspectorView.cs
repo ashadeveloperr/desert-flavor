@@ -71,7 +71,7 @@ namespace DesertSettlement.Runtime.UI
             if (f == null) return;
 
             _title.text = $"{FacilityInfo.KindName(f.Kind)} L{f.Level}  {Paint("#" + f.Id, Theme.Muted)}  {StateChip(f.State)}";
-            List<string> lines = FacilityInfo.Describe(s, f, _ui.View.JobProgress(s, f)).ToList();
+            List<string> lines = FacilityInfo.Describe(s, f, _ui.View.JobProgress(s, f)).Skip(1).ToList(); // 첫 줄(이름)은 제목과 겹친다
             lines.Add(Paint($"투입 석재 {f.StoneInvested:0} (철거 시 {f.StoneInvested * s.Rules.DemolishRefundRatio:0} 환급)", Theme.Muted));
             string key = string.Join("\n", lines);
             if (key != _key)

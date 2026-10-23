@@ -28,7 +28,7 @@ namespace SettlementSim
         /// </summary>
         // disasters: false면 재해 없이(설정 disasters를 비움). vaccine: 봇이 방역 장비를 가장 먼저 사서 늘 장착(5-1 재측정, 2026-10-23).
         private static int ModifierCampaign(EconomyConfig config, ProceduralMapConfig proc, int settlements = 15, bool disasters = true, bool vaccine = false,
-            bool upgrade = false)
+            bool upgrade = false, bool smart = false)
         {
             if (!disasters) config.Disasters = null;
             Header($"모디파이어 캠페인 — Core Campaign + 다중 봇(장비 구매·후보 선택·슬롯), 정착지 최대 {settlements}개, DPerSettlement {proc.Difficulty.DPerSettlement}, CashPerD {proc.Difficulty.CashPerD}"
@@ -37,6 +37,12 @@ namespace SettlementSim
             var maps = LoadMaps();
             string[] buyOrder = { "wellPump", "miningGear", "windbreak", "reinforcedMaterials", "oxygenSupply", "irrigation", "extraCrew", "bigStorage" };
             string[] generalOrder = { "wellPump", "miningGear", "windbreak", "reinforcedMaterials", "extraCrew", "bigStorage", "oxygenSupply", "irrigation" };
+            if (smart)
+            {
+                upgrade = true; // 숙련 봇(O5~O8)은 장비도 강화하고, 재해 장비도 산다
+                buyOrder = buyOrder.Concat(new[] { "vaccination", "insectNet" }).ToArray();
+                generalOrder = new[] { "wellPump", "miningGear", "windbreak", "vaccination", "insectNet", "reinforcedMaterials", "extraCrew", "bigStorage", "oxygenSupply", "irrigation" };
+            }
             if (vaccine)
             {
                 buyOrder = new[] { "vaccination" }.Concat(buyOrder).ToArray();
@@ -57,7 +63,7 @@ namespace SettlementSim
                     if (c.CurrentGenerated != null && c.CurrentGenerated.Params.D >= 1 && !reachD1.Contains(-campaignSeed)) { reachD1.Add(n); reachD1.Add(-campaignSeed); }
                     string label = c.CurrentGenerated == null ? "고정" : $"D{c.CurrentGenerated.Params.D:0.0}";
                     string mods = string.Concat(c.CurrentModifiers.Select(m => m.Kind == RegionModifierKind.Weakness ? m.Name.Substring(0, 1) : "+" + m.Name.Substring(0, 1)));
-                    if (!ReferenceBot.PlayCampaignSettlement(c))
+                    if (!(smart ? SkilledBot.PlayCampaignSettlement(c) : ReferenceBot.PlayCampaignSettlement(c)))
                     {
                         line.Append($"| #{n} {label}{(mods.Length > 0 ? "[" + mods + "]" : "")} 실패({(c.State == CampaignState.Bankrupt ? "파산" : "진행 불가")}) ");
                         firstDeficit = firstDeficit ?? $"#{n} {label} {(c.State == CampaignState.Bankrupt ? "파산" : "진행 불가(봇 계획 실패)")}";
@@ -101,6 +107,7 @@ namespace SettlementSim
             Line("  D 구간별 정착지 순이익 평균(정착지 수): " + string.Join(" · ", profitsByBand.Select(kv =>
                 $"D{kv.Key}~{kv.Key + 1} {kv.Value.Average():+0;-0}({kv.Value.Count}, 적자 {kv.Value.Count(x => x < 0)})")));
             Line($"  재해를 겪은 정착지(종류 무관): {epidemicSettlements}/{playedSettlements}");
+            if (smart) Line($"  숙련 봇 행동: 보류 {SkilledBot.Holds}번 · 광산 개량 {SkilledBot.MineUpgrades}번 · 병원 {SkilledBot.Hospitals}곳 (정착지 {playedSettlements}곳)");
             Line("  표기: [약점 첫 글자, +강점 첫 글자] 무=무른 지반 산=고지대 마=마른 대수층 모=모래바람 염=염분 외=외딴 / +풍=풍부한 광맥 +비=오아시스 +단=단단한 암반 / ☣ = 경매 전 재해(종류 무관)");
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output");
             File.WriteAllText(Path.Combine(outDir, "modifier_campaign.txt"), Report.ToString(), new UTF8Encoding(false));
@@ -117,12 +124,12 @@ namespace SettlementSim
                 // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] : 곡선 후보를 바꿔 가며 비교.
                 // nodisaster = 재해 끔, vaccine = 봇이 방역 장비 우선 구매·장착. 위치와 상관없이 쓸 수 있다.
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
-                bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade");
-                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade").ToArray();
+                bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade"), smart = args.Contains("smart");
+                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart").ToArray();
                 if (args.Length > 1) proc.Difficulty.DPerSettlement = double.Parse(args[1], inv);
                 if (args.Length > 2) proc.Difficulty.CashPerD = double.Parse(args[2], inv);
                 int count = args.Length > 3 ? int.Parse(args[3], inv) : 15;
-                return ModifierCampaign(config, proc, count, !noDisaster, vaccine, upgrade);
+                return ModifierCampaign(config, proc, count, !noDisaster, vaccine, upgrade, smart);
             }
             double d = args.Length > 0 ? double.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture) : 1.0;
 

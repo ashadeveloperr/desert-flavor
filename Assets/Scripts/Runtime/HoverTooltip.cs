@@ -35,6 +35,7 @@ namespace DesertSettlement.Runtime
 
         private void OnGUI()
         {
+            if (!HudMode.Legacy) return; // 새 화면에서는 TooltipView가 대신한다(UI8)
             if (!_session.IsReady || Mouse.current == null) return;
             if (!_input.HoverTile.HasValue && _input.HoveredFacility == null)
             {

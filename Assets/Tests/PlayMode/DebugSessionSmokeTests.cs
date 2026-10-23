@@ -143,6 +143,7 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.IsNotNull(ui.Find("Top Bar"));
             Assert.IsNotNull(ui.Find("Build Bar"));
             Assert.IsFalse(ui.Find("Modal Shade").gameObject.activeSelf, "경매 전에는 가운데 창 없음");
+            Assert.IsNotNull(ui.Find("Tooltip"), "새 툴팁(UI8)");
 
             session.RequestSampleLayout();
             FastForwardToAuction(session);

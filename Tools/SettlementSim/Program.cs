@@ -13,15 +13,17 @@ namespace SettlementSim
     /// 물 배분 규칙 후보(W1~W6)와 경제 틱 규칙(C1·C2)을 비교하는 시나리오 실행기.
     /// 결과는 콘솔과 Tools/balance_output/settlement_sim_report.txt 에 남는다.
     /// </summary>
-    public static class Program
+    public static partial class Program
     {
         private static readonly StringBuilder Report = new StringBuilder();
         private static int _failures;
 
-        public static int Main()
+        public static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            // dotnet run --project Tools/SettlementSim -- tune : 난이도 곡선 후보만 비교(DifficultyTuning.cs).
+            if (args.Length > 0 && args[0] == "tune") return DifficultyTuning(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();
@@ -34,6 +36,8 @@ namespace SettlementSim
             CoreEconomyCrossCheck();
             LateInvestmentWithDevelopmentAssets();
             TwoSettlementCampaign();
+            ProceduralMapsReport();
+            ProceduralCampaign();
             TickOrderAndQueue();
 
             Line();
@@ -527,6 +531,141 @@ namespace SettlementSim
                 }
             }
             Check(campaign.Sales.Count == 2, $"두 정착지 연속 매각 완료 (최종 자금 {campaign.Cash:0.0})");
+        }
+
+        /// <summary>절차 맵: 난이도별로 맵을 여러 장 만들어 규칙 준수와 기준 봇 결과를 표로 낸다.</summary>
+        private static void ProceduralMapsReport()
+        {
+            Header("절차 맵 생성 (BSP) — 난이도별 40장, 기준 봇(시작 자금 2000 고정)으로 첫 경매까지");
+            var config = LoadConfig();
+            var rules = new GeneratorRules();
+            string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output", "generated_maps");
+            Directory.CreateDirectory(outDir);
+            foreach (string old in Directory.GetFiles(outDir, "*.json")) File.Delete(old);
+
+            Line("  D    | 생성 성공 | 평균 시도 | 산맥/고원 | 독립 장애물 | 광맥 장애물옆 | 암반 장애물속 | 우물–광맥 거리 | 수로 경로 | 봇 경매 성공 | 파산 | 경매 시각 | 기준 V | 매각 후 순이익 ‖ 다중 봇: 우물/광산 | 경매 성공 | 파산 | 경매 시각 | 기준 V | 매각 후 순이익");
+            int violations = 0;
+            foreach (double d in new[] { 0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0 })
+            {
+                DifficultyParams p = DifficultyParams.For(d);
+                var maps = new List<GeneratedMap>();
+                for (int i = 0; i < 40; i++)
+                {
+                    GeneratedMap g = ProceduralMapGenerator.Generate(p, rules, 10000 + (int)(d * 1000) + i);
+                    if (g != null) maps.Add(g);
+                }
+                violations += maps.Sum(CountRuleViolations);
+
+                var bots = maps.Select(g => ReferenceBot.Run(config, g.Map, r => r.StartingCash = 2000, seed: g.Seed)).ToList();
+                var multi = maps.Select(g => ReferenceBot.Run(config, g.Map, r => r.StartingCash = 2000, seed: g.Seed, strategy: BotStrategy.Multi)).ToList();
+                var multiOk = multi.Where(b => b.AuctionHour >= 0).ToList();
+                var ok = bots.Where(b => b.AuctionHour >= 0).ToList();
+                int mountains = maps.Sum(g => g.Formations.Count(f => f.kind == FormationKind.Mountain));
+                int plateaus = maps.Sum(g => g.Formations.Count(f => f.kind == FormationKind.Plateau));
+                double orNear = maps.Sum(g => g.OresNearObstacle) / (double)Math.Max(1, maps.Sum(g => g.OreTotal));
+                double rockIn = maps.Sum(g => g.BedrocksInObstacle) / (double)Math.Max(1, maps.Sum(g => g.BedrockTotal));
+                string Avg(IEnumerable<double> xs) => xs.Any() ? xs.Average().ToString("0") : "-";
+                string Median(IEnumerable<double> xs)
+                {
+                    var list = xs.OrderBy(x => x).ToList();
+                    return list.Count == 0 ? "-" : list[list.Count / 2].ToString("0");
+                }
+                Line($"  {d:0.00} | {maps.Count,2}/40 | {maps.Average(g => g.Attempts),5:0.0} | {mountains,3}/{plateaus,-3} | {maps.Count(g => g.IsolatedObstacle.HasValue),2}장 | {orNear,6:P0} | {rockIn,6:P0} | " +
+                     $"{maps.Average(g => g.NearestWellOreDistance),4:0.0} | {maps.Average(g => g.ShortestWellOreCanalPath),4:0.0}변 | {ok.Count,2}/{bots.Count} | {bots.Count(b => b.Bankrupt),2} | " +
+                     $"{Avg(ok.Select(b => (double)b.AuctionHour))}h | {Avg(ok.Select(b => b.NeutralValue))} | {Median(ok.Select(b => b.FinalCash - 2000))} ‖ " +
+                     $"{multi.Average(b => b.WellCount):0.0}/{multi.Average(b => b.MineCount):0.0} | {multiOk.Count,2}/{multi.Count} | {multi.Count(b => b.Bankrupt),2} | " +
+                     $"{Avg(multiOk.Select(b => (double)b.AuctionHour))}h | {Avg(multiOk.Select(b => b.NeutralValue))} | {Median(multiOk.Select(b => b.FinalCash - 2000))}");
+                Line($"         {p}");
+
+                // 예시: 난이도마다 2장을 저장(맵 스케치에서 'JSON 불러오기'로 볼 수 있음, sampleLayout = 다중 봇 배치).
+                foreach (GeneratedMap g in maps.Take(2))
+                {
+                    var def = g.Map;
+                    var plan = ReferenceBot.Plan(def, BotStrategy.Multi);
+                    var copy = new DesertSettlement.Core.Progression.MapDefinition
+                    {
+                        Id = def.Id, Name = def.Name, Description = def.Description + " / 다중 봇 배치 포함", Radius = def.Radius,
+                        Terrain = def.Terrain, SampleLayout = plan ?? new List<DesertSettlement.Core.Progression.MapBuildEntry>(),
+                    };
+                    var json = System.Text.Json.JsonSerializer.Serialize(copy, new System.Text.Json.JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    });
+                    File.WriteAllText(Path.Combine(outDir, def.Id + ".json"), json, new UTF8Encoding(false));
+                }
+            }
+            Check(violations == 0, $"생성된 모든 맵이 규칙 준수(지형끼리 붙지 않음, 트인 땅 연결, 우물 간격, 수원·광맥·암반 존재) — 위반 {violations}");
+            Line($"  예시 맵 JSON: Tools/balance_output/generated_maps/ (맵 스케치 씬 → 'JSON 불러오기')");
+        }
+
+        /// <summary>생성된 맵이 규칙을 어긴 횟수(0이어야 한다).</summary>
+        private static int CountRuleViolations(GeneratedMap g)
+        {
+            int v = 0;
+            var hex = g.Map.CreateMap();
+            var owner = new Dictionary<HexCoord, int>();
+            for (int i = 0; i < g.Formations.Count; i++) foreach (var c in g.Formations[i].tiles) owner[c] = i;
+            foreach (var kv in owner)
+            {
+                if (ProceduralMapGenerator.Neighbors(kv.Key).Any(n => owner.TryGetValue(n, out int o) && o != kv.Value)) v++; // 지형끼리 붙음
+            }
+            var open = hex.Tiles.Where(t => t.Terrain != TerrainType.Obstacle).Select(t => t.Coord).ToList();
+            var seen = new HashSet<HexCoord> { open[0] };
+            var q = new Queue<HexCoord>(seen);
+            while (q.Count > 0)
+                foreach (var n in ProceduralMapGenerator.Neighbors(q.Dequeue()))
+                    if (hex.Contains(n) && hex.GetTile(n).Terrain != TerrainType.Obstacle && seen.Add(n)) q.Enqueue(n);
+            if (seen.Count != open.Count) v++; // 트인 땅 끊김
+            var wells = hex.Tiles.Where(t => t.Terrain == TerrainType.WaterSource).Select(t => t.Coord).ToList();
+            for (int i = 0; i < wells.Count; i++)
+                for (int j = i + 1; j < wells.Count; j++)
+                    if (wells[i].DistanceTo(wells[j]) <= 2) v++; // 우물 간격
+            if (wells.Count == 0 || !hex.Tiles.Any(t => t.Terrain == TerrainType.OreVein) || !hex.Tiles.Any(t => t.Terrain == TerrainType.Bedrock)) v++;
+            if (wells.Count != g.Params.WellCount || hex.Tiles.Count(t => t.Terrain == TerrainType.OreVein) != g.Params.OreCount) v++;
+            return v;
+        }
+
+        /// <summary>첫 정착지 고정 맵 1, 두 번째부터 보유 자금 비례 난이도의 생성 맵으로 캠페인을 이어 본다.</summary>
+        private static void ProceduralCampaign()
+        {
+            Header("절차 맵 캠페인 — 정착지 1 = 고정 맵 1, 이후 자금 비례 난이도 생성 맵 (기준 봇, 첫 경매에서 현금 최대 입찰 매각)");
+            var config = LoadConfig();
+            var map1 = LoadMaps()[0];
+            var rules = new GeneratorRules();
+            foreach (BotStrategy strategy in new[] { BotStrategy.Single, BotStrategy.Multi })
+            foreach (int campaignSeed in new[] { 1, 2, 3 })
+            {
+                double cash = config.Prototype.StartingCash;
+                double wellMultiplier = 1.0;
+                var line = new StringBuilder($"  {(strategy == BotStrategy.Single ? "단일" : "다중")} 봇 캠페인 {campaignSeed}: ");
+                for (int n = 1; n <= 6; n++)
+                {
+                    var def = map1;
+                    string label = "고정1";
+                    DifficultyParams p = null;
+                    if (n > 1)
+                    {
+                        p = DifficultyParams.FromCash(cash);
+                        var g = ProceduralMapGenerator.Generate(p, rules, campaignSeed * 100 + n);
+                        if (g == null) { line.Append($"| #{n} 생성 실패 "); break; }
+                        def = g.Map;
+                        label = $"D{p.D:0.00}";
+                    }
+                    double startCash = cash, wm = wellMultiplier;
+                    var r = ReferenceBot.Run(config, def, x => { x.StartingCash = startCash; x.WellSupplyMultiplier = wm; }, seed: campaignSeed * 31 + n, strategy: strategy);
+                    if (r.AuctionHour < 0)
+                    {
+                        line.Append($"| #{n} {label} {r.Failure} ");
+                        break;
+                    }
+                    cash = r.FinalCash;
+                    if (n == 1 && cash >= 400 + 1000) { cash -= 400; wellMultiplier = 1.2; } // 첫 매각 후 우물 장비 구매
+                    line.Append($"| #{n} {label} {r.AuctionHour}h → {cash:0} ");
+                }
+                Line(line.ToString());
+            }
         }
 
         private static DesertSettlement.Core.Economy.Settlement RunCoreScript(DesertSettlement.Core.Config.EconomyConfig config,

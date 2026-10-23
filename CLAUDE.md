@@ -62,6 +62,9 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵(인스펙터 지형 목록) → `Settlement` → 시계, 정각마다 `AdvanceHour()`.
 - **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), `SettlementHud`(IMGUI),
   `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.
+- **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기).
+  사용자가 절차 생성 규칙을 설명할 예시 맵을 그리는 용도. 저장 파일은 `Assets/Data/MapSketches/*.json`(캠페인 맵과 같은 `MapDefinition` 형식, `MapLoader.ToJson`).
+  예시를 받으면 JSON을 읽어 정확한 좌표·지형을 확인한다.
 - 씬 재구성: `Unity.exe -batchmode -nographics -quit -projectPath $Proj -executeMethod DesertSettlement.EditorTools.DebugSessionMenu.SetupSampleScene`
 - **`Tools/desert_balance_sim_v08.py`:** v0.8 경제의 결정론적 시간당 시뮬레이션. 우물 1 + 수로 변 3개의 직렬 취수 그래프로
   시설 레벨표(`LEVELS`), 건설/개량 작업 큐, 식량 계수, 경매 가치를 계산하고 시나리오 테스트(`do_tests`)와
@@ -114,6 +117,9 @@ v0.8 경제 시뮬레이터 이식본으로 규칙 후보를 비교한다. 원�
 dotnet run --project Tools/SettlementSim
 ```
 - 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
+- 절차 맵 프로토타입: `Tools/SettlementSim/ProceduralMap.cs`(BSP 생성기·난이도 수치), `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
+  난이도 곡선 조절값은 `DifficultyCurve`, 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
+  난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기'로 확인). Core로 옮기기 전 단계.
 
 ## 규칙
 

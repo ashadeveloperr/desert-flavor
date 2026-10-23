@@ -84,8 +84,12 @@ namespace DesertSettlement.Runtime
                 GUILayout.Label($"경매장 완공 후 {s.Rules.Config.ConfirmedRules.AuctionRepeatsGameHours}시간 뒤 첫 경매 · 경매장이나 광산이 없으면 자금 0이 되는 즉시 파산");
             }
             if (auctions.HoursUntilBankruptcy.HasValue) GUILayout.Label($"⚠ 자금 음수 — {auctions.HoursUntilBankruptcy}시간 뒤 파산");
-            int freeFarms = s.FreeBuildsRemaining(BuildingKinds.Farm);
-            if (freeFarms > 0) GUILayout.Label($"농장주 혜택: 완공된 농장 {freeFarms}개를 무료로 배치할 수 있습니다(농장 도구로 클릭).");
+            // 입찰자 혜택(무료 완공 배치). 2026-10-23 입찰자 6종: 농장 말고도 창고·채석장·물탱크·경매장이 올 수 있다.
+            foreach (string kind in BuildingKinds.All)
+            {
+                int free = s.FreeBuildsRemaining(kind);
+                if (free > 0) GUILayout.Label($"입찰자 혜택: 완공된 {FacilityInfo.KindName(kind)} {free}개를 무료로 배치할 수 있습니다({FacilityInfo.KindName(kind)} 도구로 클릭).");
+            }
             DrawDisasters(s);
         }
 

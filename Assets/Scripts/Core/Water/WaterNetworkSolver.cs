@@ -189,7 +189,8 @@ namespace DesertSettlement.Core.Water
                 foreach (Route r in routesByConsumer[c])
                 {
                     if (r.Delivered <= AmountEpsilon) continue;
-                    result._intakes.Add(new WaterIntakeFlow(r.IntakeVertex, orderedSources[r.Source].Id, r.Length, r.Delivered));
+                    result._intakes.Add(new WaterIntakeFlow(r.IntakeVertex, orderedSources[r.Source].Id, r.Length, r.Delivered,
+                        r.EdgeFactors.Select(ef => ef.Key).Distinct().ToList()));
                 }
 
                 if (consumers[c].DemandPerHour - delivered[c] <= AmountEpsilon) result.Shortage = WaterShortageReason.None;

@@ -66,6 +66,14 @@ namespace DesertSettlement.Runtime
             }
         }
 
+        /// <summary>물 배분 공급원 id를 사람이 읽는 이름으로("우물 #3", "물탱크 #7").</summary>
+        public static string SourceName(Settlement s, string sourceId)
+        {
+            bool tank = sourceId.StartsWith("tank");
+            string number = tank ? sourceId.Substring(4) : sourceId;
+            return $"{(tank ? "물탱크" : "우물")} #{number}";
+        }
+
         public static string ShortageText(WaterShortageReason reason)
         {
             switch (reason)
@@ -135,13 +143,18 @@ namespace DesertSettlement.Runtime
             if ((lv.WaterDemand ?? 0) > 0 && water != null && water.Consumers.TryGetValue(f.Id.ToString(), out WaterConsumerResult w))
             {
                 lines.Add($"물: {w.Delivered:0.0} / {w.Demand:0} ({w.Rate:P0}), 우물에서 거리 {w.PriorityDistance}");
-                if (w.Shortage != WaterShortageReason.None) lines.Add("물 부족 이유: " + ShortageText(w.Shortage));
+                if (w.Shortage != WaterShortageReason.None) lines.Add("물 부족 이유: " + ShortageText(w.Shortage) + (w.Shortage == WaterShortageReason.CanalCapacity ? " (맵에 빨간 띠)" : ""));
+                // 물길(2026-10-23): 어느 공급원에서 수로 몇 칸을 지나 얼마 받았는지. 맵에는 하늘색 띠로 표시된다.
+                foreach (WaterIntakeFlow flow in w.Intakes)
+                    lines.Add($"  물길: {SourceName(s, flow.SourceId)}에서 수로 {flow.Distance / 2.0:0.#}칸 → {flow.Delivered:0.0}/h");
             }
             if (lv.WaterSupply.HasValue && water != null && water.SourceReleased.TryGetValue(f.Id.ToString(), out double released))
             {
                 double supply = (lv.WaterSupply ?? 0) * s.Rules.WellSupplyMultiplier;
                 string bonus = s.Rules.WellSupplyMultiplier > 1.0001 ? $", 장비 ×{s.Rules.WellSupplyMultiplier:0.00}" : "";
                 lines.Add($"방출: {released:0.0} / {supply:0} (식량 계수 영향 없음{bonus})");
+                int served = WaterRoutes.SentBy(water, f.Id.ToString()).Count;
+                lines.Add($"  이 우물의 물길 {served}개 (맵에 하늘색 띠)");
             }
             if (f.Kind == BuildingKinds.CanalEdge)
             {

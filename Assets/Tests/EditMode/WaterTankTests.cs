@@ -3,6 +3,7 @@ using System.Linq;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Hex;
+using DesertSettlement.Core.Water;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -128,6 +129,24 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(x.S.SetClosed(upstreamCanal.Id, true).Success);
             x.S.AdvanceHour();
             Assert.AreEqual(0.0, x.S.WaterRateOf(x.DownFarm), 1e-12, "비교: 탱크가 없으면 단수");
+        }
+
+        [Test]
+        public void WaterRoutes_ListTheCanalsUsed_IncludingTankDischarge()
+        {
+            // 물길 표시(2026-10-23): 물 배분이 실제로 쓴 수로를 돌려준다.
+            Site x = Build();
+            x.S.AdvanceHour();
+            var received = WaterRoutes.EdgesOf(WaterRoutes.ReceivedBy(x.S.LastWater, x.DownFarm.Id.ToString()));
+            CollectionAssert.Contains(received, WellToTank, "우물 → 아래쪽 농장 물길은 우물~탱크 사이 수로를 지난다");
+            CollectionAssert.DoesNotContain(received, EdgeId.Of(WellTile, HexDirection.West), "반대편 수로는 지나지 않는다");
+            Assert.IsNotEmpty(WaterRoutes.SentBy(x.S.LastWater, x.Well.Id.ToString()), "우물에서 나간 물길");
+
+            Assert.IsTrue(x.S.SetClosed(x.Well.Id, true).Success);
+            x.S.AdvanceHour();
+            var fromTank = WaterRoutes.SentBy(x.S.LastWater, "tank" + x.Tank.Id);
+            Assert.IsNotEmpty(fromTank, "우물을 닫으면 탱크 방출 물길이 보인다");
+            Assert.AreEqual(x.DownFarm.Id.ToString(), x.S.LastWater.Consumers.Values.Single(r => r.Intakes.Any(f => f.SourceId == "tank" + x.Tank.Id)).Id);
         }
 
         [Test]

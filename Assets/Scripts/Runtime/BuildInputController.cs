@@ -59,6 +59,8 @@ namespace DesertSettlement.Runtime
 
         private void Awake()
         {
+            // 물길 표시(2026-10-23)는 예전에 만든 씬에도 자동으로 붙인다.
+            if (GetComponent<WaterPathOverlay>() == null) gameObject.AddComponent<WaterPathOverlay>();
             _session = GetComponent<GameSession>();
             _session.Initialized += () =>
             {

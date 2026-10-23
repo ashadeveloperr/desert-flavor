@@ -82,13 +82,16 @@ namespace DesertSettlement.Core.Water
         /// <summary>우물 방출 꼭짓점 → 취수 꼭짓점까지 반쪽 변 개수(변 하나 = 2).</summary>
         public readonly int Distance;
         public readonly double Delivered;
+        /// <summary>이 경로가 지난 수로 변(우물 쪽부터, 2026-10-23 물길 표시용). 물탱크 방출 경로도 같다.</summary>
+        public readonly IReadOnlyList<EdgeId> Edges;
 
-        public WaterIntakeFlow(VertexId intakeVertex, string sourceId, int distance, double delivered)
+        public WaterIntakeFlow(VertexId intakeVertex, string sourceId, int distance, double delivered, IReadOnlyList<EdgeId> edges = null)
         {
             IntakeVertex = intakeVertex;
             SourceId = sourceId;
             Distance = distance;
             Delivered = delivered;
+            Edges = edges ?? Array.Empty<EdgeId>();
         }
     }
 

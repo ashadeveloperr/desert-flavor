@@ -107,6 +107,13 @@ namespace DesertSettlement.Core.Timing
 
         public void TogglePause() => SetPaused(!IsPaused);
 
+        /// <summary>배속을 고르고 일시정지를 푼다(HUD 배속 버튼·숫자 단축키, 2026-10-23).</summary>
+        public void SelectSpeed(int index)
+        {
+            SetSpeedIndex(index);
+            SetPaused(false);
+        }
+
         public void SetSpeedIndex(int index)
         {
             if (index < 0 || index >= _settings.SpeedSteps.Length) throw new ArgumentOutOfRangeException(nameof(index));

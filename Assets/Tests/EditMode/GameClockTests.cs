@@ -51,24 +51,26 @@ namespace DesertSettlement.Core.Tests
         public void SpeedMultipliesTime_FourXDayIs22Point5Seconds()
         {
             GameClock clock = NewClock();
-            clock.SetSpeedIndex(3); // 4배속
+            clock.SetSpeedIndex(2); // 4배속(1/2/4)
             clock.Advance(22.5);
             Assert.AreEqual(24.0, clock.ElapsedHours, 1e-6);
         }
 
         [Test]
-        public void PausedOrZeroSpeed_DoesNotAdvance()
+        public void Paused_DoesNotAdvance_SelectSpeedResumes()
         {
+            // 2026-10-23 플레이테스트 메모: 0배속을 없애고 일시정지만 남김. 배속을 고르면 일시정지가 풀린다.
             GameClock clock = NewClock();
             clock.SetPaused(true);
             clock.Advance(1000);
             Assert.AreEqual(0.0, clock.ElapsedHours);
-
-            clock.SetPaused(false);
-            clock.SetSpeedIndex(0); // 0배속
-            clock.Advance(1000);
-            Assert.AreEqual(0.0, clock.ElapsedHours);
             Assert.IsFalse(clock.IsRunning);
+
+            clock.SelectSpeed(1); // 2배속
+            Assert.IsFalse(clock.IsPaused);
+            Assert.AreEqual(2f, clock.Speed);
+            clock.Advance(45); // 2배속에서 하루 45초
+            Assert.AreEqual(24.0, clock.ElapsedHours, 1e-6);
         }
 
         [Test]
@@ -146,6 +148,7 @@ namespace DesertSettlement.Core.Tests
             Assert.Throws<System.ArgumentException>(() => NewClock(new GameTimeSettings { DayStartHour = 6, NightStartHour = 6 }));
             Assert.Throws<System.ArgumentException>(() => NewClock(new GameTimeSettings { SpeedSteps = new float[0] }));
             Assert.Throws<System.ArgumentException>(() => NewClock(new GameTimeSettings { DefaultSpeedIndex = 9 }));
+            Assert.Throws<System.ArgumentException>(() => NewClock(new GameTimeSettings { SpeedSteps = new[] { 0f, 1f } }), "0배속은 받지 않음(멈춤은 일시정지)");
         }
     }
 }

@@ -197,11 +197,10 @@ MonoBehaviour:
     DayStartHour: 5
     NightStartHour: 20
     SpeedSteps:
-    - 0
     - 1
     - 2
     - 4
-    DefaultSpeedIndex: 1
+    DefaultSpeedIndex: 0
   logClockEvents: 1
 --- !u!114 &169328204
 MonoBehaviour:

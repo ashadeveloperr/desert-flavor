@@ -18,11 +18,11 @@ namespace DesertSettlement.Core.Timing
         /// <summary>밤이 시작되는 시각(0~23). 2026-10-23 확정: 20시.</summary>
         public int NightStartHour = 20;
 
-        /// <summary>선택 가능한 배속 목록(잠정 0/1/2/4). 0은 '정지' 배속.</summary>
-        public float[] SpeedSteps = { 0f, 1f, 2f, 4f };
+        /// <summary>선택 가능한 배속 목록(1/2/4). 멈춤은 배속이 아니라 일시정지로만 한다(2026-10-23 플레이테스트 메모: 0배속 제거).</summary>
+        public float[] SpeedSteps = { 1f, 2f, 4f };
 
         /// <summary>시작 시 선택되는 배속의 SpeedSteps 인덱스.</summary>
-        public int DefaultSpeedIndex = 1;
+        public int DefaultSpeedIndex = 0;
 
         /// <summary>값이 잘못됐으면 설명과 함께 예외를 던진다.</summary>
         public void Validate()
@@ -40,7 +40,7 @@ namespace DesertSettlement.Core.Timing
             }
             foreach (float speed in SpeedSteps)
             {
-                if (speed < 0f) throw new ArgumentException($"배속은 음수일 수 없습니다: {speed}");
+                if (speed <= 0f) throw new ArgumentException($"배속은 0보다 커야 합니다(멈춤은 일시정지로): {speed}");
             }
             if (DefaultSpeedIndex < 0 || DefaultSpeedIndex >= SpeedSteps.Length)
             {

@@ -41,7 +41,7 @@ namespace DesertSettlement.Core.Progression
             foreach (MapBuildEntry b in SampleLayout)
             {
                 CommandResult r;
-                if (b.Kind == BuildingKinds.CanalEdge || b.Kind == BuildingKinds.CanalGate)
+                if (b.Kind == BuildingKinds.CanalEdge)
                 {
                     if (!Enum.TryParse(b.Side, true, out HexDirection side))
                     {
@@ -49,7 +49,7 @@ namespace DesertSettlement.Core.Progression
                         continue;
                     }
                     EdgeId edge = EdgeId.Of(new HexCoord(b.Q, b.R), side);
-                    r = b.Kind == BuildingKinds.CanalEdge ? settlement.RequestCanal(edge) : settlement.RequestGate(edge);
+                    r = settlement.RequestCanal(edge);
                 }
                 else
                 {

@@ -94,10 +94,11 @@ namespace DesertSettlement.Core.Economy
             [BuildingKinds.Warehouse] = new[] { TerrainType.Desert },
             [BuildingKinds.AuctionHall] = new[] { TerrainType.Desert },
             [BuildingKinds.Hospital] = new[] { TerrainType.Desert },
+            [BuildingKinds.WaterTank] = new[] { TerrainType.Desert },
         };
 
-        /// <summary>MVP에서 지을 수 없는 시설(물탱크는 MVP 이후, W7).</summary>
-        public HashSet<string> DisabledKinds { get; } = new HashSet<string> { BuildingKinds.WaterTank };
+        /// <summary>지을 수 없는 시설. 2026-10-23 로드맵 1-② 물탱크를 열어 지금은 비어 있다(전에는 물탱크, W7).</summary>
+        public HashSet<string> DisabledKinds { get; } = new HashSet<string>();
 
         /// <summary>수동 폐쇄할 수 없는 시설(MVP: 창고).</summary>
         public HashSet<string> CannotClose { get; } = new HashSet<string> { BuildingKinds.Warehouse };
@@ -168,7 +169,7 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
-        public static bool IsEdgeKind(string kind) => kind == BuildingKinds.CanalEdge || kind == BuildingKinds.CanalGate;
+        public static bool IsEdgeKind(string kind) => kind == BuildingKinds.CanalEdge;
 
         /// <summary>이 시설 종류가 가질 수 있는 최고 레벨(설정 데이터와 MVP 상한 중 작은 값).</summary>
         public int MaxLevelOf(string kind) => Math.Min(MaxFacilityLevel, Config.MaxLevel(kind));

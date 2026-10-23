@@ -25,7 +25,6 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.Warehouse: return "창고";
                 case BuildingKinds.Hospital: return "병원";
                 case BuildingKinds.CanalEdge: return "수로";
-                case BuildingKinds.CanalGate: return "수문";
                 case BuildingKinds.WaterTank: return "물탱크";
                 default: return kind;
             }
@@ -150,9 +149,20 @@ namespace DesertSettlement.Runtime
                 if (water != null) water.EdgeLoads.TryGetValue(f.Edge.Value, out load);
                 lines.Add($"흐름: {load:0.0} / 용량 {lv.CapacityPerHour:0}");
             }
-            if (f.Kind == BuildingKinds.CanalGate) lines.Add(f.GateOpen ? "수문: 열림" : "수문: 닫힘 (이 변으로 물이 지나가지 않음)");
+            if (f.Kind == BuildingKinds.CanalEdge && f.State == FacilityState.Closed) lines.Add("닫힌 수로: 이 변으로 물이 지나가지 않음 (폐쇄 해제로 다시 열기)");
             if (f.Kind == BuildingKinds.Warehouse) lines.Add($"저장 한도 +식량 {lv.FoodStorageBonus:0} / +석재 {lv.StoneStorageBonus:0}");
             if (f.Kind == BuildingKinds.Hospital) lines.Add("병원: 이 칸과 이웃 6칸 건물의 전염병 피해 절반");
+            if (f.Kind == BuildingKinds.WaterTank)
+            {
+                lines.Add($"저장 {f.StoredWater:0} / {s.TankCapacityOf(f):0} (충전·방출 최대 {lv.ChargePerHour:0}/{lv.DischargePerHour:0} /h)");
+                switch (f.TankMode)
+                {
+                    case WaterTankMode.Charging: lines.Add($"지난 시간: 충전 +{f.TankFlowLastHour:0.0} (시설이 쓰고 남은 물)"); break;
+                    case WaterTankMode.Discharging: lines.Add($"지난 시간: 방출 {-f.TankFlowLastHour:0.0} (하류의 모자란 시설에)"); break;
+                    default: lines.Add("지난 시간: 대기 (가득 참·남는 물 없음·하류 부족 없음)"); break;
+                }
+                lines.Add("하류 = 우물에서 오는 물길이 이 탱크를 지나는 시설. 상류 수로를 닫아도 하류로 방출");
+            }
 
             FacilityOutput o = s.OutputOf(f);
             string upkeep = f.State == FacilityState.Closed || f.State == FacilityState.Upgrading

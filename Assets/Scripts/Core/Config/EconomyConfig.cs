@@ -273,11 +273,10 @@ namespace DesertSettlement.Core.Config
         public const string Hospital = "hospital";
         public const string WaterTank = "waterTank";
         public const string CanalEdge = "canalEdge";
-        public const string CanalGate = "canalGate";
 
         public static readonly string[] All =
         {
-            Well, Farm, Quarry, Mine, AuctionHall, Warehouse, Hospital, WaterTank, CanalEdge, CanalGate,
+            Well, Farm, Quarry, Mine, AuctionHall, Warehouse, Hospital, WaterTank, CanalEdge,
         };
     }
 }

@@ -18,8 +18,8 @@ namespace DesertSettlement.Runtime
         AuctionHall,
         Warehouse,
         Hospital,
+        WaterTank,
         Canal,
-        Gate,
         Upgrade,
         Demolish,
         ToggleClose,
@@ -28,8 +28,8 @@ namespace DesertSettlement.Runtime
     /// <summary>
     /// 마우스로 맵을 가리키고 도구를 적용한다(C7 임시 조작).
     /// - 시설 도구: 가리킨 타일에 건설 예약
-    /// - 수로 도구: 마우스에 가장 가까운 변을 강조, 클릭 또는 드래그로 연속 설치 / 수문 도구: 가리킨 변
-    /// - 개량·철거·폐쇄: 가리킨 시설(변 가까이면 수로·수문, 아니면 타일 시설)
+    /// - 수로 도구: 마우스에 가장 가까운 변을 강조, 클릭 또는 드래그로 연속 설치
+    /// - 개량·철거·폐쇄: 가리킨 시설(변 가까이면 수로, 아니면 타일 시설). 수로 폐쇄 = 물길 차단(2026-10-23 수문 폐지)
     /// - 선택: 가리킨 시설을 HUD에 표시. 우클릭·Esc = 선택 도구로 돌아감
     /// 가능하면 강조색 초록, 불가하면 빨강 + 이유(<see cref="HoverMessage"/>).
     /// </summary>
@@ -39,7 +39,7 @@ namespace DesertSettlement.Runtime
         [SerializeField] private Color validColor = new Color(0.3f, 1f, 0.4f);
         [SerializeField] private Color invalidColor = new Color(1f, 0.3f, 0.25f);
         [SerializeField] private Color selectColor = new Color(1f, 0.95f, 0.4f);
-        [Tooltip("변까지 거리가 타일 크기 × 이 값보다 가까우면 개량·철거 도구가 수로·수문을 고른다")]
+        [Tooltip("변까지 거리가 타일 크기 × 이 값보다 가까우면 개량·철거 도구가 수로를 고른다")]
         [SerializeField] private float edgePickRatio = 0.3f;
 
         private GameSession _session;
@@ -50,7 +50,7 @@ namespace DesertSettlement.Runtime
         public BuildTool Tool { get; set; } = BuildTool.Select;
         public HexCoord? HoverTile { get; private set; }
         public EdgeId? HoverEdge { get; private set; }
-        /// <summary>지금 가리키는 시설(변 가까이면 수로·수문, 아니면 타일 시설). 없거나 HUD 위면 null.</summary>
+        /// <summary>지금 가리키는 시설(변 가까이면 수로, 아니면 타일 시설). 없거나 HUD 위면 null.</summary>
         public Facility HoveredFacility { get; private set; }
         /// <summary>현재 도구를 여기 적용하면 실패하는 이유, 또는 마지막 명령 결과.</summary>
         public string HoverMessage { get; private set; }
@@ -87,8 +87,8 @@ namespace DesertSettlement.Runtime
                 case BuildTool.AuctionHall: return BuildingKinds.AuctionHall;
                 case BuildTool.Warehouse: return BuildingKinds.Warehouse;
                 case BuildTool.Hospital: return BuildingKinds.Hospital;
+                case BuildTool.WaterTank: return BuildingKinds.WaterTank;
                 case BuildTool.Canal: return BuildingKinds.CanalEdge;
-                case BuildTool.Gate: return BuildingKinds.CanalGate;
                 default: return null;
             }
         }
@@ -105,8 +105,8 @@ namespace DesertSettlement.Runtime
                 case BuildTool.AuctionHall: return "경매장";
                 case BuildTool.Warehouse: return "창고";
                 case BuildTool.Hospital: return "병원";
+                case BuildTool.WaterTank: return "물탱크";
                 case BuildTool.Canal: return "수로";
-                case BuildTool.Gate: return "수문";
                 case BuildTool.Upgrade: return "개량";
                 case BuildTool.Demolish: return "철거";
                 case BuildTool.ToggleClose: return "폐쇄/개폐";
@@ -114,7 +114,7 @@ namespace DesertSettlement.Runtime
             }
         }
 
-        private static bool IsEdgeTool(BuildTool t) => t == BuildTool.Canal || t == BuildTool.Gate;
+        private static bool IsEdgeTool(BuildTool t) => t == BuildTool.Canal;
 
         private void Update()
         {
@@ -171,7 +171,7 @@ namespace DesertSettlement.Runtime
             if (_session.Map.Contains(tile)) HoverTile = tile;
             if (_session.Topology.Contains(edge)) HoverEdge = edge;
 
-            // 개량·철거·폐쇄·선택은 변에 충분히 가까우면 수로·수문을 고른다.
+            // 개량·철거·폐쇄·선택은 변에 충분히 가까우면 수로를 고른다.
             bool pickEdge = IsEdgeTool(Tool);
             if (!pickEdge && HoverEdge.HasValue && EdgeFacility(HoverEdge.Value) != null)
             {
@@ -207,7 +207,7 @@ namespace DesertSettlement.Runtime
 
         private bool _pickEdge;
 
-        /// <summary>가리키는 대상의 시설(변 모드면 수문 우선, 그다음 수로).</summary>
+        /// <summary>가리키는 대상의 시설(변 모드면 수로).</summary>
         private Facility Target(bool pickEdge)
         {
             Settlement s = _session.Settlement;
@@ -216,7 +216,7 @@ namespace DesertSettlement.Runtime
         }
 
         private Facility EdgeFacility(EdgeId edge) =>
-            _session.Settlement.FacilityOn(edge, BuildingKinds.CanalGate) ?? _session.Settlement.FacilityOn(edge, BuildingKinds.CanalEdge);
+            _session.Settlement.FacilityOn(edge, BuildingKinds.CanalEdge);
 
         private CommandResult Check(bool pickEdge)
         {
@@ -227,8 +227,6 @@ namespace DesertSettlement.Runtime
                     return CommandResult.Ok();
                 case BuildTool.Canal:
                     return HoverEdge.HasValue ? s.CanBuildCanal(HoverEdge.Value) : CommandResult.Fail("맵 밖입니다.");
-                case BuildTool.Gate:
-                    return HoverEdge.HasValue ? s.CanBuildGate(HoverEdge.Value) : CommandResult.Fail("맵 밖입니다.");
                 case BuildTool.Upgrade:
                 case BuildTool.Demolish:
                 case BuildTool.ToggleClose:
@@ -236,7 +234,6 @@ namespace DesertSettlement.Runtime
                     if (f == null) return CommandResult.Fail("시설이 없습니다.");
                     if (Tool == BuildTool.Upgrade) return s.CanUpgrade(f.Id);
                     if (Tool == BuildTool.Demolish) return s.CanDemolish(f.Id);
-                    if (f.Kind == BuildingKinds.CanalGate) return CommandResult.Ok(); // 수문은 개폐
                     if (s.Rules.CannotClose.Contains(f.Kind)) return CommandResult.Fail($"{f.Kind}은(는) 폐쇄할 수 없습니다.");
                     return f.State == FacilityState.Operating || f.State == FacilityState.Closed
                         ? CommandResult.Ok()
@@ -261,10 +258,6 @@ namespace DesertSettlement.Runtime
                     if (!HoverEdge.HasValue) return;
                     r = s.RequestCanal(HoverEdge.Value);
                     break;
-                case BuildTool.Gate:
-                    if (!HoverEdge.HasValue) return;
-                    r = s.RequestGate(HoverEdge.Value);
-                    break;
                 case BuildTool.Upgrade:
                     f = Target(_pickEdge);
                     r = f != null ? s.RequestUpgrade(f.Id) : CommandResult.Fail("시설이 없습니다.");
@@ -276,9 +269,7 @@ namespace DesertSettlement.Runtime
                 case BuildTool.ToggleClose:
                     f = Target(_pickEdge);
                     if (f == null) { r = CommandResult.Fail("시설이 없습니다."); break; }
-                    r = f.Kind == BuildingKinds.CanalGate
-                        ? s.SetGateOpen(f.Id, !f.GateOpen)
-                        : s.SetClosed(f.Id, f.State == FacilityState.Operating);
+                    r = s.SetClosed(f.Id, f.State == FacilityState.Operating);
                     break;
                 default:
                     if (!HoverTile.HasValue) return;

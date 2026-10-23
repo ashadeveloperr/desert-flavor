@@ -5,7 +5,8 @@ using DesertSettlement.Core.Hex;
 namespace DesertSettlement.Core.Canal
 {
     /// <summary>
-    /// 변 위에 설치된 수로 한 구간. 수문은 이 변에 붙는 2단계(개방/차단) 장치다.
+    /// 변 위에 설치된 수로 한 구간. '수문'(HasGate·GateOpen)은 이 변을 막는 2단계(개방/차단) 표시다.
+    /// 2026-10-23 플레이어용 수문 시설은 폐지됐고, 지금은 <b>닫힌 수로</b>를 막힌 변으로 표현하는 데 쓴다(Settlement.SolveWater).
     /// 용량·손실·개량 비용 같은 수치는 여기 두지 않고 설정(<c>buildingLevels.canalEdge</c>)에서 레벨로 찾는다.
     /// </summary>
     public sealed class CanalSegment

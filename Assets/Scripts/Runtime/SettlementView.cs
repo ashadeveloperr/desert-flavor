@@ -38,6 +38,7 @@ namespace DesertSettlement.Runtime
         [SerializeField] private Color mine = new Color(0.45f, 0.3f, 0.25f);
         [SerializeField] private Color auctionHall = new Color(0.95f, 0.75f, 0.2f);
         [SerializeField] private Color hospital = new Color(0.95f, 0.95f, 0.95f);
+        [SerializeField] private Color waterTank = new Color(0.45f, 0.75f, 0.95f);
         [SerializeField] private Color warehouse = new Color(0.7f, 0.5f, 0.3f);
         [SerializeField] private Color constructing = new Color(0.6f, 0.6f, 0.6f);
         [SerializeField] private Color demolishing = new Color(0.85f, 0.35f, 0.3f);
@@ -47,8 +48,8 @@ namespace DesertSettlement.Runtime
         [Header("수로")]
         [SerializeField] private Color canalDry = new Color(0.55f, 0.5f, 0.42f);
         [SerializeField] private Color canalFull = new Color(0.1f, 0.35f, 0.95f);
-        [SerializeField] private Color gateOpen = new Color(0.2f, 0.85f, 0.3f);
-        [SerializeField] private Color gateClosed = new Color(0.9f, 0.15f, 0.15f);
+        [Tooltip("닫힌 수로 색(2026-10-23 수문 폐지 뒤 수로 폐쇄가 물길 차단)")]
+        [SerializeField] private Color canalClosed = new Color(0.9f, 0.15f, 0.15f);
         [SerializeField] private Color planned = new Color(1f, 1f, 1f);
         [Tooltip("타일 크기 대비 수로 폭(L1). 레벨마다 50%씩 넓어진다")]
         [SerializeField] private float canalWidth = 0.08f;
@@ -171,11 +172,6 @@ namespace DesertSettlement.Runtime
             {
                 case BuildingKinds.CanalEdge:
                     return CanalBar(f.Edge.Value, _facilitiesRoot, canalDry, 0.04f, 1f);
-                case BuildingKinds.CanalGate:
-                    GameObject gate = WorldVisuals.Primitive(PrimitiveType.Cube, "Gate", _facilitiesRoot, gateOpen);
-                    gate.transform.position = _session.ToWorld(HexTopology.MidpointOf(f.Edge.Value, _session.Layout), 0.08f);
-                    gate.transform.localScale = Vector3.one * Size * 0.16f;
-                    return gate;
                 case BuildingKinds.Well:
                     return WorldVisuals.Primitive(PrimitiveType.Cylinder, "Well", _facilitiesRoot, well);
                 default:
@@ -207,17 +203,11 @@ namespace DesertSettlement.Runtime
                 {
                     c = Color.Lerp(canalDry, canalFull, Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f)))));
                 }
-                c = Tint(c, f.State, progress);
+                c = f.State == FacilityState.Closed ? canalClosed : Tint(c, f.State, progress);
                 WorldVisuals.SetColor(go, c);
                 Vector3 scale = go.transform.localScale;
                 scale.x = Size * canalWidth * (1f + 0.5f * (f.Level - 1));
                 go.transform.localScale = scale;
-                return;
-            }
-
-            if (f.Kind == BuildingKinds.CanalGate)
-            {
-                WorldVisuals.SetColor(go, Tint(f.GateOpen ? gateOpen : gateClosed, f.State, progress));
                 return;
             }
 
@@ -258,6 +248,7 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.AuctionHall: return auctionHall;
                 case BuildingKinds.Warehouse: return warehouse;
                 case BuildingKinds.Hospital: return hospital;
+                case BuildingKinds.WaterTank: return waterTank;
                 default: return Color.magenta;
             }
         }

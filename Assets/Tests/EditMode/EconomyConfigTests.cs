@@ -39,7 +39,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(25.0, config.GetLevel(BuildingKinds.Mine, 3).OreProduction);
             Assert.AreEqual(100.0, config.GetLevel(BuildingKinds.CanalEdge, 1).CapacityPerHour);
             Assert.IsNotNull(config.GetLevel(BuildingKinds.AuctionHall, 2).UpgradeEffectProposal);
-            Assert.IsNull(config.GetLevel(BuildingKinds.CanalGate, 2), "없는 레벨은 null");
+            Assert.IsNull(config.GetLevel(BuildingKinds.Hospital, 2), "없는 레벨은 null");
             Assert.AreEqual(1.2, config.AuctionSeed.Infra.Maximum);
             Assert.AreEqual(1.03, config.Purchase.Stone.IncrementMultiplier);
         }

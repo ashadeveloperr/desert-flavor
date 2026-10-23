@@ -23,7 +23,7 @@ namespace DesertSettlement.Core.Economy
     ///
     /// 원본 v0.8 시뮬레이터(Tools/desert_balance_sim_v08.py)와 같은 계산을 하며, 회귀값은 EditMode 테스트로 고정돼 있다.
     /// </summary>
-    public sealed class Settlement
+    public sealed partial class Settlement
     {
         private readonly Dictionary<int, Facility> _facilities = new Dictionary<int, Facility>();
         private readonly List<ConstructionJob> _jobs = new List<ConstructionJob>();
@@ -169,13 +169,6 @@ namespace DesertSettlement.Core.Economy
             return check.Success ? Enqueue(JobType.Build, BuildingKinds.CanalEdge, default, edge, -1, 1) : check;
         }
 
-        /// <summary>수문 건설 예약. 새 수문은 열린 상태.</summary>
-        public CommandResult RequestGate(EdgeId edge)
-        {
-            CommandResult check = CanBuildGate(edge);
-            return check.Success ? Enqueue(JobType.Build, BuildingKinds.CanalGate, default, edge, -1, 1) : check;
-        }
-
         public CommandResult RequestUpgrade(int facilityId)
         {
             CommandResult check = CanUpgrade(facilityId);
@@ -196,7 +189,7 @@ namespace DesertSettlement.Core.Economy
 
         public CommandResult CanBuild(string kind, HexCoord tile)
         {
-            if (SettlementRules.IsEdgeKind(kind)) return CommandResult.Fail("수로·수문은 RequestCanal / RequestGate로 짓습니다.");
+            if (SettlementRules.IsEdgeKind(kind)) return CommandResult.Fail("수로는 RequestCanal로 짓습니다.");
             if (Rules.DisabledKinds.Contains(kind)) return CommandResult.Fail($"{kind}은(는) MVP에서 지을 수 없습니다.");
             if (!Rules.AllowedTerrain.TryGetValue(kind, out TerrainType[] allowed)) return CommandResult.Fail($"알 수 없는 시설 종류: {kind}");
             if (!Map.TryGetTile(tile, out HexTile hexTile)) return CommandResult.Fail("맵 밖의 타일입니다.");
@@ -229,20 +222,6 @@ namespace DesertSettlement.Core.Economy
             return CommandResult.Ok();
         }
 
-        /// <summary>수로가 있는(또는 예약된) 변에만 가능.</summary>
-        public CommandResult CanBuildGate(EdgeId edge)
-        {
-            if (FacilityOn(edge, BuildingKinds.CanalEdge) == null && !PendingBuildOn(edge, BuildingKinds.CanalEdge))
-            {
-                return CommandResult.Fail("수로가 있는 변에만 수문을 지을 수 있습니다.");
-            }
-            if (FacilityOn(edge, BuildingKinds.CanalGate) != null || PendingBuildOn(edge, BuildingKinds.CanalGate))
-            {
-                return CommandResult.Fail("이미 수문이 있거나 예약된 변입니다.");
-            }
-            return CommandResult.Ok();
-        }
-
         public CommandResult CanUpgrade(int facilityId)
         {
             Facility f = GetFacility(facilityId);
@@ -259,10 +238,6 @@ namespace DesertSettlement.Core.Economy
             if (f == null) return CommandResult.Fail("시설이 없습니다.");
             if (HasPendingJob(f)) return CommandResult.Fail("이미 이 시설의 작업이 예약돼 있습니다.");
             if (f.State != FacilityState.Operating && f.State != FacilityState.Closed) return CommandResult.Fail("운영 중이거나 폐쇄된 시설만 철거할 수 있습니다.");
-            if (f.Kind == BuildingKinds.CanalEdge && f.Edge.HasValue && FacilityOn(f.Edge.Value, BuildingKinds.CanalGate) != null)
-            {
-                return CommandResult.Fail("수문을 먼저 철거해야 합니다.");
-            }
             string storage = StorageProblemIfRemoved(f);
             if (storage != null) return CommandResult.Fail(storage);
             return CommandResult.Ok();
@@ -320,15 +295,6 @@ namespace DesertSettlement.Core.Economy
             if (closed && f.State == FacilityState.Operating) f.State = FacilityState.Closed;
             else if (!closed && f.State == FacilityState.Closed) f.State = FacilityState.Operating;
             else return CommandResult.Fail("운영 중인 시설만 폐쇄, 폐쇄된 시설만 재개할 수 있습니다.");
-            return CommandResult.Ok();
-        }
-
-        /// <summary>수문 개방/차단. 작업 슬롯·자원을 쓰지 않고 즉시 반영(다음 틱 물 배분부터).</summary>
-        public CommandResult SetGateOpen(int gateFacilityId, bool open)
-        {
-            Facility f = GetFacility(gateFacilityId);
-            if (f == null || f.Kind != BuildingKinds.CanalGate) return CommandResult.Fail("수문이 아닙니다.");
-            f.GateOpen = open;
             return CommandResult.Ok();
         }
 
@@ -536,8 +502,9 @@ namespace DesertSettlement.Core.Economy
 
         private WaterAllocation SolveWater()
         {
-            CanalGraph canals;
-            LastWater = SolveWater(assumeJobsComplete: false, out canals);
+            WaterAllocation water = SolveWater(false, out CanalGraph canals, out List<WaterSource> wells);
+            ApplyWaterTanks(canals, water, wells); // 물탱크 방출·충전(실제 시간 정산에서만, 저장량이 바뀐다)
+            LastWater = water;
             LastCanals = canals;
             return LastWater;
         }
@@ -546,7 +513,7 @@ namespace DesertSettlement.Core.Economy
         /// 진행 중인 건설·개량이 모두 끝났다고 가정한 물 배분(개발 중 자산 가치 평가용). 폐쇄·철거 중 시설은 빠진다.
         /// 실제 상태에는 영향을 주지 않는다.
         /// </summary>
-        public WaterAllocation SolveWaterAssumingJobsComplete() => SolveWater(assumeJobsComplete: true, out _);
+        public WaterAllocation SolveWaterAssumingJobsComplete() => SolveWater(true, out _, out _);
 
         /// <summary>가정 배분에서 시설이 쓸 레벨(진행 중 개량이면 목표 레벨).</summary>
         public int AssumedLevelOf(Facility f)
@@ -555,7 +522,8 @@ namespace DesertSettlement.Core.Economy
             return job?.TargetLevel ?? f.Level;
         }
 
-        private WaterAllocation SolveWater(bool assumeJobsComplete, out CanalGraph canals)
+        /// <summary>우물 → 시설 물 배분(물탱크 제외). 진행 중 작업을 끝났다고 가정하는 계산은 물탱크를 넣지 않는다.</summary>
+        private WaterAllocation SolveWater(bool assumeJobsComplete, out CanalGraph canals, out List<WaterSource> sources)
         {
             bool Counts(Facility f) => f.IsOperating ||
                 (assumeJobsComplete && (f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading));
@@ -567,14 +535,17 @@ namespace DesertSettlement.Core.Economy
                 canals.TryInstall(c.Edge.Value);
                 canals.TrySetLevel(c.Edge.Value, assumeJobsComplete ? AssumedLevelOf(c) : c.Level);
             }
-            foreach (Facility g in _facilities.Values.Where(x => x.Kind == BuildingKinds.CanalGate && Counts(x)))
+            // 닫힌 수로(2026-10-23, 수문 폐지 뒤 물길 개폐 수단)는 '막힌 변'으로 남긴다: 물은 못 지나가지만,
+            // 물탱크 하류 판정(닫힌 수로도 연 것으로 봄)에 같은 그래프를 쓴다. Docs/decision_log_auto.md T4·T7.
+            foreach (Facility c in _facilities.Values.Where(x => x.Kind == BuildingKinds.CanalEdge && x.State == FacilityState.Closed))
             {
-                if (!canals.IsInstalled(g.Edge.Value)) continue;
-                canals.TrySetGate(g.Edge.Value, true);
-                canals.TrySetGateOpen(g.Edge.Value, g.GateOpen);
+                canals.TryInstall(c.Edge.Value);
+                canals.TrySetLevel(c.Edge.Value, c.Level);
+                canals.TrySetGate(c.Edge.Value, true);
+                canals.TrySetGateOpen(c.Edge.Value, false);
             }
 
-            List<WaterSource> sources = _facilities.Values.Where(x => x.Kind == BuildingKinds.Well && Counts(x))
+            sources = _facilities.Values.Where(x => x.Kind == BuildingKinds.Well && Counts(x))
                 .Select(w => new WaterSource(w.Id.ToString(), w.Tile, (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier)).ToList();
             List<WaterConsumer> consumers = _facilities.Values
                 .Where(x => Counts(x) && !x.Edge.HasValue && (Level(x).WaterDemand ?? 0) > 0)

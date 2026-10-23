@@ -360,14 +360,6 @@
         "foodUse": 0,
         "upkeep": 0.08
       }
-    ],
-    "canalGate": [
-      {
-        "stone": 3,
-        "hours": 2,
-        "foodUse": 0,
-        "upkeep": 0.03
-      }
     ]
   },
   "sampleBenchmarks": {

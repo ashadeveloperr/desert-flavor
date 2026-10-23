@@ -2,6 +2,17 @@ using DesertSettlement.Core.Hex;
 
 namespace DesertSettlement.Core.Economy
 {
+    /// <summary>물탱크가 한 시간에 하는 일. 한 시간에 충전과 방출 중 하나만(방출 우선, Docs/decision_log_auto.md T6).</summary>
+    public enum WaterTankMode
+    {
+        /// <summary>아무것도 안 함(가득 찼거나, 남는 물이 없거나, 운영 중이 아님).</summary>
+        Idle,
+        /// <summary>모든 시설이 받고 남은 물로 충전.</summary>
+        Charging,
+        /// <summary>하류의 물이 모자란 시설에 방출.</summary>
+        Discharging,
+    }
+
     public enum FacilityState
     {
         /// <summary>건설 공사 중. 생산·식량 소비·유지비 없음.</summary>
@@ -42,12 +53,16 @@ namespace DesertSettlement.Core.Economy
         public FacilityState State { get; internal set; }
         /// <summary>건설·개량에 실제로 들어간 석재 합(철거 환급 계산용).</summary>
         public double StoneInvested { get; internal set; }
-        /// <summary>수문 개방 상태(수문 시설만 의미 있음). 조작은 작업 슬롯을 쓰지 않는다.</summary>
-        public bool GateOpen { get; internal set; } = true;
         /// <summary>운영을 시작한(완공된) 게임 시간. 미완공이면 -1.</summary>
         public long CompletedHour { get; internal set; } = -1;
         /// <summary>마지막으로 건설·개량을 마치고 지금 레벨로 운영을 시작한 시간. 미완공이면 -1.</summary>
         public long ActiveSinceHour { get; internal set; } = -1;
+        /// <summary>물탱크에 저장된 물(물탱크만 의미 있음). 폐쇄·개량 중에도 그대로 남는다.</summary>
+        public double StoredWater { get; internal set; }
+        /// <summary>물탱크가 지난 시간에 한 일(물탱크만 의미 있음).</summary>
+        public WaterTankMode TankMode { get; internal set; }
+        /// <summary>물탱크가 지난 시간에 충전(+) 또는 방출(−)한 양.</summary>
+        public double TankFlowLastHour { get; internal set; }
 
         public bool IsOperating => State == FacilityState.Operating;
         public override string ToString() => $"#{Id} {Kind} L{Level} {State} @{(Edge.HasValue ? Edge.ToString() : Tile.ToString())}";

@@ -22,8 +22,8 @@ namespace DesertSettlement.Runtime
         [SerializeField] private Color boundaryColor = new Color(1f, 0.45f, 0.2f, 1f);
         [SerializeField] private Color vertexColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         [SerializeField] private Color canalColor = new Color(0.2f, 0.6f, 1f, 1f);
-        [SerializeField] private Color closedGateColor = new Color(0.9f, 0.15f, 0.15f, 1f);
-        [SerializeField] private Color openGateColor = new Color(0.2f, 0.85f, 0.3f, 1f);
+        [Tooltip("닫힌 수로(그래프의 막힌 변) 표시 색")]
+        [SerializeField] private Color closedCanalColor = new Color(0.9f, 0.15f, 0.15f, 1f);
 
         private GameSession _session;
         private HexTopology _previewTopology;
@@ -41,7 +41,7 @@ namespace DesertSettlement.Runtime
             {
                 topology = _session.Topology;
                 layout = _session.Layout;
-                canals = _session.Settlement.LastCanals; // 운영 중인 수로·수문만
+                canals = _session.Settlement.LastCanals; // 운영 중인 수로 + 닫힌 수로(막힌 변)
             }
             else
             {
@@ -82,9 +82,9 @@ namespace DesertSettlement.Runtime
                     Vector3 b = VertexWorld(segment.Edge.VertexB, layout);
                     DrawThickLine(a, b, size * 0.06f, canalColor);
 
-                    if (segment.HasGate)
+                    if (segment.HasGate && !segment.GateOpen)
                     {
-                        Gizmos.color = segment.GateOpen ? openGateColor : closedGateColor;
+                        Gizmos.color = closedCanalColor;
                         Gizmos.DrawCube((a + b) * 0.5f, Vector3.one * size * 0.18f);
                     }
                 }

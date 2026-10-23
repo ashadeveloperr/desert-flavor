@@ -162,7 +162,7 @@ namespace DesertSettlement.Core.Tests
         // ───────────── 건설 규칙 ─────────────
 
         [Test]
-        public void Build_RespectsTerrainOccupancyAndDisabledKinds()
+        public void Build_RespectsTerrainAndOccupancy()
         {
             Settlement s = NewSettlement();
             s.Map.GetTile(new HexCoord(-2, 0)).Terrain = TerrainType.Obstacle;
@@ -170,7 +170,7 @@ namespace DesertSettlement.Core.Tests
             Assert.IsFalse(s.RequestBuild(BuildingKinds.Well, FarmTile).Success, "우물은 수원에만");
             Assert.IsFalse(s.RequestBuild(BuildingKinds.Mine, QuarryTile).Success, "광산은 광맥에만");
             Assert.IsFalse(s.RequestBuild(BuildingKinds.Farm, new HexCoord(-2, 0)).Success, "장애물 불가");
-            Assert.IsFalse(s.RequestBuild(BuildingKinds.WaterTank, FarmTile).Success, "물탱크는 MVP 이후");
+            Assert.IsTrue(s.CanBuild(BuildingKinds.WaterTank, FarmTile).Success, "물탱크는 사막에 지을 수 있다(2026-10-23 로드맵 1-②)");
             Assert.IsFalse(s.RequestBuild(BuildingKinds.Farm, new HexCoord(9, 9)).Success, "맵 밖");
 
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, FarmTile).Success);
@@ -178,14 +178,12 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Canals_AllowBoundaryEdges_GateNeedsCanal()
+        public void Canals_AllowBoundaryEdges()
         {
             Settlement s = NewSettlement();
             EdgeId boundary = EdgeId.Of(new HexCoord(3, 0), HexDirection.East);
             Assert.IsTrue(s.RequestCanal(boundary).Success, "경계 변 수로 가능");
             Assert.IsFalse(s.RequestCanal(EdgeId.Of(new HexCoord(4, 0), HexDirection.West)).Success, "같은 변(이웃 쪽 표현) 중복 불가");
-            Assert.IsFalse(s.RequestGate(Canal1).Success, "수로 없는 변에 수문 불가");
-            Assert.IsTrue(s.RequestGate(boundary).Success, "예약된 수로 위 수문 가능");
         }
 
         [Test]
@@ -314,21 +312,25 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void ClosedGate_CutsDownstreamWater()
+        public void ClosedCanal_CutsDownstreamWater_AndReopens()
         {
+            // 2026-10-23 수문 폐지: 물길 개폐는 수로 폐쇄로 한다.
             Script sc = new Script();
-            sc.At(30, "gate", s => s.RequestGate(Canal2));
             sc.Run(40);
             Settlement s = sc.S;
-            Facility gate = s.FacilityOn(Canal2, BuildingKinds.CanalGate);
-            Assert.IsNotNull(gate);
+            Facility canal = s.FacilityOn(Canal2, BuildingKinds.CanalEdge);
+            Assert.IsNotNull(canal);
             Assert.Greater(s.WaterRateOf(sc.F("mine")), 0.7);
 
-            s.SetGateOpen(gate.Id, false);
+            Assert.IsTrue(s.SetClosed(canal.Id, true).Success);
             s.AdvanceHour();
-            Assert.AreEqual(1.0, s.WaterRateOf(sc.F("farm")), 1e-9, "수문 상류는 그대로");
+            Assert.AreEqual(1.0, s.WaterRateOf(sc.F("farm")), 1e-9, "닫힌 수로 상류는 그대로");
             Assert.AreEqual(1.0, s.WaterRateOf(sc.F("quarry")), 1e-9, "채석장은 수로1 끝 꼭짓점에서도 받는다");
-            Assert.AreEqual(0.0, s.WaterRateOf(sc.F("mine")), "수문 하류(수로2 너머)만 닿는 광산은 단수");
+            Assert.AreEqual(0.0, s.WaterRateOf(sc.F("mine")), "닫힌 수로2 너머만 닿는 광산은 단수");
+
+            Assert.IsTrue(s.SetClosed(canal.Id, false).Success);
+            s.AdvanceHour();
+            Assert.Greater(s.WaterRateOf(sc.F("mine")), 0.7, "다시 열면 물이 돌아온다");
         }
 
         [Test]

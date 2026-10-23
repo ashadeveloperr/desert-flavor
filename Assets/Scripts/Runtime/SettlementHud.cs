@@ -27,7 +27,7 @@ namespace DesertSettlement.Runtime
         private static readonly BuildTool[] Tools =
         {
             BuildTool.Select, BuildTool.Well, BuildTool.Farm, BuildTool.Quarry, BuildTool.Mine, BuildTool.AuctionHall,
-            BuildTool.Warehouse, BuildTool.Hospital, BuildTool.Canal, BuildTool.Gate, BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose,
+            BuildTool.Warehouse, BuildTool.Hospital, BuildTool.WaterTank, BuildTool.Canal, BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose,
         };
 
         private void Awake()
@@ -164,13 +164,9 @@ namespace DesertSettlement.Runtime
             GUILayout.BeginHorizontal();
             if (Button("개량", s.CanUpgrade(f.Id))) s.RequestUpgrade(f.Id);
             if (Button("철거", s.CanDemolish(f.Id))) s.RequestDemolish(f.Id);
-            if (f.Kind == BuildingKinds.CanalGate)
+            if (!s.Rules.CannotClose.Contains(f.Kind) && (f.State == FacilityState.Operating || f.State == FacilityState.Closed))
             {
-                if (GUILayout.Button(f.GateOpen ? "수문 닫기" : "수문 열기")) s.SetGateOpen(f.Id, !f.GateOpen);
-            }
-            else if (!s.Rules.CannotClose.Contains(f.Kind) && (f.State == FacilityState.Operating || f.State == FacilityState.Closed))
-            {
-                if (GUILayout.Button(f.State == FacilityState.Closed ? "재개" : "폐쇄")) s.SetClosed(f.Id, f.State == FacilityState.Operating);
+                if (GUILayout.Button(f.State == FacilityState.Closed ? (f.Kind == BuildingKinds.CanalEdge ? "수로 열기" : "재개") : (f.Kind == BuildingKinds.CanalEdge ? "수로 닫기" : "폐쇄"))) s.SetClosed(f.Id, f.State == FacilityState.Operating);
             }
             GUILayout.EndHorizontal();
             GUILayout.Space(8);

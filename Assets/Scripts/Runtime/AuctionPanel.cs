@@ -9,7 +9,7 @@ namespace DesertSettlement.Runtime
     /// <summary>
     /// 경매·상점·파산 화면(임시 IMGUI, 화면 가운데 창). 정식 UI를 만들면 지워도 된다.
     /// - 경매가 열리면: 경매 종류·당일 시세, 입찰자별 총액·현금·다음 정착지 혜택·가치 내역, 매각/보류 버튼
-    /// - 매각 후: 정산 요약, 영구 장비 상점, '다음 정착지로'
+    /// - 매각 후: 정산 요약, 영구 장비 상점·현장 장비 슬롯(5), 다음 지역 후보(약점·강점) 중 선택
     /// - 파산: 이유와 '새 캠페인'
     /// 창이 떠 있는 동안 맵 클릭은 막힌다(시간도 GameSession이 멈춘다).
     /// </summary>
@@ -100,13 +100,24 @@ namespace DesertSettlement.Runtime
                 GUILayout.Label($"매각 대금 {sale.SaleCash:0.0}{FacilityInfo.PerkText(sale.FoodBonus, sale.FreeBuilds)}");
             }
             GUILayout.Label($"보유 자금 {campaign.Cash:0.0}   (식량·석재는 정착지에 남고, 구매 단가는 다음 정착지에서 초기화)");
+
+            // 1) 영구 장비: 구매 + 현장 장비 슬롯(5개).
             GUILayout.Space(8);
-            GUILayout.Label("영구 장비 상점");
+            GUILayout.Label($"영구 장비 — 현장 장비 슬롯 {campaign.Loadout.Count}/{Campaign.EquipmentSlots} (체크한 장비만 다음 정착지에서 효과)");
             foreach (EquipmentDefinition e in campaign.Shop)
             {
                 GUILayout.BeginHorizontal(GUI.skin.box);
-                GUILayout.Label($"{e.Name} — {e.Price:0}  (우물 방출 ×{e.WellSupplyMultiplier:0.00})");
-                if (campaign.Owns(e.Id)) GUILayout.Label("보유");
+                GUILayout.Label($"{e.Name} — {e.Price:0}\n<size=11>{e.Description ?? e.Effects.Describe()}</size>", RichLabel);
+                if (campaign.Owns(e.Id))
+                {
+                    bool on = campaign.IsEquipped(e.Id);
+                    bool want = GUILayout.Toggle(on, "장착", GUILayout.Width(60));
+                    if (want != on)
+                    {
+                        var r = campaign.SetEquipped(e.Id, want);
+                        _shopMessage = r.Success ? null : r.Message;
+                    }
+                }
                 else if (GUILayout.Button("구매", GUILayout.Width(60)))
                 {
                     var r = _session.BuyEquipment(e.Id);
@@ -115,18 +126,40 @@ namespace DesertSettlement.Runtime
                 GUILayout.EndHorizontal();
             }
             if (!string.IsNullOrEmpty(_shopMessage)) GUILayout.Label(_shopMessage);
+
+            // 2) 다음 지역 후보. 난이도는 들어가는 순간의 보유 자금으로 정해진다(장비를 사면 내려간다).
             GUILayout.Space(8);
-            // 다음 정착지 난이도는 들어가는 순간의 보유 자금으로 정해진다(장비를 사면 내려간다).
-            DifficultyParams next = campaign.PreviewNextDifficulty();
-            GUILayout.Label(next == null
-                ? "다음 정착지: 고정 맵"
-                : $"다음 정착지: 생성 맵 — 난이도 {next.D:0.00} (반경 {next.Radius}, 우물 {next.WellCount}, 광맥 {next.OreCount}, 장애물 {next.ObstacleDensity:P0})");
-            if (GUILayout.Button($"다음 정착지로 (정착지 {campaign.SettlementNumber + 1})", GUILayout.Height(32)))
+            GUILayout.Label($"다음 지역 (정착지 {campaign.SettlementNumber + 1}) — 지형 배치는 들어가면 보입니다");
+            var offers = campaign.NextOffers();
+            foreach (RegionOffer offer in offers)
             {
-                _shopMessage = null;
-                _session.GoToNextSettlement();
+                GUILayout.BeginVertical(GUI.skin.box);
+                if (offer.IsFixedMap)
+                {
+                    GUILayout.Label($"고정 맵: {offer.FixedMap.Name}");
+                }
+                else
+                {
+                    DifficultyParams p = offer.Params;
+                    GUILayout.Label($"후보 {offer.Index + 1} — 난이도 {p.D:0.00} (반경 {p.Radius}, 우물 {p.WellCount}, 광맥 {p.OreCount}, 장애물 {p.ObstacleDensity:P0})");
+                    if (offer.Modifiers.Count == 0) GUILayout.Label("  특이 사항 없음");
+                    foreach (RegionModifierDefinition m in offer.Modifiers)
+                    {
+                        string tag = m.Kind == RegionModifierKind.Weakness ? "<color=#e08a6a>약점</color>" : "<color=#8ac46a>강점</color>";
+                        GUILayout.Label($"  {tag} {m.Name}: {m.Effects.Describe()}", RichLabel);
+                    }
+                }
+                if (GUILayout.Button(offers.Count > 1 ? $"후보 {offer.Index + 1}로 출발" : "다음 정착지로", GUILayout.Height(28)))
+                {
+                    _shopMessage = null;
+                    _session.GoToNextSettlement(offer.Index);
+                }
+                GUILayout.EndVertical();
             }
         }
+
+        private static GUIStyle _richLabel;
+        private static GUIStyle RichLabel => _richLabel ??= new GUIStyle(GUI.skin.label) { richText = true, wordWrap = true };
 
         private void DrawBankrupt(Campaign campaign)
         {

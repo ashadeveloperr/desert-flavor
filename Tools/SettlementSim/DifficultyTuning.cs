@@ -86,7 +86,7 @@ namespace SettlementSim
                         seed: campaignSeed * 31 + n, strategy: BotStrategy.Multi);
                     if (r.AuctionHour < 0) { line.Append($"| #{n} {label} {r.Failure} "); break; }
                     cash = r.FinalCash;
-                    if (n == 1 && cash >= 1400) { cash -= 400; wm = 1.2; }
+                    if (n == 1 && cash >= 1400) { cash -= 400; wm = 1.1; }
                     line.Append($"| #{n} {label} → {cash:0} ");
                 }
                 if (reached > 0) reach.Add(reached);

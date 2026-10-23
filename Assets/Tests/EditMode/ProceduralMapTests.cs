@@ -38,12 +38,14 @@ namespace DesertSettlement.Core.Tests
             // JSON과 코드 기본값이 어긋나면 어느 쪽을 고쳤는지 헷갈리므로 항상 같게 유지한다.
             AssertSameProperties(new DifficultyCurve(), _proc.Difficulty);
             AssertSameProperties(new GeneratorRules(), _proc.Generator);
+            AssertSameProperties(new RegionModifierSettings(), _proc.Modifiers);
+            Assert.AreEqual(new ProceduralMapConfig().RegionChoices, _proc.RegionChoices);
             Assert.AreEqual(1, _proc.FixedMapsBeforeGenerated);
         }
 
         private static void AssertSameProperties<T>(T expected, T actual)
         {
-            foreach (var prop in typeof(T).GetProperties())
+            foreach (var prop in typeof(T).GetProperties().Where(x => x.PropertyType.IsValueType || x.PropertyType == typeof(string)))
             {
                 Assert.AreEqual(prop.GetValue(expected), prop.GetValue(actual), $"{typeof(T).Name}.{prop.Name}");
             }
@@ -54,7 +56,7 @@ namespace DesertSettlement.Core.Tests
         {
             Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("procedural-map-v1", "procedural-map-v0")));
             Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("\"mountainChance\": 0.5", "\"mountainChance\": 1.5")));
-            Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("\"cashPerD\": 10500", "\"cashPerD\": 0")));
+            Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("\"cashPerD\": 14000", "\"cashPerD\": 0")));
         }
 
         // ───────────── 난이도 수치 ─────────────

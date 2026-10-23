@@ -54,7 +54,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(0.2, _config.Auction.EmergencyPenalty, 1e-9);
             Assert.AreEqual(1, Bidder("farmer").NextSettlementFreeBuilds[BuildingKinds.Farm], "농장주 혜택: 완공된 농장 1개");
             Assert.AreEqual(2.5, _config.AuctionSeed.OreProduction24hValueFactor, 1e-9);
-            Assert.AreEqual(1.2, _config.Equipment.Single(e => e.Id == "wellPump").WellSupplyMultiplier, 1e-9);
+            Assert.AreEqual(1.1, _config.Equipment.Single(e => e.Id == "wellPump").WellSupplyMultiplier, 1e-9);
         }
 
         [Test]
@@ -281,7 +281,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(48 + chosen.NextSettlementFoodBonus, second.Food, 1e-9, "식량은 이월 없이 새로 + 입찰자 혜택");
             Assert.AreEqual(75, second.Stone, 1e-9, "석재는 이월 없음");
             Assert.AreEqual(4.0, second.NextPrice(false), 1e-9, "구매 단가 초기화");
-            Assert.AreEqual(1.2, second.Rules.WellSupplyMultiplier, 1e-9, "영구 장비 효과");
+            Assert.AreEqual(1.1, second.Rules.WellSupplyMultiplier, 1e-9, "영구 장비 효과");
             int expectedFreeFarms = chosen.Bidder.Id == "farmer" ? 1 : 0;
             Assert.AreEqual(expectedFreeFarms, second.FreeBuildsRemaining(BuildingKinds.Farm), "농장주에게 팔았으면 완공 농장 1개");
         }

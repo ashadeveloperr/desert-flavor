@@ -96,7 +96,57 @@
       "id": "wellPump",
       "name": "우물 성능 향상",
       "price": 400,
-      "wellSupplyMultiplier": 1.2
+      "description": "우물 방출 +10%. 마른 대수층에 대응",
+      "effects": { "wellSupplyMultiplier": 1.1 }
+    },
+    {
+      "id": "miningGear",
+      "name": "광업 강화",
+      "price": 600,
+      "description": "광물 생산 +15%",
+      "effects": { "oreOutputMultiplier": 1.15 }
+    },
+    {
+      "id": "extraCrew",
+      "name": "건설 슬롯 +1",
+      "price": 900,
+      "description": "동시 작업 2 → 3",
+      "effects": { "extraConstructionSlots": 1 }
+    },
+    {
+      "id": "bigStorage",
+      "name": "대형 창고 설비",
+      "price": 350,
+      "description": "기본 식량·석재 저장 한도 +50",
+      "effects": { "extraStorage": 50 }
+    },
+    {
+      "id": "reinforcedMaterials",
+      "name": "보강 자재",
+      "price": 500,
+      "description": "건설 석재 −10%. 무른 지반에 대응",
+      "effects": { "stoneCostMultiplier": 0.9 }
+    },
+    {
+      "id": "oxygenSupply",
+      "name": "산소 공급기",
+      "price": 450,
+      "description": "생산 효율 상한 +5%p. 산소가 희박한 고지대에 대응(평소엔 효과 없음)",
+      "effects": { "efficiencyCapBonus": 0.05 }
+    },
+    {
+      "id": "windbreak",
+      "name": "수로 방풍막",
+      "price": 450,
+      "description": "수로 손실 −20%. 모래바람 지대에 대응",
+      "effects": { "canalLossMultiplier": 0.8 }
+    },
+    {
+      "id": "irrigation",
+      "name": "관개 장비",
+      "price": 450,
+      "description": "농장 생산 +5%. 염분 토양에 대응",
+      "effects": { "foodOutputMultiplier": 1.05 }
     }
   ],
   "buildingLevels": {

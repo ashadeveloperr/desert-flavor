@@ -13,6 +13,10 @@ namespace DesertSettlement.Core.Progression
         public int FixedMapsBeforeGenerated { get; set; } = 1;
         public DifficultyCurve Difficulty { get; set; } = new DifficultyCurve();
         public GeneratorRules Generator { get; set; } = new GeneratorRules();
+        /// <summary>지역 모디파이어(약점·강점) 목록과 출현 규칙.</summary>
+        public RegionModifierSettings Modifiers { get; set; } = new RegionModifierSettings();
+        /// <summary>상점에서 보여 줄 다음 지역 후보 수(2026-10-23 확정: 2곳).</summary>
+        public int RegionChoices { get; set; } = 2;
 
         /// <summary>값이 말이 되는지 검사한다. 문제 목록(비어 있으면 정상).</summary>
         public List<string> Validate()
@@ -44,6 +48,9 @@ namespace DesertSettlement.Core.Progression
                 }
                 if (g.MaxAttempts < 1) p.Add("generator.maxAttempts는 1 이상이어야 합니다.");
             }
+            if (RegionChoices < 1) p.Add("regionChoices는 1 이상이어야 합니다.");
+            if (Modifiers == null) p.Add("modifiers가 없습니다.");
+            else p.AddRange(Modifiers.Validate());
             return p;
         }
     }
@@ -52,14 +59,19 @@ namespace DesertSettlement.Core.Progression
     /// 난이도 곡선의 조절값. D = 0(쉬움)과 D = 1(목표: 숙련 플레이어가 겨우 흑자) 두 끝값을 정하고,
     /// D &gt; 1은 같은 기울기로 계속 늘린다(상한 없음, 2026-10-23 확정). 각 값에는 하한·상한이 있다.
     /// 우물·광맥은 '반경 3 맵(37칸)당 개수'로 정해 맵 칸 수 비율만큼 늘린다.
-    /// 기본값은 Tools/SettlementSim의 '-- tune' 조정 결과(후보 E, CashPerD 10500).
+    /// 기본값: 지형 곡선은 Tools/SettlementSim '-- tune'(후보 E), 자금 기준·정착지 항은 '-- mods campaign 0.2 14000'(장비·모디파이어 포함 봇 캠페인) 조정 결과.
     /// </summary>
     public sealed class DifficultyCurve
     {
-        /// <summary>D = max(0, (보유 자금 − CashAtD0) / CashPerD). 상한 없음.</summary>
+        /// <summary>D = max(0, (보유 자금 − CashAtD0) / CashPerD) + DPerSettlement × (지나온 생성 맵 정착지 수). 상한 없음.</summary>
         public double CashAtD0 { get; set; } = 1000;
-        /// <summary>숙련 플레이어가 6~7번째 정착지에서 D=1에 닿도록 조정한 값.</summary>
-        public double CashPerD { get; set; } = 10500;
+        /// <summary>장비·모디파이어를 쓰는 숙련 봇이 약 5번째 정착지에서 D=1, 13~18번째(D 3~4)에서 첫 적자가 나도록 정착지 항과 함께 조정한 값.</summary>
+        public double CashPerD { get; set; } = 14000;
+        /// <summary>
+        /// 생성 맵 정착지마다 D에 더하는 값(2026-10-23 확정: 자금과 별개로 정착지 수로도 난이도가 오른다).
+        /// 첫 생성 맵 정착지는 0, 그다음부터 1개마다 이만큼. 수익이 줄어도 난이도가 계속 올라 결국 적자에 닿게 한다.
+        /// </summary>
+        public double DPerSettlement { get; set; } = 0.2;
 
         /// <summary>반경: D &lt; FirstRadiusStepD이면 BaseRadius, 이후 RadiusStepD마다 +1, 최대 MaxRadius(HexMap 한도 7).</summary>
         public int BaseRadius { get; set; } = 3;

@@ -32,6 +32,10 @@ namespace DesertSettlement.Core.Progression
 
         public static DifficultyParams FromCash(double cash, DifficultyCurve c) => For(DifficultyFromCash(cash, c), c);
 
+        /// <summary>캠페인용 D: 자금 항 + 정착지 항(generatedBefore = 이 정착지 전에 지나온 생성 맵 정착지 수).</summary>
+        public static double DifficultyFromProgress(double cash, int generatedBefore, DifficultyCurve c) =>
+            DifficultyFromCash(cash, c) + c.DPerSettlement * Math.Max(0, generatedBefore);
+
         public static DifficultyParams For(double d, DifficultyCurve c)
         {
             if (c == null) throw new ArgumentNullException(nameof(c));

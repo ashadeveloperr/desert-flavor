@@ -163,12 +163,12 @@ namespace DesertSettlement.Core.Economy
 
                 BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
                 double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(f.Id.ToString()) : 1.0;
-                double perHour = rate * s.FoodCoefficient;
+                double perHour = Math.Min(s.Rules.EfficiencyCap, rate * s.FoodCoefficient);
                 double amount = perHour * missingHours * progress * ratio;
                 switch (f.Kind)
                 {
-                    case BuildingKinds.Farm: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, amount * (lv.FoodProduction ?? 0), 0, 0)); break;
-                    case BuildingKinds.Quarry: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, amount * (lv.StoneProduction ?? 0), 0)); break;
+                    case BuildingKinds.Farm: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, amount * (lv.FoodProduction ?? 0) * s.Rules.FoodOutputMultiplier, 0, 0)); break;
+                    case BuildingKinds.Quarry: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, amount * (lv.StoneProduction ?? 0) * s.Rules.StoneOutputMultiplier, 0)); break;
                     case BuildingKinds.Mine: list.Add(new DevelopmentAsset(f.Id, f.Kind, amount * (lv.OreProduction ?? 0) * s.Rules.OreMultiplier, 0, 0, 0)); break;
                 }
             }

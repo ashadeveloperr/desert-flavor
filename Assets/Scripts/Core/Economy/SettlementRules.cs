@@ -37,10 +37,25 @@ namespace DesertSettlement.Core.Economy
         public double DemolishRefundRatio { get; set; } = 0.5;
         /// <summary>철거 공사 시간 = 해당 시설 L1 건설 시간 × 이 값(올림, 최소 1). [잠정 임시값]</summary>
         public double DemolishHoursRatio { get; set; } = 0.5;
-        /// <summary>광물 생산 배율(지형 품질·장비). 장비 시스템 전까지 1.</summary>
+        // ── 장비·지역 모디파이어 효과 (캠페인이 <see cref="ApplyEffects"/>로 건다. 기본값 = 효과 없음) ──
+        /// <summary>광물 생산 배율(풍부한 광맥·광업 강화).</summary>
         public double OreMultiplier { get; set; } = 1.0;
-        /// <summary>우물 방출량 배율. 영구 장비 '우물 성능 향상'이 올린다(캠페인이 설정).</summary>
+        /// <summary>우물 방출량 배율(우물 성능 향상·마른 대수층).</summary>
         public double WellSupplyMultiplier { get; set; } = 1.0;
+        /// <summary>농장 식량 생산 배율.</summary>
+        public double FoodOutputMultiplier { get; set; } = 1.0;
+        /// <summary>채석장 석재 생산 배율.</summary>
+        public double StoneOutputMultiplier { get; set; } = 1.0;
+        /// <summary>건설·개량 석재 배율.</summary>
+        public double StoneCostMultiplier { get; set; } = 1.0;
+        /// <summary>생산 시설 효율(물 공급률 × 식량 계수)의 상한. 1 = 제한 없음.</summary>
+        public double EfficiencyCap { get; set; } = 1.0;
+        /// <summary>식량·석재 구매 단가 배율.</summary>
+        public double PurchasePriceMultiplier { get; set; } = 1.0;
+        /// <summary>유지비 배율.</summary>
+        public double UpkeepMultiplier { get; set; } = 1.0;
+        /// <summary>지금까지 건 효과를 합친 것(UI 표시용).</summary>
+        public EconomyEffects AppliedEffects { get; private set; } = new EconomyEffects();
         /// <summary>
         /// 이 정착지에서 석재·공사 시간 없이 바로 완공 배치할 수 있는 시설 수(종류 → 개수).
         /// 농장주에게 매각한 다음 정착지에서 캠페인이 채운다(완공된 농장 1개로 시작).
@@ -98,6 +113,36 @@ namespace DesertSettlement.Core.Economy
                 DevelopmentAssetRatio = config.Auction?.DevelopmentAssetRatio ?? 0,
                 Water = WaterNetworkSettings.FromConfig(config),
             };
+        }
+
+        /// <summary>
+        /// 장비·지역 모디파이어 효과를 규칙 값에 건다(여러 번 부르면 누적). 정착지를 만들기 전에 호출한다.
+        /// 수로 손실은 물 배분 설정에, 작업 슬롯·저장 한도는 해당 값에 더한다.
+        /// </summary>
+        public void ApplyEffects(EconomyEffects e)
+        {
+            if (e == null) return;
+            OreMultiplier *= e.OreOutputMultiplier;
+            WellSupplyMultiplier *= e.WellSupplyMultiplier;
+            FoodOutputMultiplier *= e.FoodOutputMultiplier;
+            StoneOutputMultiplier *= e.StoneOutputMultiplier;
+            StoneCostMultiplier *= e.StoneCostMultiplier;
+            PurchasePriceMultiplier *= e.PurchasePriceMultiplier;
+            UpkeepMultiplier *= e.UpkeepMultiplier;
+            ConstructionSlots += e.ExtraConstructionSlots;
+            BaseFoodStorage += e.ExtraStorage;
+            BaseStoneStorage += e.ExtraStorage;
+            AppliedEffects = EconomyEffects.Combine(new[] { AppliedEffects, e });
+            EfficiencyCap = AppliedEffects.EffectiveEfficiencyCap;
+            if (Math.Abs(e.CanalLossMultiplier - 1) > 1e-12)
+            {
+                WaterNetworkSettings old = Water;
+                Water = new WaterNetworkSettings
+                {
+                    LossPerWholeEdge = Math.Min(0.95, old.LossPerWholeEdge * e.CanalLossMultiplier),
+                    CapacityOf = old.CapacityOf,
+                };
+            }
         }
 
         public static bool IsEdgeKind(string kind) => kind == BuildingKinds.CanalEdge || kind == BuildingKinds.CanalGate;

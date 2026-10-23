@@ -145,13 +145,19 @@ namespace DesertSettlement.Core.Config
     }
 
     /// <summary>영구 장비. 정착지를 옮겨도 유지된다.</summary>
+    /// <summary>영구 장비. 정착지에 들어갈 때 현장 장비 슬롯(5개)에 넣은 것만 효과가 있다.</summary>
     public sealed class EquipmentDefinition
     {
         public string Id { get; set; }
         public string Name { get; set; }
         public double Price { get; set; }
-        /// <summary>우물 방출량 배율(1.2 = +20%). 없으면 1.</summary>
-        public double WellSupplyMultiplier { get; set; } = 1;
+        /// <summary>상점에 보일 한 줄 설명(어떤 약점에 대응하는지 등).</summary>
+        public string Description { get; set; }
+        /// <summary>경제 효과(바꿀 항목만 적는다). 형식은 지역 모디파이어와 같다.</summary>
+        public DesertSettlement.Core.Economy.EconomyEffects Effects { get; set; } = new DesertSettlement.Core.Economy.EconomyEffects();
+
+        /// <summary>우물 방출량 배율(1.2 = +20%). Effects에서 읽는다.</summary>
+        public double WellSupplyMultiplier => Effects?.WellSupplyMultiplier ?? 1;
     }
 
     public sealed class InfraMultipliers

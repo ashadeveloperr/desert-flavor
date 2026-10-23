@@ -118,7 +118,7 @@ namespace DesertSettlement.PlayMode.Tests
                     yield return null;
                     yield return null;
                     Assert.AreEqual("map_02_sand_canyon", session.Campaign.CurrentMap.Id);
-                    Assert.AreEqual(1.2, session.Settlement.Rules.WellSupplyMultiplier, 1e-9);
+                    Assert.AreEqual(1.1, session.Settlement.Rules.WellSupplyMultiplier, 1e-9);
                     Assert.AreEqual(session.Map.TileCount, session.transform.Find("Tiles").childCount, "새 맵으로 다시 그림");
                     Assert.AreEqual(0, session.transform.Find("Facilities").childCount, "이전 정착지 시설 표시 제거");
                     Assert.IsFalse(session.Clock.IsPaused);

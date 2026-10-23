@@ -185,6 +185,23 @@ namespace SettlementSim
 
         private static MapBuildEntry Build(string kind, HexCoord c) => new MapBuildEntry { Kind = kind, Q = c.Q, R = c.R };
 
+        /// <summary>
+        /// Core 캠페인의 지금 정착지에서 계획을 예약하고 첫 경매까지 돌린 뒤 현금이 가장 큰 입찰에 판다.
+        /// 팔았으면 true(캠페인은 상점 상태), 계획 불가·파산·시간 초과면 false.
+        /// </summary>
+        public static bool PlayCampaignSettlement(Campaign c, BotStrategy strategy = BotStrategy.Multi, int maxHours = 600)
+        {
+            List<MapBuildEntry> plan = Plan(c.CurrentMap, strategy);
+            if (plan == null) return false;
+            var withPlan = new MapDefinition { Id = c.CurrentMap.Id, Radius = c.CurrentMap.Radius, Terrain = c.CurrentMap.Terrain, SampleLayout = plan };
+            if (withPlan.RequestSampleLayout(c.Current).Count > 0) return false;
+            for (int h = 0; h < maxHours && !c.Auctions.IsOpen && !c.Auctions.IsFinished; h++) c.Current.AdvanceHour();
+            if (!c.Auctions.IsOpen) return false;
+            var bids = c.Auctions.CurrentAuction.Bids.ToList();
+            c.Auctions.Sell(bids.IndexOf(bids.OrderByDescending(b => b.Cash).First()));
+            return c.State == CampaignState.Shopping;
+        }
+
         /// <summary>계획을 예약하고 첫 경매(또는 파산·시간 초과)까지 돌린다.</summary>
         public static Result Run(EconomyConfig config, MapDefinition def, Action<SettlementRules> tweak = null, int seed = 1, int maxHours = 600,
             BotStrategy strategy = BotStrategy.Single)

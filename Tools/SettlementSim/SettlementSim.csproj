@@ -21,5 +21,7 @@
     <Compile Include="../../Assets/Scripts/Core/Progression/DeterministicRandom.cs" Link="Core/Progression/DeterministicRandom.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfig.cs" Link="Core/Progression/ProceduralMapConfig.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapGenerator.cs" Link="Core/Progression/ProceduralMapGenerator.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/RegionModifiers.cs" Link="Core/Progression/RegionModifiers.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/RegionOffer.cs" Link="Core/Progression/RegionOffer.cs" />
   </ItemGroup>
 </Project>

@@ -25,6 +25,8 @@ namespace SettlementSim
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             // dotnet run --project Tools/SettlementSim -- tune : 난이도 곡선 후보만 비교(DifficultyTuning.cs).
             if (args.Length > 0 && args[0] == "tune") return DifficultyTuning(args.Skip(1).ToArray());
+            // dotnet run --project Tools/SettlementSim -- mods : 지역 모디파이어·장비 수치 측정(ModifierTuning.cs).
+            if (args.Length > 0 && args[0] == "mods") return ModifierTuning(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();
@@ -465,7 +467,7 @@ namespace SettlementSim
         {
             string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "procedural_map_config.json"));
             var config = System.Text.Json.JsonSerializer.Deserialize<ProceduralMapConfig>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } });
             var problems = config.Validate();
             if (problems.Count > 0) throw new InvalidOperationException("절차 맵 설정 오류: " + string.Join("; ", problems));
             return config;
@@ -669,7 +671,7 @@ namespace SettlementSim
                     DifficultyParams p = null;
                     if (n > 1)
                     {
-                        p = DifficultyParams.FromCash(cash, proc.Difficulty);
+                        p = DifficultyParams.For(DifficultyParams.DifficultyFromProgress(cash, n - 2, proc.Difficulty), proc.Difficulty);
                         var g = ProceduralMapGenerator.Generate(p, rules, campaignSeed * 100 + n);
                         if (g == null) { line.Append($"| #{n} 생성 실패 "); break; }
                         def = g.Map;
@@ -683,7 +685,7 @@ namespace SettlementSim
                         break;
                     }
                     cash = r.FinalCash;
-                    if (n == 1 && cash >= 400 + 1000) { cash -= 400; wellMultiplier = 1.2; } // 첫 매각 후 우물 장비 구매
+                    if (n == 1 && cash >= 400 + 1000) { cash -= 400; wellMultiplier = 1.1; } // 첫 매각 후 우물 장비 구매(+10%)
                     line.Append($"| #{n} {label} {r.AuctionHour}h → {cash:0} ");
                 }
                 Line(line.ToString());

@@ -141,9 +141,9 @@ namespace DesertSettlement.Runtime
             if (AcceptsWorldInput) Settlement.AdvanceHour();
         }
 
-        private void BeginSettlement()
+        private void BeginSettlement(int offerIndex = 0)
         {
-            if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement();
+            if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement(offerIndex);
             Auctions.AuctionOpened += e => Debug.Log($"[Auction] {(e.Kind == AuctionKind.Emergency ? "긴급 매각" : "정기")} 경매 개최 — {e.Bids.Count}명 입찰, 시세 {e.Market:0.000}");
             Auctions.Bankrupted += r => Debug.LogWarning("[Auction] 파산: " + r);
             Clock.ResetForNewSettlement();
@@ -168,11 +168,11 @@ namespace DesertSettlement.Runtime
 
         public CommandResult BuyEquipment(string id) => Campaign.BuyEquipment(id);
 
-        /// <summary>상점에서 다음 정착지로 간다.</summary>
-        public void GoToNextSettlement()
+        /// <summary>상점에서 다음 지역 후보(offerIndex)를 골라 들어간다.</summary>
+        public void GoToNextSettlement(int offerIndex = 0)
         {
             if (Campaign.State != CampaignState.Shopping) return;
-            BeginSettlement();
+            BeginSettlement(offerIndex);
         }
 
         /// <summary>파산 후(또는 아무 때나) 새 캠페인을 시작한다.</summary>

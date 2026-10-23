@@ -1,6 +1,7 @@
 using System.Linq;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
+using DesertSettlement.Core.Progression;
 using UnityEngine;
 
 namespace DesertSettlement.Runtime
@@ -70,7 +71,9 @@ namespace DesertSettlement.Runtime
             }
             var campaign = _session.Campaign;
             var auctions = _session.Auctions;
-            GUILayout.Label($"정착지 {campaign.SettlementNumber}: {campaign.CurrentMap.Name}  · 장비 {(campaign.OwnedEquipment.Count == 0 ? "없음" : string.Join(", ", campaign.Shop.Where(e => campaign.Owns(e.Id)).Select(e => e.Name)))}");
+            GUILayout.Label($"정착지 {campaign.SettlementNumber}: {campaign.CurrentMap.Name}  · 장착 장비 {(campaign.Loadout.Count == 0 ? "없음" : string.Join(", ", campaign.Shop.Where(e => campaign.IsEquipped(e.Id)).Select(e => e.Name)))}");
+            foreach (RegionModifierDefinition m in campaign.CurrentModifiers)
+                GUILayout.Label($"  {(m.Kind == RegionModifierKind.Weakness ? "약점" : "강점")} {m.Name}: {m.Effects.Describe()}");
             if (auctions.NextAuctionHour.HasValue)
             {
                 string bidders = string.Join(", ", auctions.AnnouncedBidders.Select(b => b.Name));

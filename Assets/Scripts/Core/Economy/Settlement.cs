@@ -111,6 +111,9 @@ namespace DesertSettlement.Core.Economy
             return LastWater?.RateOf(f.Id.ToString()) ?? 0.0;
         }
 
+        /// <summary>생산 효율 = 물 공급률 × 식량 계수, 지역·장비의 효율 상한(고지대 90% 등)을 넘지 않는다.</summary>
+        private double Efficiency(double waterRate, double foodCoefficient) => Math.Min(Rules.EfficiencyCap, waterRate * foodCoefficient);
+
         /// <summary>시설의 시간당 생산·식량 소비 예상치. 운영 중이 아니면 생산·소비 모두 0.</summary>
         public FacilityOutput OutputOf(Facility f)
         {
@@ -119,14 +122,14 @@ namespace DesertSettlement.Core.Economy
             double max;
             switch (f.Kind)
             {
-                case BuildingKinds.Farm: resource = ResourceKind.Food; max = lv.FoodProduction ?? 0; break;
-                case BuildingKinds.Quarry: resource = ResourceKind.Stone; max = lv.StoneProduction ?? 0; break;
+                case BuildingKinds.Farm: resource = ResourceKind.Food; max = (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier; break;
+                case BuildingKinds.Quarry: resource = ResourceKind.Stone; max = (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier; break;
                 case BuildingKinds.Mine: resource = ResourceKind.Ore; max = (lv.OreProduction ?? 0) * Rules.OreMultiplier; break;
                 default: resource = ResourceKind.None; max = 0; break;
             }
             if (!f.IsOperating) return new FacilityOutput(resource, 0, max, 0, 0, FoodCoefficient);
             double rate = WaterRateOf(f);
-            double produced = resource == ResourceKind.None ? 0 : max * rate * FoodCoefficient;
+            double produced = resource == ResourceKind.None ? 0 : max * Efficiency(rate, FoodCoefficient);
             return new FacilityOutput(resource, produced, max, lv.FoodUse ?? 0, rate, FoodCoefficient);
         }
 
@@ -336,7 +339,7 @@ namespace DesertSettlement.Core.Economy
         public double NextPrice(bool food)
         {
             PurchasePrice p = food ? Rules.Config.Purchase.Food : Rules.Config.Purchase.Stone;
-            return p.BaseCost * Math.Pow(p.IncrementMultiplier, food ? FoodBought : StoneBought);
+            return p.BaseCost * Rules.PurchasePriceMultiplier * Math.Pow(p.IncrementMultiplier, food ? FoodBought : StoneBought);
         }
 
         // ───────────────────────── 경제 틱 ─────────────────────────
@@ -364,14 +367,14 @@ namespace DesertSettlement.Core.Economy
                     switch (facility.Kind)
                     {
                         case BuildingKinds.Farm:
-                            food += (lv.FoodProduction ?? 0) * rate * f;
+                            food += (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier * Efficiency(rate, f);
                             if (rate > 0) wateredFarm = true;
                             break;
                         case BuildingKinds.Quarry:
-                            stone += (lv.StoneProduction ?? 0) * rate * f;
+                            stone += (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier * Efficiency(rate, f);
                             break;
                         case BuildingKinds.Mine:
-                            ore += (lv.OreProduction ?? 0) * rate * f * Rules.OreMultiplier;
+                            ore += (lv.OreProduction ?? 0) * Rules.OreMultiplier * Efficiency(rate, f);
                             break;
                     }
                 }
@@ -381,6 +384,7 @@ namespace DesertSettlement.Core.Economy
                 }
             }
 
+            upkeep *= Rules.UpkeepMultiplier;
             Cash -= upkeep;
             if (Cash < 0 && FirstInsolvencyHour == null) FirstInsolvencyHour = h;
 
@@ -573,7 +577,7 @@ namespace DesertSettlement.Core.Economy
             var job = new ConstructionJob
             {
                 Id = _nextJobId++, Type = type, Kind = kind, Tile = tile, Edge = edge, FacilityId = facilityId,
-                TargetLevel = targetLevel, StoneCost = type == JobType.Demolish ? 0 : lv.Stone ?? 0, Hours = hours,
+                TargetLevel = targetLevel, StoneCost = type == JobType.Demolish ? 0 : (lv.Stone ?? 0) * Rules.StoneCostMultiplier, Hours = hours,
                 State = JobState.Queued, RequestedHour = CurrentHour,
             };
             _jobs.Add(job);

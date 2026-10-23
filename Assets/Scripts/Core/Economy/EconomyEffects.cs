@@ -37,6 +37,8 @@ namespace DesertSettlement.Core.Economy
         public double ExtraStorage { get; set; }
         /// <summary>정착지 시작 전염병 저항력(방역 장비 +0.3). 전염병이 끝나 저항력이 줄어도 이 값 아래로는 안 내려간다.</summary>
         public double InitialEpidemicResistance { get; set; }
+        /// <summary>전염병 중 저항력이 오르는 속도 배율(방역 장비 1.5, 2026-10-23 B1 결정). 면역이 아니라 '더 빨리 회복'.</summary>
+        public double EpidemicResistanceGrowthMultiplier { get; set; } = 1;
 
         public static EconomyEffects Combine(IEnumerable<EconomyEffects> effects)
         {
@@ -58,6 +60,7 @@ namespace DesertSettlement.Core.Economy
                 r.ExtraConstructionSlots += e.ExtraConstructionSlots;
                 r.ExtraStorage += e.ExtraStorage;
                 r.InitialEpidemicResistance += e.InitialEpidemicResistance;
+                r.EpidemicResistanceGrowthMultiplier *= e.EpidemicResistanceGrowthMultiplier;
             }
             return r;
         }
@@ -88,6 +91,7 @@ namespace DesertSettlement.Core.Economy
             if (ExtraConstructionSlots != 0) parts.Add($"동시 작업 +{ExtraConstructionSlots}");
             if (ExtraStorage > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "저장 한도 +{0:0}", ExtraStorage));
             if (InitialEpidemicResistance > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "시작 전염병 저항력 +{0:0}%", InitialEpidemicResistance * 100));
+            Ratio("전염병 저항력 상승 속도", EpidemicResistanceGrowthMultiplier);
             return parts.Count == 0 ? "효과 없음" : string.Join(", ", parts);
         }
     }

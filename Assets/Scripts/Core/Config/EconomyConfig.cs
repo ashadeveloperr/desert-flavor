@@ -244,15 +244,15 @@ namespace DesertSettlement.Core.Config
     /// </summary>
     public sealed class EpidemicSettings
     {
-        /// <summary>시작할 때 심각도.</summary>
-        public double InitialSeverity { get; set; } = 0.05;
-        /// <summary>R &lt; S일 때 시간당 심각도 상승. 2026-10-23 조정: 약 61시간 지속·최대 피해 23%(시작 심각도 5%).</summary>
+        /// <summary>시작할 때 심각도. 2026-10-23 B3 결정: 0.35(처음 0.05는 너무 약함).</summary>
+        public double InitialSeverity { get; set; } = 0.35;
+        /// <summary>R &lt; S일 때 시간당 심각도 상승. B3 결정 수치로 약 128시간 지속·최대 피해 38%(방역 장비 49시간).</summary>
         public double SeverityRisePerHour { get; set; } = 0.01;
-        /// <summary>R ≥ S일 때 시간당 심각도 감소.</summary>
-        public double SeverityFallPerHour { get; set; } = 0.01;
-        /// <summary>전염병 중 시간당 저항력 상승 = 기본값 + 이 값 × 현재 피해.</summary>
+        /// <summary>R ≥ S일 때 시간당 심각도 감소. B3 결정: 0.03(정점 뒤 빨리 회복).</summary>
+        public double SeverityFallPerHour { get; set; } = 0.03;
+        /// <summary>전염병 중 시간당 저항력 상승 = 기본값 + 이 값 × 현재 피해. B3 결정: 0.04(처음 0.06).</summary>
         public double ResistanceBasePerHour { get; set; } = 0.002;
-        public double ResistancePerDamage { get; set; } = 0.06;
+        public double ResistancePerDamage { get; set; } = 0.04;
         /// <summary>전염병이 끝난 뒤 시간당 저항력 감소.</summary>
         public double ResistanceDecayPerHour { get; set; } = 0.005;
         /// <summary>병원 인근 건물이 받는 피해 비율(절반 = 0.5, 결정).</summary>

@@ -46,7 +46,8 @@ namespace DesertSettlement.Core.Economy
     /// - 일정: 정착지 시작 시각 + GraceHours(48h) 뒤 ScheduleWindowHours 안에서, CountWeights 확률로 0~2번(겹칠 수 있음). 같은 시드 = 같은 일정.
     /// - 예고: 시작 WarningHours(6h) 전에 Warned 이벤트.
     /// - 전염병: 시작하면 심각도 InitialSeverity. 매시간 피해 = S × (1 − R)만큼 생산 시설(농장·채석장·광산) 효율을 낮추고(병원 인근 1칸은 절반),
-    ///   R은 피해에 비례해 오르며, R ≥ S이면 S가 줄어 0이 되면 끝난다. 끝난 뒤 R은 천천히 줄되 방역 장비가 준 시작값 아래로는 안 내려간다.
+    ///   R은 피해에 비례해 오르며(방역 장비는 이 속도 ×1.5), R ≥ S이면 S가 줄어 0이 되면 끝난다.
+    ///   끝난 뒤 R은 천천히 줄되 시작 저항력 효과(InitialEpidemicResistance)가 있으면 그 아래로는 안 내려간다.
     ///   전염병 중 새 전염병이 시작되면 같은 전염병으로 이어진다(심각도는 큰 쪽).
     /// 수치는 설정 JSON의 disasters.
     /// </summary>
@@ -171,7 +172,8 @@ namespace DesertSettlement.Core.Economy
             if (Epidemic.Active)
             {
                 double damage = Epidemic.Damage;
-                Epidemic.Resistance = Math.Min(1, Epidemic.Resistance + p.ResistanceBasePerHour + p.ResistancePerDamage * damage);
+                double growth = (p.ResistanceBasePerHour + p.ResistancePerDamage * damage) * _settlement.Rules.EpidemicResistanceGrowthMultiplier;
+                Epidemic.Resistance = Math.Min(1, Epidemic.Resistance + growth);
                 Epidemic.Severity = Epidemic.Resistance >= Epidemic.Severity
                     ? Math.Max(0, Epidemic.Severity - p.SeverityFallPerHour)
                     : Math.Min(1, Epidemic.Severity + p.SeverityRisePerHour);

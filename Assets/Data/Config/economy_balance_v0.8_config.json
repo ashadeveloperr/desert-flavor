@@ -156,8 +156,8 @@
       "id": "vaccination",
       "name": "방역 장비",
       "price": 500,
-      "description": "정착지 시작 저항력 +30%(전염병 최대 피해 70%). 전염병에 대응",
-      "effects": { "initialEpidemicResistance": 0.3 }
+      "description": "전염병 중 저항력이 오르는 속도 ×1.5(면역이 아니라 더 빨리 회복). 전염병에 대응",
+      "effects": { "epidemicResistanceGrowthMultiplier": 1.5 }
     }
   ],
   "disasters": {
@@ -170,11 +170,11 @@
       { "id": "epidemic", "name": "전염병", "weight": 1 }
     ],
     "epidemic": {
-      "initialSeverity": 0.05,
+      "initialSeverity": 0.35,
       "severityRisePerHour": 0.01,
-      "severityFallPerHour": 0.01,
+      "severityFallPerHour": 0.03,
       "resistanceBasePerHour": 0.002,
-      "resistancePerDamage": 0.06,
+      "resistancePerDamage": 0.04,
       "resistanceDecayPerHour": 0.005,
       "hospitalDamageFactor": 0.5,
       "hospitalRadius": 1
@@ -319,8 +319,8 @@
       {
         "stone": 20,
         "hours": 10,
-        "foodUse": 0.5,
-        "upkeep": 1.0
+        "foodUse": 0,
+        "upkeep": 0.5
       }
     ],
     "waterTank": [

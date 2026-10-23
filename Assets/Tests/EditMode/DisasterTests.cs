@@ -52,7 +52,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual("epidemic", _config.Disasters.Types.Single().Id);
             Assert.AreEqual(0.5, _config.Disasters.Epidemic.HospitalDamageFactor, 1e-12);
             Assert.AreEqual(20, _config.GetLevel(BuildingKinds.Hospital, 1).Stone);
-            Assert.AreEqual(0.3, _config.Equipment.Single(e => e.Id == "vaccination").Effects.InitialEpidemicResistance, 1e-12);
+            Assert.AreEqual(1.5, _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicResistanceGrowthMultiplier, 1e-12);
             CollectionAssert.Contains(SettlementRules.FromConfig(_config).AllowedTerrain[BuildingKinds.Hospital], TerrainType.Desert);
         }
 
@@ -111,7 +111,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual("start 48", log[1]);
             Assert.IsTrue(log.Any(x => x.StartsWith("end")), "언젠가 끝난다(저항력이 심각도를 넘음)");
             long end = d.Events[0].EndHour;
-            Assert.That(end - 48, Is.InRange(24, 120), "대략 1~5일 지속(수치 잠정)");
+            Assert.That(end - 48, Is.InRange(24, 144), "대략 1~6일 지속(B3 결정 수치 약 128h, 잠정)");
             Assert.Greater(peakSeverity, _config.Disasters.Epidemic.InitialSeverity, "심각도가 오르다가");
             Assert.IsFalse(d.Epidemic.Active);
             Assert.Greater(d.Epidemic.Resistance, 0.2, "저항력이 남아 있다");
@@ -146,14 +146,34 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Vaccination_StartsResistanceAt30_AndIsTheFloor()
+        public void InitialResistanceEffect_StartsResistance_AndIsTheFloor()
         {
-            Settlement s = NewSettlement(r => r.ApplyEffects(_config.Equipment.Single(e => e.Id == "vaccination").Effects));
+            Settlement s = NewSettlement(r => r.ApplyEffects(new EconomyEffects { InitialEpidemicResistance = 0.3 }));
             DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
             Assert.AreEqual(0.3, d.Epidemic.Resistance, 1e-12, "시작 저항력 30%");
             for (int h = 0; h < 600; h++) s.AdvanceHour();
             Assert.IsFalse(d.Epidemic.Active);
             Assert.AreEqual(0.3, d.Epidemic.Resistance, 1e-9, "끝난 뒤 줄어도 30% 아래로는 안 내려감");
+        }
+
+        [Test]
+        public void Vaccination_SpeedsResistanceGrowth_ButIsNotImmunity()
+        {
+            long Duration(bool vaccinated)
+            {
+                Settlement s = NewSettlement(r =>
+                {
+                    if (vaccinated) r.ApplyEffects(_config.Equipment.Single(e => e.Id == "vaccination").Effects);
+                });
+                DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
+                Assert.AreEqual(0, d.Epidemic.Resistance, 1e-12, "방역 장비도 시작 저항력은 0");
+                for (int h = 0; h < 600; h++) s.AdvanceHour();
+                Assert.IsFalse(d.Epidemic.Active);
+                return d.Events[0].EndHour - d.Events[0].StartHour;
+            }
+            long plain = Duration(false), vaccinated = Duration(true);
+            Assert.Less(vaccinated, plain, "저항력이 빨리 올라 더 일찍 끝남");
+            Assert.Greater(vaccinated, 12, "면역이 아님: 반나절 이상 이어짐");
         }
 
         [Test]

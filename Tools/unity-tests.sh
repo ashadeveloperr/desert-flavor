@@ -12,7 +12,9 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 COPY="$ROOT/.unity-testcopy"
 MODE=${1:-All}
-UNITY="/c/Program Files/Unity/Hub/Editor/6000.3.15f1/Editor/Unity.exe"
+# Unity 6000.3.15f1 경로. 다른 곳에 설치했으면 UNITY_EXE 환경 변수로 덮어쓴다.
+UNITY="${UNITY_EXE:-/c/Program Files/Unity/Hub/Editor/6000.3.15f1/Editor/Unity.exe}"
+if [ ! -f "$UNITY" ]; then echo "[unity-tests] Unity를 찾을 수 없습니다: $UNITY (UNITY_EXE로 지정)"; exit 4; fi
 
 mkdir -p "$COPY/Logs"
 for d in Assets Packages ProjectSettings; do

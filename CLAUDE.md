@@ -5,6 +5,7 @@
 `SampleScene`에서 임시 그래픽·IMGUI 건설 UI·탑다운 카메라로 플레이할 수 있다.
 경매(입찰자 예고·당일 시세·산업가/농장주·긴급 매각·파산)와 캠페인(매각 → 장비 상점 → 다음 정착지: 첫 정착지는 고정 맵 1, 이후 보유 자금 비례 난이도의 BSP 절차 생성 맵)까지 MVP 루프가 돈다.
 구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`. 진행 중 작업 목록: `Docs/work_items_2026-10-23.md`.
+**다른 PC·새 세션에서 이어 갈 때는 먼저 `Docs/handoff.md`를 읽는다**(준비 절차·현재 상태·다음 할 일).
 
 ## 환경
 
@@ -87,7 +88,7 @@ PowerShell 기준. `$Unity`와 `$Proj`는 먼저 설정한다.
 
 ```powershell
 $Unity = "C:\Program Files\Unity\Hub\Editor\6000.3.15f1\Editor\Unity.exe"
-$Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"
+$Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"   # 회사 PC 기준. 다른 PC면 이 경로만 바꾼다
 ```
 
 **컴파일 확인 (스크립트 에러 체크):**
@@ -131,6 +132,15 @@ dotnet run --project Tools/SettlementSim
   난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
   모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign`(`ModifierTuning.cs`). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
   난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
+
+## 작업 방식 (사용자 선호, 2026-10-23 정리)
+
+- 사용자에게 보이는 모든 답변은 **한국어**(짧은 답·진행 안내·마무리 요약·버튼까지).
+- 사용자가 직접 고칠 수 있는 구조: 규칙은 Core, 표시는 Runtime, 조정할 숫자는 설정 JSON·인스펙터, 공개 타입에 한국어 주석, 새 시스템마다 `Docs/implementation_notes.md` 갱신.
+- [미정] 항목은 사용자 결정 없이 확정하지 않는다. 정할 것은 하나씩 설명하고 추천안을 첫 번째로 두고 묻는다.
+- 커밋·푸시는 요청받았을 때만, 푸시는 origin(개인 포크)만.
+- Unity 테스트는 `bash Tools/unity-tests.sh`(테스트 전용 사본)로 돌린다. 사용자가 연 에디터를 쓰거나 닫아 달라고 하지 않는다(빌드·`-executeMethod`처럼 원본에 남겨야 하는 작업만 먼저 묻고 예외).
+- 밸런스는 시뮬레이터로 재현·비교한 뒤 제안한다.
 
 ## 규칙
 

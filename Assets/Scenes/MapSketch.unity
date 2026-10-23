@@ -240,11 +240,43 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce785aa2eb24b744c88c0978a910e7c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.MapSketch
-  mapId: sketch_01
-  mapName: "\uC2A4\uCF00\uCE58 1"
-  description: 
+  mapId: gen_d0.00_s10000
+  mapName: "\uC0DD\uC131 \uB9F5 (\uB09C\uC774\uB3C4 0.00, \uC2DC\uB4DC 10000)"
+  description: "D 0.00: \uBC18\uACBD 3, \uC6B0\uBB3C 3, \uAD11\uB9E5 3, \uC7A5\uC560\uBB3C
+    15%, \uC6B0\uBB3C\u2013\uAD11\uB9E5 \uAC70\uB9AC \uBAA9\uD45C 2 / \uB2E4\uC911
+    \uBD07 \uBC30\uCE58 \uD3EC\uD568"
   radius: 3
-  tiles: []
+  tiles:
+  - q: 0
+    r: -3
+    terrain: 2
+  - q: 1
+    r: -3
+    terrain: 4
+  - q: 2
+    r: -3
+    terrain: 4
+  - q: 3
+    r: -3
+    terrain: 2
+  - q: -1
+    r: -2
+    terrain: 1
+  - q: 1
+    r: -2
+    terrain: 4
+  - q: 2
+    r: -2
+    terrain: 3
+  - q: -2
+    r: 1
+    terrain: 1
+  - q: 2
+    r: 1
+    terrain: 2
+  - q: 0
+    r: 3
+    terrain: 1
   tileSize: 1
   showCoordinates: 1
   desert: {r: 0.86, g: 0.74, b: 0.52, a: 1}
@@ -277,6 +309,7 @@ GameObject:
   m_Component:
   - component: {fileID: 578755426}
   - component: {fileID: 578755425}
+  - component: {fileID: 578755427}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -364,6 +397,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!114 &578755427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 578755424}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

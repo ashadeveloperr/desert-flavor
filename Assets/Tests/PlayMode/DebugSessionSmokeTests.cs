@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using DesertSettlement.Core.Economy;
+using DesertSettlement.Core.Hex;
 using DesertSettlement.Core.Progression;
 using DesertSettlement.Runtime;
 using NUnit.Framework;
@@ -87,7 +88,16 @@ namespace DesertSettlement.PlayMode.Tests
                 FacilityModel model = shown.GetComponent<FacilityModel>();
                 Assert.IsNotNull(model, shown.name);
                 Assert.GreaterOrEqual(model.PartCount, 3, $"{shown.name}: 도형을 조합한 모양(M1)");
+                Assert.Less(model.VisiblePartCount, model.PartCount, $"{shown.name}: 비계·레벨 부품은 L1 운영 중에 숨는다(SG1·SG2)");
             }
+            int building = s.Facilities.Count(f => !f.Edge.HasValue && (f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading));
+            Assert.AreEqual(building, session.transform.Find("Facilities").GetComponentsInChildren<FacilityModel>().Count(m => m.ScaffoldVisible),
+                "비계는 공사·개량 중인 시설에만(SG1)");
+            SettlementView view = session.GetComponent<SettlementView>();
+            var terrainColors = System.Enum.GetValues(typeof(TerrainType)).Cast<TerrainType>().Select(t => (Color32)view.TerrainColor(t)).ToList();
+            Assert.IsTrue(session.transform.Find("Tiles").GetComponentsInChildren<MeshRenderer>()
+                    .Any(r => !terrainColors.Contains((Color32)r.sharedMaterial.color)),
+                "물이 흐르는 수로 옆 사막이 푸르게 바뀐다(SG4): 지형 색이 아닌 타일이 있어야 한다");
 
             FastForwardToAuction(session);
             Assert.IsTrue(session.Auctions.IsOpen, "109h 정기 경매(경매장 37h + 72h)");

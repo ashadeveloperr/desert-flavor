@@ -11,8 +11,9 @@ namespace DesertSettlement.Runtime
 {
     /// <summary>
     /// 게임 화면에 정착지를 기본 도형으로 그린다(임시 그래픽).
-    /// - 타일: 지형 색의 납작한 육각형
-    /// - 시설: 기본 도형을 조합한 종류별 모양(<see cref="FacilityModels"/>). 높이 = 레벨, 공사 중이면 진행률만큼 자라고 회색, 폐쇄는 어둡게
+    /// - 타일: 지형 색의 납작한 육각형. 물이 흐르는 수로 옆 사막은 시간이 지나며 푸르게 바뀐다(SG4)
+    /// - 시설: 기본 도형을 조합한 종류별 모양(<see cref="FacilityModels"/>). 레벨마다 부품이 붙고 조금 높아짐,
+    ///   공사 중이면 비계 안에서 진행률만큼 자라고 회색, 폐쇄는 어둡게. 농장 작물은 완공 뒤 자라고 물이 모자라면 시든다(SG1~SG3)
     /// - 수로: 변 위의 막대. 물이 많이 흐를수록 진한 파랑(부하/용량)이고 반짝임이 흘러간다, 공사 중은 회색
     /// - 수문: 변 중간의 상자. 열림 초록 / 닫힘 빨강
     /// - 대기 중 건설 예약: 바닥의 얇은 표시
@@ -57,6 +58,15 @@ namespace DesertSettlement.Runtime
         [Range(0f, 0.5f)]
         [SerializeField] private float canalShimmer = 0.18f;
 
+        [Header("정착지가 자라는 모습")]
+        [Tooltip("물이 흐르는 수로 옆 사막이 바뀌어 가는 색")]
+        [SerializeField] private Color oasis = new Color(0.6f, 0.72f, 0.4f);
+        [Tooltip("정산 1시간마다 목표 색에 다가가는 비율(작을수록 천천히 푸르러짐)")]
+        [Range(0.01f, 1f)]
+        [SerializeField] private float greeningRate = 0.08f;
+        [Tooltip("물이 모자란 작물 색")]
+        [SerializeField] private Color witheredCrop = new Color(0.72f, 0.62f, 0.32f);
+
         [Header("글자")]
         [SerializeField] private bool showLabels = true;
 
@@ -64,6 +74,9 @@ namespace DesertSettlement.Runtime
         private Transform _tilesRoot, _facilitiesRoot, _plannedRoot;
         private readonly Dictionary<int, GameObject> _facilityObjects = new Dictionary<int, GameObject>();
         private readonly Dictionary<int, GameObject> _plannedObjects = new Dictionary<int, GameObject>();
+        private readonly Dictionary<HexCoord, GameObject> _tileObjects = new Dictionary<HexCoord, GameObject>();
+        private readonly Dictionary<HexCoord, float> _green = new Dictionary<HexCoord, float>();
+        private long _greenHour = -1;
         private Camera _camera;
 
         private void Awake()
@@ -114,12 +127,51 @@ namespace DesertSettlement.Runtime
             }
             _facilityObjects.Clear();
             _plannedObjects.Clear();
+            _tileObjects.Clear();
+            _green.Clear();
+            _greenHour = -1;
 
             foreach (HexTile tile in _session.Map.Tiles)
             {
                 GameObject go = WorldVisuals.HexTile($"Tile {tile.Coord}", _tilesRoot, TerrainColor(tile.Terrain));
                 go.transform.position = _session.ToWorld(_session.Layout.TileCenter(tile.Coord));
                 go.transform.localScale = new Vector3(Size * tileGap, 1f, Size * tileGap);
+                _tileObjects[tile.Coord] = go;
+            }
+        }
+
+        /// <summary>
+        /// 정산 1시간마다: 물이 흐르는 수로(변)에 닿은 사막 칸의 '푸름'이 목표(그 수로의 부하율)로 조금씩 다가간다(SG4).
+        /// 물이 끊기면 다시 천천히 모래색으로 돌아간다.
+        /// </summary>
+        private void UpdateGreening(Settlement s)
+        {
+            if (s.CurrentHour == _greenHour || s.LastWater == null) return;
+            long steps = _greenHour < 0 ? 1 : Math.Min(24, s.CurrentHour - _greenHour);
+            _greenHour = s.CurrentHour;
+
+            var wet = new Dictionary<EdgeId, float>();
+            foreach (Facility f in s.Facilities)
+            {
+                if (f.Kind != BuildingKinds.CanalEdge || f.State != FacilityState.Operating) continue;
+                if (!s.LastWater.EdgeLoads.TryGetValue(f.Edge.Value, out double load) || load <= 1e-6) continue;
+                wet[f.Edge.Value] = Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f))));
+            }
+
+            foreach (HexTile tile in _session.Map.Tiles)
+            {
+                if (tile.Terrain != TerrainType.Desert || !_tileObjects.TryGetValue(tile.Coord, out GameObject go)) continue;
+                float target = 0f;
+                foreach (EdgeId e in HexTopology.EdgesOf(tile.Coord))
+                {
+                    if (wet.TryGetValue(e, out float fill)) target = Mathf.Max(target, 0.45f + 0.55f * fill);
+                }
+                _green.TryGetValue(tile.Coord, out float g);
+                for (long i = 0; i < steps; i++) g += (target - g) * greeningRate;
+                if (Mathf.Abs(g - target) < 0.01f) g = target;
+                _green[tile.Coord] = g;
+                // 색은 단계로 끊어 머티리얼 수를 줄인다(20단계).
+                WorldVisuals.SetColor(go, Color.Lerp(desert, oasis, Mathf.Round(g * 20f) / 20f));
             }
         }
 
@@ -127,6 +179,7 @@ namespace DesertSettlement.Runtime
         {
             if (!_session.IsReady) return;
             Settlement s = _session.Settlement;
+            UpdateGreening(s);
 
             // 시설 생성·삭제 동기화.
             var alive = new HashSet<int>();
@@ -217,12 +270,32 @@ namespace DesertSettlement.Runtime
                 return;
             }
 
-            // 모양은 타일 반지름 1 기준. 레벨마다 35%씩 높아지고, 공사 중이면 진행률만큼 땅에서 솟는다.
-            float height = 1f + 0.35f * (f.Level - 1);
+            // 모양은 타일 반지름 1 기준. 레벨마다 부품이 붙고 15%씩 높아지며(SG2), 공사 중이면 비계 안에서 진행률만큼 땅에서 솟는다(SG1).
+            FacilityModel model = go.GetComponent<FacilityModel>();
+            float height = 1f + 0.15f * (f.Level - 1);
             if (f.State == FacilityState.Constructing) height *= Mathf.Max(0.1f, progress);
-            go.transform.localScale = new Vector3(Size, Size * height, Size);
+            go.transform.localScale = new Vector3(Size, Size, Size);
             go.transform.position = _session.ToWorld(_session.Layout.TileCenter(f.Tile));
-            go.GetComponent<FacilityModel>().Paint(c => Tint(c, f.State, progress));
+            model.Body.localScale = new Vector3(1f, height, 1f);
+            model.ApplyLevel(f.Level);
+            model.ShowScaffold(f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading);
+
+            Func<Color, Color> crop = null;
+            if (f.Kind == BuildingKinds.Farm)
+            {
+                // 작물(SG3): 완공 뒤 가동 숙성 시간 동안 자라고, 물을 덜 받으면 낮아지고 누렇게 시든다.
+                float grown = f.CompletedHour < 0 ? 0f
+                    : Mathf.Clamp01((float)((s.CurrentHour - f.CompletedHour) / Math.Max(1.0, s.Rules.MaturityFullHours)));
+                float water = 1f;
+                if (f.IsOperating && s.LastWater != null && s.LastWater.Consumers.TryGetValue(f.Id.ToString(), out WaterConsumerResult w))
+                {
+                    water = Mathf.Clamp01((float)w.Rate);
+                }
+                model.SetGrowth((0.25f + 0.75f * grown) * (0.55f + 0.45f * water));
+                float dry = Mathf.Round((1f - water) * 10f) / 10f;
+                crop = c => Color.Lerp(c, witheredCrop, dry);
+            }
+            model.Paint(c => Tint(c, f.State, progress), crop);
         }
 
         private static double CanalCapacity(Settlement s, Facility f) =>

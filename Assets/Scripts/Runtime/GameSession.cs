@@ -69,6 +69,8 @@ namespace DesertSettlement.Runtime
         public HexTopology Topology => Settlement?.Topology;
         public HexLayout Layout { get; private set; }
         public GameClock Clock { get; private set; }
+        /// <summary>시계 설정(낮·밤 시작 시각 등). 조명이 일출·일몰을 여기서 읽는다.</summary>
+        public GameTimeSettings TimeSettings => timeSettings;
         public bool IsReady { get; private set; }
 
         public int MapRadius => Map?.Radius ?? mapRadius;

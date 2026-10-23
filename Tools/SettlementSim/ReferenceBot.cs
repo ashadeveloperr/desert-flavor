@@ -162,7 +162,7 @@ namespace SettlementSim
             AddCanals(best.Value.path);
             plan.Add(Build(BuildingKinds.Mine, ore));
             plan.Add(Build(BuildingKinds.AuctionHall, hall.Value));
-            // 확장 묶음은 경매장 뒤: 첫 경매 시각(경매장 완공 +96h)을 늦추지 않고, 그 96h 동안 짓는다.
+            // 확장 묶음은 경매장 뒤: 첫 경매 시각(경매장 완공 + 경매 간격 72h)을 늦추지 않고, 그 사이에 짓는다.
             foreach (var x in expansions)
             {
                 if (x.well.HasValue)

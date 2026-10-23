@@ -5,27 +5,31 @@ namespace DesertSettlement.Runtime
     /// <summary>
     /// 게임 시계의 현재 시각에 맞춰 태양(Directional Light)을 돌리고 색·밝기를 바꾼다.
     /// 시각 표현 전용이며 생산 등 게임 규칙에는 영향을 주지 않는다(주야간 생산 보정은 도입하지 않는 방향, 잠정).
-    /// 색과 밝기는 인스펙터의 Gradient / Curve로 조정한다(가로축 = 0~24시).
+    /// 일출·일몰은 기본적으로 GameSession 시계 설정(낮 시작·밤 시작, 2026-10-23: 5시·20시)을 따른다.
+    /// 색과 밝기는 인스펙터의 Gradient / Curve로 조정한다. 곡선의 가로축은 '표준 시각'(일출 6시·일몰 18시 기준 0~24)이라,
+    /// 실제 일출·일몰이 바뀌어도 곡선을 고칠 필요 없이 낮·밤 길이에 맞춰 늘어나고 줄어든다.
     /// </summary>
     public sealed class DayNightLighting : MonoBehaviour
     {
         [SerializeField] private GameSession session;
         [SerializeField] private Light sun;
 
-        [Tooltip("태양이 뜨는 시각. 이 시각에 태양 고도 0°")]
+        [Tooltip("켜면 일출·일몰을 GameSession 시계 설정(DayStartHour·NightStartHour)에서 읽는다. 끄면 아래 값을 쓴다")]
+        [SerializeField] private bool useClockDayNight = true;
+        [Tooltip("태양이 뜨는 시각(시계 설정을 따르지 않을 때). 이 시각에 태양 고도 0°")]
         [Range(0f, 24f)]
         [SerializeField] private float sunriseHour = 6f;
-        [Tooltip("태양이 지는 시각. 이 시각에 태양 고도 180°(반대편 지평선)")]
+        [Tooltip("태양이 지는 시각(시계 설정을 따르지 않을 때). 이 시각에 태양 고도 180°(반대편 지평선)")]
         [Range(0f, 24f)]
         [SerializeField] private float sunsetHour = 18f;
         [Tooltip("태양이 지나가는 방위각(Y축 회전)")]
         [SerializeField] private float sunAzimuth = -30f;
 
-        [Tooltip("시각별 햇빛 색. 0 = 0시, 1 = 24시")]
+        [Tooltip("표준 시각별 햇빛 색(일출 6·일몰 18 기준). 0 = 0시, 1 = 24시")]
         [SerializeField] private Gradient sunColor = DefaultSunColor();
-        [Tooltip("시각별 햇빛 밝기. 가로축 0~24시")]
+        [Tooltip("표준 시각별 햇빛 밝기(일출 6·일몰 18 기준). 가로축 0~24")]
         [SerializeField] private AnimationCurve sunIntensity = DefaultSunIntensity();
-        [Tooltip("시각별 환경광 배율. 가로축 0~24시")]
+        [Tooltip("표준 시각별 환경광 배율(일출 6·일몰 18 기준). 가로축 0~24")]
         [SerializeField] private AnimationCurve ambientIntensity = DefaultAmbient();
 
         /// <summary>코드로 연결할 때 쓴다.</summary>
@@ -45,6 +49,11 @@ namespace DesertSettlement.Runtime
         {
             if (session == null || sun == null || !session.IsReady) return;
 
+            if (useClockDayNight)
+            {
+                sunriseHour = session.TimeSettings.DayStartHour;
+                sunsetHour = session.TimeSettings.NightStartHour;
+            }
             float hour = (float)session.Clock.HourOfDay;
             Apply(hour);
         }
@@ -60,10 +69,15 @@ namespace DesertSettlement.Runtime
                 ? sinceSunrise / dayLength * 180f
                 : 180f + (sinceSunrise - dayLength) / (24f - dayLength) * 180f;
 
+            // 곡선은 표준 시각(일출 6·일몰 18)으로 그려져 있으므로, 실제 낮/밤 진행률을 표준 시각으로 바꿔 읽는다.
+            float standard = sinceSunrise <= dayLength
+                ? 6f + sinceSunrise / dayLength * 12f
+                : Mathf.Repeat(18f + (sinceSunrise - dayLength) / (24f - dayLength) * 12f, 24f);
+
             sun.transform.rotation = Quaternion.Euler(elevation, sunAzimuth, 0f);
-            sun.color = sunColor.Evaluate(hour / 24f);
-            sun.intensity = sunIntensity.Evaluate(hour);
-            RenderSettings.ambientIntensity = ambientIntensity.Evaluate(hour);
+            sun.color = sunColor.Evaluate(standard / 24f);
+            sun.intensity = sunIntensity.Evaluate(standard);
+            RenderSettings.ambientIntensity = ambientIntensity.Evaluate(standard);
         }
 
         private static Gradient DefaultSunColor()

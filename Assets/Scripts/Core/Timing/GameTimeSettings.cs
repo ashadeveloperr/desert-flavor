@@ -12,11 +12,11 @@ namespace DesertSettlement.Core.Timing
         /// <summary>정착지를 시작할 때의 시각(0~23). 확정: 정오 12시.</summary>
         public int StartHourOfDay = 12;
 
-        /// <summary>낮이 시작되는 시각(0~23). 기획 미정 → 임시값 6시.</summary>
-        public int DayStartHour = 6;
+        /// <summary>낮이 시작되는 시각(0~23). 2026-10-23 확정: 5시(낮 15시간).</summary>
+        public int DayStartHour = 5;
 
-        /// <summary>밤이 시작되는 시각(0~23). 기획 미정 → 임시값 18시.</summary>
-        public int NightStartHour = 18;
+        /// <summary>밤이 시작되는 시각(0~23). 2026-10-23 확정: 20시.</summary>
+        public int NightStartHour = 20;
 
         /// <summary>선택 가능한 배속 목록(잠정 0/1/2/4). 0은 '정지' 배속.</summary>
         public float[] SpeedSteps = { 0f, 1f, 2f, 4f };

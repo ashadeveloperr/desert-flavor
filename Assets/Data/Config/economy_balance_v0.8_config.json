@@ -7,7 +7,7 @@
     "auctionHistoryGameHours": 24,
     "wellWaterSupplyIgnoresFoodMultiplier": true,
     "foodStoneInventoryRemainsAtSoldSettlement": true,
-    "auctionRepeatsGameHours": 96,
+    "auctionRepeatsGameHours": 72,
     "constructionSlots": 2,
     "postStartCancelStoneRefundRatio": 0.5,
     "gameDayRealSecondsAt1x": 90,

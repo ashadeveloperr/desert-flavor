@@ -194,8 +194,8 @@ MonoBehaviour:
   tileSize: 1
   timeSettings:
     StartHourOfDay: 12
-    DayStartHour: 6
-    NightStartHour: 18
+    DayStartHour: 5
+    NightStartHour: 20
     SpeedSteps:
     - 0
     - 1
@@ -217,8 +217,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.DayNightLighting
   session: {fileID: 169328203}
   sun: {fileID: 410087040}
-  sunriseHour: 6
-  sunsetHour: 18
+  useClockDayNight: 1
+  sunriseHour: 5
+  sunsetHour: 20
   sunAzimuth: -30
   sunColor:
     serializedVersion: 2

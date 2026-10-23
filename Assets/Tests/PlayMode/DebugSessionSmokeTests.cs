@@ -83,10 +83,10 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.AreEqual(s.Facilities.Count, session.transform.Find("Facilities").childCount, "시설마다 표시 오브젝트 하나");
 
             FastForwardToAuction(session);
-            Assert.IsTrue(session.Auctions.IsOpen, "133h 정기 경매");
-            Assert.AreEqual(133, s.CurrentHour);
+            Assert.IsTrue(session.Auctions.IsOpen, "109h 정기 경매(경매장 37h + 72h)");
+            Assert.AreEqual(109, s.CurrentHour);
             session.Clock.AdvanceGameHours(10);
-            Assert.AreEqual(133, s.CurrentHour, "경매 중에는 정산하지 않는다");
+            Assert.AreEqual(109, s.CurrentHour, "경매 중에는 정산하지 않는다");
 
             // 몇 프레임 실시간으로 돌려도 에러가 없어야 한다(경매 패널·HUD·입력·카메라·조명).
             for (int i = 0; i < 10; i++) yield return null;

@@ -133,7 +133,7 @@ namespace SettlementSim
                 if (b.State == "upgrading") b.Level = b.Target;
                 b.State = "operating"; b.Deadline = null;
                 CompletedHour[kv.Key] = h;
-                if (kv.Key == "auction" && FirstAuction == null) FirstAuction = h + 96;
+                if (kv.Key == "auction" && FirstAuction == null) FirstAuction = h + 96; // 원본 v0.8 스크립트 재현용(96h 고정). 게임은 설정값(72h)을 쓴다
             }
         }
 

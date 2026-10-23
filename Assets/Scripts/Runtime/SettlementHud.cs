@@ -81,7 +81,7 @@ namespace DesertSettlement.Runtime
             }
             else
             {
-                GUILayout.Label("경매장 완공 후 4일 뒤 첫 경매 · 경매장이나 광산이 없으면 자금 0이 되는 즉시 파산");
+                GUILayout.Label($"경매장 완공 후 {s.Rules.Config.ConfirmedRules.AuctionRepeatsGameHours}시간 뒤 첫 경매 · 경매장이나 광산이 없으면 자금 0이 되는 즉시 파산");
             }
             if (auctions.HoursUntilBankruptcy.HasValue) GUILayout.Label($"⚠ 자금 음수 — {auctions.HoursUntilBankruptcy}시간 뒤 파산");
             int freeFarms = s.FreeBuildsRemaining(BuildingKinds.Farm);

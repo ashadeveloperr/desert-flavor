@@ -4,7 +4,7 @@
 현재 Core에 헥스 그리드·수로 그래프·GameClock·설정 로딩·물 배분·정착지 경제(건설 큐·생산·식량·유지비·가치 평가)까지 구현됐고,
 `SampleScene`에서 임시 그래픽·IMGUI 건설 UI·탑다운 카메라로 플레이할 수 있다.
 경매(입찰자 예고·당일 시세·산업가/농장주·긴급 매각·파산)와 캠페인(매각 → 장비 상점 → 다음 정착지: 첫 정착지는 고정 맵 1, 이후 보유 자금 비례 난이도의 BSP 절차 생성 맵)까지 MVP 루프가 돈다.
-구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`.
+구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`. 진행 중 작업 목록: `Docs/work_items_2026-10-23.md`.
 
 ## 환경
 
@@ -48,14 +48,14 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Core/Water/WaterNetworkSolver`:** 확정 규칙 W1~W6(`Docs/implementation_notes.md`)의 물 배분. 우물 타일 꼭짓점 방출 → 우물별 최단 경로 트리
   → 시설은 타일 꼭짓점 중 수로가 닿은 점에서 여러 경로·여러 우물로 취수 → 반쪽 변 거리 오름차순(상류 우선)·동순위 수요 비례 progressive filling,
   변 입구 용량·우물 생산량 제약. 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
-- **`Core/Timing/GameClock`:** 1배속 하루 90초, 정착지마다 1일차 12:00 시작, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`.
+- **`Core/Timing/GameClock`:** 1배속 하루 90초, 정착지마다 1일차 12:00 시작, 낮 05:00~밤 20:00, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`(조명 `DayNightLighting`도 이 값을 따름).
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
 - **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·수문·개량·철거·취소·순서 변경·폐쇄·구매),
   `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
   `OutputOf(facility)`로 시간당 생산·소비 예상치. 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
   첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
   무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.
-- **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +96h 첫 경매·이후 96h, 완공·보류 직후 입찰자 예고,
+- **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +72h 첫 경매·이후 72h(설정 `auctionRepeatsGameHours`), 완공·보류 직후 입찰자 예고,
   자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
 - 배치 모드 CLI는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`, Unity는 한 프로젝트를 한 프로세스만 연다). 테스트는 **`bash Tools/unity-tests.sh [EditMode|PlayMode|All]`**로 돌린다: 테스트 전용 사본(`.unity-testcopy/`, git 무시)에 작업 트리를 미러 복사하고 그 사본에서 배치 모드로 실행한다. **사용자가 연 에디터에는 손대지 않는다**(열린 에디터에 테스트를 시키는 방식은 작업을 방해해서 2026-10-23 폐기). 에디터를 닫아 달라고 하지 않는다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
 - **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비(우물 ×1.2) 유지, 다음 맵은 `ChooseNextMap`.

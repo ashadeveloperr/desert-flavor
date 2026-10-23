@@ -105,15 +105,15 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void PhaseChanges_AtNightAndDayStartHours()
         {
-            GameClock clock = NewClock(); // 낮 6시, 밤 18시
+            GameClock clock = NewClock(); // 낮 5시, 밤 20시
             var changes = new List<GameTimeStamp>();
             clock.PhaseChanged += changes.Add;
 
             clock.AdvanceGameHours(24);
             Assert.AreEqual(2, changes.Count);
-            Assert.AreEqual(18, changes[0].HourOfDay);
+            Assert.AreEqual(20, changes[0].HourOfDay);
             Assert.AreEqual(DayPhase.Night, changes[0].Phase);
-            Assert.AreEqual(6, changes[1].HourOfDay);
+            Assert.AreEqual(5, changes[1].HourOfDay);
             Assert.AreEqual(DayPhase.Day, changes[1].Phase);
         }
 

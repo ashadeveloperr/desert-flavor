@@ -21,5 +21,19 @@ namespace DesertSettlement.Core.Progression
             map.CreateMap(); // 지형·좌표 검증
             return map;
         }
+
+        /// <summary>맵을 JSON 문자열로 저장한다(Assets/Data/Maps와 같은 camelCase 형식, 들여쓰기).</summary>
+        public static string ToJson(MapDefinition map)
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map));
+            map.CreateMap(); // 저장 전에도 같은 검증
+            var settings = new JsonSerializerSettings
+            {
+                ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver(),
+                Formatting = Formatting.Indented,
+                NullValueHandling = NullValueHandling.Ignore,
+            };
+            return JsonConvert.SerializeObject(map, settings);
+        }
     }
 }

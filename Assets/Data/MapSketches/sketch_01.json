@@ -1,0 +1,84 @@
+{
+  "id": "sketch_01",
+  "name": "스케치 1",
+  "description": "",
+  "radius": 3,
+  "terrain": [
+    {
+      "q": 0,
+      "r": -3,
+      "type": "Obstacle"
+    },
+    {
+      "q": 1,
+      "r": -3,
+      "type": "Obstacle"
+    },
+    {
+      "q": 2,
+      "r": -3,
+      "type": "WaterSource"
+    },
+    {
+      "q": -1,
+      "r": -2,
+      "type": "Bedrock"
+    },
+    {
+      "q": 0,
+      "r": -2,
+      "type": "Obstacle"
+    },
+    {
+      "q": 1,
+      "r": -2,
+      "type": "OreVein"
+    },
+    {
+      "q": 2,
+      "r": -1,
+      "type": "Obstacle"
+    },
+    {
+      "q": -2,
+      "r": 0,
+      "type": "WaterSource"
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "type": "Obstacle"
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "type": "Obstacle"
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "type": "Bedrock"
+    },
+    {
+      "q": -2,
+      "r": 2,
+      "type": "Obstacle"
+    },
+    {
+      "q": -1,
+      "r": 2,
+      "type": "OreVein"
+    },
+    {
+      "q": 0,
+      "r": 2,
+      "type": "Obstacle"
+    },
+    {
+      "q": 1,
+      "r": 2,
+      "type": "Obstacle"
+    }
+  ],
+  "sampleLayout": []
+}

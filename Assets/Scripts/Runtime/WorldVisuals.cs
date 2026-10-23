@@ -45,7 +45,8 @@ namespace DesertSettlement.Runtime
                     triangles[i * 3 + 1] = i + 1;
                     triangles[i * 3 + 2] = (i + 1) % 6 + 1;
                 }
-                _hexMesh = new Mesh { name = "Hex", vertices = vertices, triangles = triangles };
+                // 에디터(맵 스케치 Gizmo)에서도 쓰므로 씬에 저장되지 않게 한다.
+                _hexMesh = new Mesh { name = "Hex", vertices = vertices, triangles = triangles, hideFlags = HideFlags.HideAndDontSave };
                 _hexMesh.RecalculateNormals();
                 _hexMesh.RecalculateBounds();
                 return _hexMesh;

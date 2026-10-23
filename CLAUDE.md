@@ -107,6 +107,7 @@ $Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"   # 회
 
 **테스트 실행(권장):** `bash Tools/unity-tests.sh All` — 사본 동기화(robocopy /MIR: Assets·Packages·ProjectSettings) 후 사본에서 아래 CLI를 실행. 종료 코드 0 = 통과, 1 = 실패, 4 = 동기화 실패.
 처음 한 번은 사본 Library 임포트로 몇 분 걸린다. 결과·로그는 `.unity-testcopy/Logs/`. 에디터에서 저장 안 한 변경은 사본에 들어가지 않는다.
+두 번째 인자는 테스트 이름 필터다. **화면 캡처:** `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png`(시작·공사·운영·개량·경매·상점·다음 정착지 7장, 에디터 없이 모양 확인. `[Explicit]`이라 평소 테스트에서는 안 돈다).
 
 **테스트 실행** (`-runTests`에는 `-quit`을 붙이지 않는다. PowerShell에서 `Start-Process -Wait`는 Unity 자식 프로세스까지 기다려 멈출 수 있으니 `-PassThru` 후 `$p.WaitForExit()`를 쓴다):
 ```powershell

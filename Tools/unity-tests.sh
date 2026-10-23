@@ -6,12 +6,14 @@
 #    작업 트리 그대로(커밋 안 한 변경 포함) 미러 복사하고, 사본은 자기 Library를 따로 쓴다.
 #    처음 한 번은 사본의 Library 임포트에 몇 분 걸린다. 이후에는 바뀐 파일만 복사·재임포트한다.
 #  - 에디터에서 저장하지 않은 변경(씬·에셋)은 디스크에 없으므로 사본에도 들어가지 않는다.
-# 사용: bash Tools/unity-tests.sh [EditMode|PlayMode|All]
+# 사용: bash Tools/unity-tests.sh [EditMode|PlayMode|All] [테스트 이름 필터]
+#   예) bash Tools/unity-tests.sh PlayMode ScreenCaptureTests  → 화면 캡처([Explicit], 결과 .unity-testcopy/Captures/*.png)
 # 종료 코드: 0 = 모두 통과, 1 = 실패 있음(컴파일 오류 포함), 4 = 사본 동기화 실패
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 COPY="$ROOT/.unity-testcopy"
 MODE=${1:-All}
+FILTER=${2:-}
 # Unity 6000.3.15f1 경로. 다른 곳에 설치했으면 UNITY_EXE 환경 변수로 덮어쓴다.
 UNITY="${UNITY_EXE:-/c/Program Files/Unity/Hub/Editor/6000.3.15f1/Editor/Unity.exe}"
 if [ ! -f "$UNITY" ]; then echo "[unity-tests] Unity를 찾을 수 없습니다: $UNITY (UNITY_EXE로 지정)"; exit 4; fi
@@ -44,6 +46,7 @@ for m in $modes; do
   log="$COPY/Logs/$lower.log"
   rm -f "$results"
   extra=(); [ "$m" = "EditMode" ] && extra=(-nographics)
+  [ -n "$FILTER" ] && extra+=(-testFilter "$FILTER")
   "$UNITY" -batchmode "${extra[@]}" -projectPath "$(cygpath -w "$COPY")" -runTests -testPlatform "$m" \
     -testResults "$(cygpath -w "$results")" -logFile "$(cygpath -w "$log")"
   code=$?

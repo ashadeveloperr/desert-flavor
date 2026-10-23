@@ -48,6 +48,7 @@
 | 2026-10-23 | 절차 맵: 난이도 | **D = max(0, (자금 − 1000) / 14000) + 0.2 × (지나온 생성 맵 정착지 수)**, 상한 없음(2026-10-23: 처음 10500 → 장비·모디파이어 도입 후 정착지 항 추가와 함께 14000). 값은 D=0 → D=1 직선, D>1은 같은 기울기로 연장(하한·상한 있음): 37칸(반경 3)당 우물 3 → 1(하한 0.3), 37칸당 광맥 3 → 0.9(하한 0.3) — 둘 다 맵 칸 수 비율만큼 곱하고 맵 전체 최소 1, 장애물 15% → 30%(상한 40%), 가장 가까운 우물–광맥 거리 목표 2 → 4(±1, 상한 = 반경), 반경 3(D<1) → D=1부터 D 1마다 +1(최대 7). 결과: D 0·0.25·0.5·0.75·1 = 광맥 3·2·2·1·1. 조절값은 `Tools/SettlementSim/ProceduralMap.cs`의 `DifficultyCurve`. 암반은 지형마다 1(90% 장애물 속). 첫 정착지는 고정 맵 1, 두 번째부터 생성 맵 | [확정, 수치 조정됨(시뮬레이터)] |
 | 2026-10-23 | 절차 맵: 세부 규칙(제안 확정) | 지형 3~6칸, 산맥/고원 50:50(지형마다), 산맥 60° 꺾임 25%, 지형끼리 최소 1칸 간격, 독립 장애물은 맵마다 15%, 광맥 '근처' = 바로 옆·광맥 간 최소 거리 2, 우물 주변 사막 2칸 이상, 순서 장애물 → 암반 → 광맥 → 우물, 생성 후 트인 땅 연결·수로 경로(우물→광맥·암반) 검사, 실패 시 재생성 | [확정] |
 | 2026-10-23 | 절차 맵: 난이도 곡선 목표 | ① 기준 플레이어 = **숙련 다중 봇**(`BotStrategy.Multi`). ② D=1에서 첫 경매 매각 순이익 **겨우 흑자(+300~600)**. ③ 난이도는 **상한 없이 계속** 오른다(D > 1 허용). ④ 광맥 수도 **맵 칸 수에 비례**(우물과 같은 방식). ⑤ 숙련 플레이어가 **6번째 정착지쯤 D=1**에 닿는 속도. ⑥ D > 1에서는 거리·맵 크기, 자원(우물·광맥) 밀도 감소, 장애물 밀도 증가(맵을 막지 않는 한도), **지역 모디파이어**(경제 배율, 예: 무른 지반 = 건설 비용 +25%, 산소가 희박한 고지대 = 시설 최대 효율 90%로 고정)가 모두 더해진다. ⑦ D가 충분히 커지면 숙련자도 **결국 적자**(몇 번째 정착지까지 버티는지가 점수) | [확정, 수치 미정] |
+| 2026-10-23 | 재해·전염병 | 재해: 정착지마다 0~2번(15·55·30%), 첫 48h 없음, 6h 전 예고, 겹침 허용, 평가 창과 겹치면 그대로 손해. 전염병: 피해 = S × (1 − R), R은 피해에 비례해 오르고 R ≥ S면 S 감소 → 0이면 끝, 끝난 뒤 R은 천천히 감소(방역 장비 시작값이 하한). 생산 시설만. 병원: 반경 1칸 피해 절반. 방역 장비: 시작 저항력 +30%. 수치·밸런스 문제(B1~B3)는 Docs/work_items_2026-10-23.md 4번 | [확정, 수치 잠정, 구현됨] |
 | 2026-10-23 | 가치 평가 보완(몰아짓기·채석장 철거 방지) | **가동 숙성**: 생산 시설 실적은 완공 직후 70%에서 48시간 동안 100%까지(시간마다, 완공 시각 기준). **석재 배율** = max(24h 평균, 가동 중 채석장 생산 능력). 24h 평가 창 규칙은 그대로. 근거: `-- exploit`(Docs/work_items_2026-10-23.md 3번) | [확정, 수치 잠정, 구현됨] |
 | 2026-10-23 | 낮·밤 시각 | 낮 05:00 ~ 밤 20:00(낮 15시간). 기존 6/18. 조명도 시계 설정을 따름 | [확정, 구현됨] |
 | 2026-10-23 | 경매 간격 | **72시간**(기획서 8.3의 4일 → 3일). 첫 경매도 경매장 완공 + 72시간 | [확정, 구현됨] |
@@ -122,6 +123,7 @@ Assets/Scripts/
     Economy/     Settlement(건설 큐·경제 틱·명령), SettlementRules(규칙 값), SettlementTypes,
                  EconomyEffects(장비·모디파이어 공통 효과 묶음),
                  SettlementValuation(24h 실적 + 개발 중 자산, 입찰자별 가치)
+                 Disasters(DisasterManager: 재해 일정·예고·전염병 S·R·병원 반감)
     Auction/     AuctionManager(일정·예고·당일 시세·입찰·긴급 매각·파산 판정)
     Progression/ Campaign(정착지 연속·장비 상점·자금 이월), MapDefinition / MapLoader(고정 맵 파일)
                  ProceduralMapGenerator(BSP 절차 맵·DifficultyParams·CanalPaths), ProceduralMapConfig(+Loader, 난이도 곡선·생성 규칙),
@@ -183,6 +185,8 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | 절차 맵 끄기(고정 맵만 순환) | `GameSession` 인스펙터의 Procedural Map Config를 비운다 |
 | 지역 모디파이어 목록·수치·출현(약점 시작 D, 간격, 강점 확률), 후보 지역 수 | `procedural_map_config.json`의 `modifiers`, `regionChoices` (효과 항목 설명: `Core/Economy/EconomyEffects.cs`) |
 | 장비 목록·가격·효과 | 경제 설정 JSON `equipment[]` (`effects`는 모디파이어와 같은 형식) |
+| 재해 빈도·유예·예고, 전염병 속도, 병원 반경·반감 | 경제 설정 JSON `disasters` (설명: `Core/Config/EconomyConfig.cs`의 `DisasterSettings`·`EpidemicSettings`). 측정: `dotnet run --project Tools/SettlementSim -- epidemic` |
+| 병원 비용·유지비 | 경제 설정 JSON `buildingLevels.hospital` |
 | 효과가 경제에 걸리는 지점(석재·효율 상한·생산 배율·구매가·유지비·슬롯·저장·수로 손실) | `SettlementRules.ApplyEffects`와 `Settlement`의 `Efficiency`·`AdvanceHour`·`NextPrice`·`Enqueue` |
 | 현장 장비 슬롯 수(확정 5) | `Core/Progression/Campaign.cs`의 `EquipmentSlots` |
 | 모디파이어·장비 수치 측정 | `dotnet run --project Tools/SettlementSim -- mods 1.0`(D별 약점 하나씩·대응 회복률), `-- mods campaign`(Core Campaign 봇 캠페인) |

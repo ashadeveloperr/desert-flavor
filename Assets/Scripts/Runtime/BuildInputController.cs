@@ -17,6 +17,7 @@ namespace DesertSettlement.Runtime
         Mine,
         AuctionHall,
         Warehouse,
+        Hospital,
         Canal,
         Gate,
         Upgrade,
@@ -85,6 +86,7 @@ namespace DesertSettlement.Runtime
                 case BuildTool.Mine: return BuildingKinds.Mine;
                 case BuildTool.AuctionHall: return BuildingKinds.AuctionHall;
                 case BuildTool.Warehouse: return BuildingKinds.Warehouse;
+                case BuildTool.Hospital: return BuildingKinds.Hospital;
                 case BuildTool.Canal: return BuildingKinds.CanalEdge;
                 case BuildTool.Gate: return BuildingKinds.CanalGate;
                 default: return null;
@@ -102,6 +104,7 @@ namespace DesertSettlement.Runtime
                 case BuildTool.Mine: return "광산";
                 case BuildTool.AuctionHall: return "경매장";
                 case BuildTool.Warehouse: return "창고";
+                case BuildTool.Hospital: return "병원";
                 case BuildTool.Canal: return "수로";
                 case BuildTool.Gate: return "수문";
                 case BuildTool.Upgrade: return "개량";

@@ -37,6 +37,7 @@ namespace DesertSettlement.Runtime
         [SerializeField] private Color quarry = new Color(0.75f, 0.72f, 0.68f);
         [SerializeField] private Color mine = new Color(0.45f, 0.3f, 0.25f);
         [SerializeField] private Color auctionHall = new Color(0.95f, 0.75f, 0.2f);
+        [SerializeField] private Color hospital = new Color(0.95f, 0.95f, 0.95f);
         [SerializeField] private Color warehouse = new Color(0.7f, 0.5f, 0.3f);
         [SerializeField] private Color constructing = new Color(0.6f, 0.6f, 0.6f);
         [SerializeField] private Color demolishing = new Color(0.85f, 0.35f, 0.3f);
@@ -256,6 +257,7 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.Mine: return mine;
                 case BuildingKinds.AuctionHall: return auctionHall;
                 case BuildingKinds.Warehouse: return warehouse;
+                case BuildingKinds.Hospital: return hospital;
                 default: return Color.magenta;
             }
         }

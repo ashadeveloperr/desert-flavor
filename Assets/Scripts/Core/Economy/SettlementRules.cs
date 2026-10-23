@@ -54,6 +54,8 @@ namespace DesertSettlement.Core.Economy
         public double PurchasePriceMultiplier { get; set; } = 1.0;
         /// <summary>유지비 배율.</summary>
         public double UpkeepMultiplier { get; set; } = 1.0;
+        /// <summary>전염병 저항력의 시작값·하한(방역 장비). 0~1.</summary>
+        public double EpidemicResistanceFloor { get; set; }
         /// <summary>지금까지 건 효과를 합친 것(UI 표시용).</summary>
         public EconomyEffects AppliedEffects { get; private set; } = new EconomyEffects();
         /// <summary>
@@ -89,6 +91,7 @@ namespace DesertSettlement.Core.Economy
             [BuildingKinds.Farm] = new[] { TerrainType.Desert },
             [BuildingKinds.Warehouse] = new[] { TerrainType.Desert },
             [BuildingKinds.AuctionHall] = new[] { TerrainType.Desert },
+            [BuildingKinds.Hospital] = new[] { TerrainType.Desert },
         };
 
         /// <summary>MVP에서 지을 수 없는 시설(물탱크는 MVP 이후, W7).</summary>
@@ -148,6 +151,7 @@ namespace DesertSettlement.Core.Economy
             ConstructionSlots += e.ExtraConstructionSlots;
             BaseFoodStorage += e.ExtraStorage;
             BaseStoneStorage += e.ExtraStorage;
+            EpidemicResistanceFloor = Math.Min(1, EpidemicResistanceFloor + e.InitialEpidemicResistance);
             AppliedEffects = EconomyEffects.Combine(new[] { AppliedEffects, e });
             EfficiencyCap = AppliedEffects.EffectiveEfficiencyCap;
             if (Math.Abs(e.CanalLossMultiplier - 1) > 1e-12)

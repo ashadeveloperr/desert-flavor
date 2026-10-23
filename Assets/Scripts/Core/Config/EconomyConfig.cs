@@ -19,6 +19,8 @@ namespace DesertSettlement.Core.Config
         public AuctionSettings Auction { get; set; }
         /// <summary>영구 장비 목록(4단계, 잠정).</summary>
         public List<EquipmentDefinition> Equipment { get; set; }
+        /// <summary>재해(2026-10-23: 전염병). 없으면 재해 없음.</summary>
+        public DisasterSettings Disasters { get; set; }
 
         /// <summary>시설 종류(<see cref="BuildingKinds"/>) → 레벨별 명세. 인덱스 0 = L1.</summary>
         public Dictionary<string, List<BuildingLevel>> BuildingLevels { get; set; }
@@ -174,6 +176,8 @@ namespace DesertSettlement.Core.Config
         public double AuctionHall { get; set; }
         public double PerOperationalCanal { get; set; }
         public double PerOperationalWarehouse { get; set; }
+        /// <summary>가동 중 병원 하나당 기반시설 배율 가산(2026-10-23 제안 0.01).</summary>
+        public double PerOperationalHospital { get; set; }
         public double Maximum { get; set; }
     }
 
@@ -207,6 +211,56 @@ namespace DesertSettlement.Core.Config
     }
 
     /// <summary>buildingLevels의 키. 오타 방지를 위해 문자열 대신 이 상수를 쓴다.</summary>
+    /// <summary>
+    /// 재해 설정(2026-10-23 확정 규칙, 수치 잠정). Docs/work_items_2026-10-23.md 4번.
+    /// 정착지마다 1~2번(가끔 0번), 첫 GraceHours 동안은 없음, 시작 WarningHours 전에 예고, 여러 재해가 겹칠 수 있음.
+    /// </summary>
+    public sealed class DisasterSettings
+    {
+        public int GraceHours { get; set; } = 48;
+        public int WarningHours { get; set; } = 6;
+        /// <summary>유예가 끝난 뒤 이 시간 안에서 시작 시각을 고른다(첫 경매 무렵까지).</summary>
+        public int ScheduleWindowHours { get; set; } = 72;
+        /// <summary>정착지 하나의 재해 횟수 확률. [0]=0번, [1]=1번, [2]=2번 ….</summary>
+        /// (기본값을 리스트로 두면 JSON 읽을 때 덧붙여지므로 null로 두고, 없으면 <see cref="EffectiveCountWeights"/>가 0.15·0.55·0.30을 쓴다.)
+        public List<double> CountWeights { get; set; }
+        public IList<double> EffectiveCountWeights => CountWeights ?? new List<double> { 0.15, 0.55, 0.30 };
+        /// <summary>나올 수 있는 재해 종류와 가중치. 지금은 전염병만.</summary>
+        public List<DisasterTypeDefinition> Types { get; set; }
+        public EpidemicSettings Epidemic { get; set; } = new EpidemicSettings();
+    }
+
+    public sealed class DisasterTypeDefinition
+    {
+        /// <summary>재해 종류 id(epidemic).</summary>
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public double Weight { get; set; } = 1;
+    }
+
+    /// <summary>
+    /// 전염병(사용자 정의 모델): 심각도 S가 천천히 오르고, 피해 = S × (1 − 저항력 R)만큼 생산 시설 효율이 준다.
+    /// R은 피해가 클수록 빨리 오르고, R ≥ S이면 S가 줄어 0이 되면 끝난다(둘 다 100%에 붙어 끝나지 않는 일을 막으려고 ≥). 끝난 뒤 R은 천천히 줄어든다(장비가 준 시작값 아래로는 안 내려감).
+    /// </summary>
+    public sealed class EpidemicSettings
+    {
+        /// <summary>시작할 때 심각도.</summary>
+        public double InitialSeverity { get; set; } = 0.05;
+        /// <summary>R &lt; S일 때 시간당 심각도 상승. 2026-10-23 조정: 약 61시간 지속·최대 피해 23%(시작 심각도 5%).</summary>
+        public double SeverityRisePerHour { get; set; } = 0.01;
+        /// <summary>R ≥ S일 때 시간당 심각도 감소.</summary>
+        public double SeverityFallPerHour { get; set; } = 0.01;
+        /// <summary>전염병 중 시간당 저항력 상승 = 기본값 + 이 값 × 현재 피해.</summary>
+        public double ResistanceBasePerHour { get; set; } = 0.002;
+        public double ResistancePerDamage { get; set; } = 0.06;
+        /// <summary>전염병이 끝난 뒤 시간당 저항력 감소.</summary>
+        public double ResistanceDecayPerHour { get; set; } = 0.005;
+        /// <summary>병원 인근 건물이 받는 피해 비율(절반 = 0.5, 결정).</summary>
+        public double HospitalDamageFactor { get; set; } = 0.5;
+        /// <summary>병원이 덮는 거리(1 = 병원 타일 + 이웃 6칸, 결정).</summary>
+        public int HospitalRadius { get; set; } = 1;
+    }
+
     public static class BuildingKinds
     {
         public const string Well = "well";
@@ -215,13 +269,15 @@ namespace DesertSettlement.Core.Config
         public const string Mine = "mine";
         public const string AuctionHall = "auctionHall";
         public const string Warehouse = "warehouse";
+        /// <summary>병원(2026-10-23): 인근 1칸 건물의 전염병 피해를 절반으로.</summary>
+        public const string Hospital = "hospital";
         public const string WaterTank = "waterTank";
         public const string CanalEdge = "canalEdge";
         public const string CanalGate = "canalGate";
 
         public static readonly string[] All =
         {
-            Well, Farm, Quarry, Mine, AuctionHall, Warehouse, WaterTank, CanalEdge, CanalGate,
+            Well, Farm, Quarry, Mine, AuctionHall, Warehouse, Hospital, WaterTank, CanalEdge, CanalGate,
         };
     }
 }

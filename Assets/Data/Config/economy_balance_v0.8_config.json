@@ -55,6 +55,7 @@
       "auctionHall": 0.01,
       "perOperationalCanal": 0.01,
       "perOperationalWarehouse": 0.025,
+      "perOperationalHospital": 0.01,
       "maximum": 1.2
     },
     "fixedTestBidMultiplier": 1.05
@@ -150,8 +151,35 @@
       "price": 450,
       "description": "농장 생산 +5%. 염분 토양에 대응",
       "effects": { "foodOutputMultiplier": 1.05 }
+    },
+    {
+      "id": "vaccination",
+      "name": "방역 장비",
+      "price": 500,
+      "description": "정착지 시작 저항력 +30%(전염병 최대 피해 70%). 전염병에 대응",
+      "effects": { "initialEpidemicResistance": 0.3 }
     }
   ],
+  "disasters": {
+    "status": "playtest_seed_2026-10-23",
+    "graceHours": 48,
+    "warningHours": 6,
+    "scheduleWindowHours": 72,
+    "countWeights": [0.15, 0.55, 0.30],
+    "types": [
+      { "id": "epidemic", "name": "전염병", "weight": 1 }
+    ],
+    "epidemic": {
+      "initialSeverity": 0.05,
+      "severityRisePerHour": 0.01,
+      "severityFallPerHour": 0.01,
+      "resistanceBasePerHour": 0.002,
+      "resistancePerDamage": 0.06,
+      "resistanceDecayPerHour": 0.005,
+      "hospitalDamageFactor": 0.5,
+      "hospitalRadius": 1
+    }
+  },
   "buildingLevels": {
     "well": [
       {
@@ -285,6 +313,14 @@
         "stoneStorageBonus": 200,
         "foodUse": 0,
         "upkeep": 0.35
+      }
+    ],
+    "hospital": [
+      {
+        "stone": 20,
+        "hours": 10,
+        "foodUse": 0.5,
+        "upkeep": 1.0
       }
     ],
     "waterTank": [

@@ -128,6 +128,7 @@ namespace DesertSettlement.Core.Economy
                 + (s.OperatingOf(BuildingKinds.AuctionHall).Any() ? infra.AuctionHall : 0)
                 + s.OperatingOf(BuildingKinds.CanalEdge).Count() * infra.PerOperationalCanal
                 + s.OperatingOf(BuildingKinds.Warehouse).Count() * infra.PerOperationalWarehouse
+                + s.OperatingOf(BuildingKinds.Hospital).Count() * infra.PerOperationalHospital
                 + devInfra;
             miRaw = Math.Min(infra.Maximum, miRaw);
 
@@ -202,6 +203,7 @@ namespace DesertSettlement.Core.Economy
                 case BuildingKinds.AuctionHall: return infra.AuctionHall;
                 case BuildingKinds.CanalEdge: return infra.PerOperationalCanal;
                 case BuildingKinds.Warehouse: return infra.PerOperationalWarehouse;
+                case BuildingKinds.Hospital: return infra.PerOperationalHospital;
                 default: return 0;
             }
         }

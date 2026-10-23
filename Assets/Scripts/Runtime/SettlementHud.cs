@@ -27,7 +27,7 @@ namespace DesertSettlement.Runtime
         private static readonly BuildTool[] Tools =
         {
             BuildTool.Select, BuildTool.Well, BuildTool.Farm, BuildTool.Quarry, BuildTool.Mine, BuildTool.AuctionHall,
-            BuildTool.Warehouse, BuildTool.Canal, BuildTool.Gate, BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose,
+            BuildTool.Warehouse, BuildTool.Hospital, BuildTool.Canal, BuildTool.Gate, BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose,
         };
 
         private void Awake()
@@ -86,6 +86,28 @@ namespace DesertSettlement.Runtime
             if (auctions.HoursUntilBankruptcy.HasValue) GUILayout.Label($"⚠ 자금 음수 — {auctions.HoursUntilBankruptcy}시간 뒤 파산");
             int freeFarms = s.FreeBuildsRemaining(BuildingKinds.Farm);
             if (freeFarms > 0) GUILayout.Label($"농장주 혜택: 완공된 농장 {freeFarms}개를 무료로 배치할 수 있습니다(농장 도구로 클릭).");
+            DrawDisasters(s);
+        }
+
+        /// <summary>재해: 예고(시작 몇 시간 전), 진행 중 전염병의 심각도·저항력·피해, 끝난 뒤 남은 저항력.</summary>
+        private static void DrawDisasters(Settlement s)
+        {
+            DisasterManager d = s.Disasters;
+            if (d == null) return;
+            foreach (DisasterEvent e in d.Visible)
+            {
+                if (e.State == DisasterState.Warned)
+                    GUILayout.Label($"⚠ {e.Name} 예고 — {e.StartHour - s.CurrentHour}시간 뒤({e.StartHour}시간째) 시작");
+            }
+            EpidemicState ep = d.Epidemic;
+            if (ep.Active)
+            {
+                GUILayout.Label($"☣ 전염병 진행 중 — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 시설 효율 −{ep.Damage:P0} (병원 인근 −{ep.Damage * d.Settings.Epidemic.HospitalDamageFactor:P0})");
+            }
+            else if (ep.Resistance > s.Rules.EpidemicResistanceFloor + 0.005)
+            {
+                GUILayout.Label($"전염병 저항력 {ep.Resistance:P0} (서서히 줄어듦)");
+            }
         }
 
         private void DrawTools(Settlement s)

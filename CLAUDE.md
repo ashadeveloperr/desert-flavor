@@ -55,6 +55,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   `OutputOf(facility)`로 시간당 생산·소비 예상치. 경매 가치는 가동 숙성(막 지은 생산 시설 70% → 48h 100%)과 석재 배율의 채석장 능력을 반영(2026-10-23, v0.8 회귀 비교 때는 끔). 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
   첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
   무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.
+- **`Core/Economy/Disasters`:** `DisasterManager`(캠페인이 정착지마다 붙임) — 재해 일정(시드 결정론, 48h 유예, 0~2번, 6h 예고), 전염병 심각도·저항력, 병원 반경 1칸 피해 절반, 방역 장비(시작 저항력). 수치는 설정 `disasters`.
 - **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +72h 첫 경매·이후 72h(설정 `auctionRepeatsGameHours`), 완공·보류 직후 입찰자 예고,
   자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
 - 배치 모드 CLI는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`, Unity는 한 프로젝트를 한 프로세스만 연다). 테스트는 **`bash Tools/unity-tests.sh [EditMode|PlayMode|All]`**로 돌린다: 테스트 전용 사본(`.unity-testcopy/`, git 무시)에 작업 트리를 미러 복사하고 그 사본에서 배치 모드로 실행한다. **사용자가 연 에디터에는 손대지 않는다**(열린 에디터에 테스트를 시키는 방식은 작업을 방해해서 2026-10-23 폐기). 에디터를 닫아 달라고 하지 않는다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
@@ -128,7 +129,7 @@ dotnet run --project Tools/SettlementSim
 - 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
 - 절차 맵: 생성기는 Core 파일을 링크하고 수치는 `procedural_map_config.json`을 읽는다. `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
   난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
-  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign`(`ModifierTuning.cs`). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`).
+  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign`(`ModifierTuning.cs`). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
   난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
 
 ## 규칙

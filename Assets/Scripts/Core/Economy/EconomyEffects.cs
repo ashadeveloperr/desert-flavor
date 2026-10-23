@@ -35,6 +35,8 @@ namespace DesertSettlement.Core.Economy
         public int ExtraConstructionSlots { get; set; }
         /// <summary>기본 식량·석재 저장 한도에 더하는 값(대형 창고 설비 +50).</summary>
         public double ExtraStorage { get; set; }
+        /// <summary>정착지 시작 전염병 저항력(방역 장비 +0.3). 전염병이 끝나 저항력이 줄어도 이 값 아래로는 안 내려간다.</summary>
+        public double InitialEpidemicResistance { get; set; }
 
         public static EconomyEffects Combine(IEnumerable<EconomyEffects> effects)
         {
@@ -55,6 +57,7 @@ namespace DesertSettlement.Core.Economy
                 r.UpkeepMultiplier *= e.UpkeepMultiplier;
                 r.ExtraConstructionSlots += e.ExtraConstructionSlots;
                 r.ExtraStorage += e.ExtraStorage;
+                r.InitialEpidemicResistance += e.InitialEpidemicResistance;
             }
             return r;
         }
@@ -84,6 +87,7 @@ namespace DesertSettlement.Core.Economy
             Ratio("유지비", UpkeepMultiplier);
             if (ExtraConstructionSlots != 0) parts.Add($"동시 작업 +{ExtraConstructionSlots}");
             if (ExtraStorage > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "저장 한도 +{0:0}", ExtraStorage));
+            if (InitialEpidemicResistance > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "시작 전염병 저항력 +{0:0}%", InitialEpidemicResistance * 100));
             return parts.Count == 0 ? "효과 없음" : string.Join(", ", parts);
         }
     }

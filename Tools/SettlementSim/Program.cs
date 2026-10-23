@@ -29,6 +29,8 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "mods") return ModifierTuning(args.Skip(1).ToArray());
             // dotnet run --project Tools/SettlementSim -- exploit : 작업 목록 3번 재현·대책 비교(ExploitTuning.cs).
             if (args.Length > 0 && args[0] == "exploit") return ExploitTuning(args.Skip(1).ToArray());
+            // dotnet run --project Tools/SettlementSim -- epidemic : 전염병·병원·방역 장비 측정(EpidemicTuning.cs).
+            if (args.Length > 0 && args[0] == "epidemic") return EpidemicTuning(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();

@@ -23,6 +23,7 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.Mine: return "광산";
                 case BuildingKinds.AuctionHall: return "경매장";
                 case BuildingKinds.Warehouse: return "창고";
+                case BuildingKinds.Hospital: return "병원";
                 case BuildingKinds.CanalEdge: return "수로";
                 case BuildingKinds.CanalGate: return "수문";
                 case BuildingKinds.WaterTank: return "물탱크";
@@ -97,6 +98,16 @@ namespace DesertSettlement.Runtime
             return $"생산: {ResourceName(o.Resource)} {o.ProducedPerHour:0.00}/h (최대 {o.MaxPerHour:0.00} · 물 {o.WaterRate:P0} · F {o.FoodCoefficient:P0})";
         }
 
+        /// <summary>전염병 중인 생산 시설의 피해 줄(병원 인근이면 표시). 아니면 null.</summary>
+        public static string EpidemicLine(Settlement s, Facility f)
+        {
+            DisasterManager d = s.Disasters;
+            if (d == null || !d.Epidemic.Active) return null;
+            double factor = d.ProductionFactor(f);
+            if (factor >= 0.9999) return null;
+            return $"전염병: 생산 −{1 - factor:P0}{(d.IsNearHospital(f) ? " (병원 인근 — 피해 절반)" : "")}";
+        }
+
         /// <summary>농장이 자기 소비보다 적게 생산할 때의 경고. 아니면 null.</summary>
         public static string FarmDeficitText(Settlement s, Facility f)
         {
@@ -118,6 +129,8 @@ namespace DesertSettlement.Runtime
 
             string production = ProductionLine(s, f);
             if (production != null) lines.Add(production);
+            string epidemic = EpidemicLine(s, f);
+            if (epidemic != null) lines.Add(epidemic);
 
             WaterAllocation water = s.LastWater;
             if ((lv.WaterDemand ?? 0) > 0 && water != null && water.Consumers.TryGetValue(f.Id.ToString(), out WaterConsumerResult w))
@@ -139,6 +152,7 @@ namespace DesertSettlement.Runtime
             }
             if (f.Kind == BuildingKinds.CanalGate) lines.Add(f.GateOpen ? "수문: 열림" : "수문: 닫힘 (이 변으로 물이 지나가지 않음)");
             if (f.Kind == BuildingKinds.Warehouse) lines.Add($"저장 한도 +식량 {lv.FoodStorageBonus:0} / +석재 {lv.StoneStorageBonus:0}");
+            if (f.Kind == BuildingKinds.Hospital) lines.Add("병원: 이 칸과 이웃 6칸 건물의 전염병 피해 절반");
 
             FacilityOutput o = s.OutputOf(f);
             string upkeep = f.State == FacilityState.Closed || f.State == FacilityState.Upgrading

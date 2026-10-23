@@ -64,6 +64,8 @@ namespace DesertSettlement.Core.Progression
         public IReadOnlyList<RegionModifierDefinition> CurrentModifiers { get; private set; } = new List<RegionModifierDefinition>();
         public Settlement Current { get; private set; }
         public AuctionManager Auctions { get; private set; }
+        /// <summary>지금 정착지의 재해(설정에 재해가 없으면 null).</summary>
+        public DisasterManager Disasters { get; private set; }
         public IReadOnlyCollection<string> OwnedEquipment => _owned;
         public IReadOnlyList<SaleRecord> Sales => _sales;
         public IReadOnlyList<EquipmentDefinition> Shop => _config.Equipment ?? new List<EquipmentDefinition>();
@@ -112,6 +114,7 @@ namespace DesertSettlement.Core.Progression
 
             Current = new Settlement(CurrentMap.CreateMap(), rules);
             Auctions = new AuctionManager(Current, _seed + SettlementNumber * 7919);
+            Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421);
             Auctions.Sold += OnSold;
             Auctions.Bankrupted += OnBankrupt;
             State = CampaignState.InSettlement;

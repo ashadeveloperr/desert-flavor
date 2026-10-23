@@ -70,6 +70,9 @@ namespace DesertSettlement.Core.Economy
         public event Action<ConstructionJob> JobStarted;
         public event Action<HourRecord> HourSettled;
 
+        /// <summary>재해(전염병 등). 없으면 null. <see cref="DisasterManager.Attach"/>가 붙인다.</summary>
+        public DisasterManager Disasters { get; internal set; }
+
         public Settlement(HexMap map, SettlementRules rules)
         {
             Map = map ?? throw new ArgumentNullException(nameof(map));
@@ -129,7 +132,7 @@ namespace DesertSettlement.Core.Economy
             }
             if (!f.IsOperating) return new FacilityOutput(resource, 0, max, 0, 0, FoodCoefficient);
             double rate = WaterRateOf(f);
-            double produced = resource == ResourceKind.None ? 0 : max * Efficiency(rate, FoodCoefficient);
+            double produced = resource == ResourceKind.None ? 0 : max * Efficiency(rate, FoodCoefficient) * (Disasters?.ProductionFactor(f) ?? 1);
             return new FacilityOutput(resource, produced, max, lv.FoodUse ?? 0, rate, FoodCoefficient);
         }
 
@@ -348,6 +351,7 @@ namespace DesertSettlement.Core.Economy
         public HourRecord AdvanceHour()
         {
             long h = CurrentHour;
+            Disasters?.BeginHour(h); // 재해 예고·시작
             CompleteJobs(h);
             StartJobs(h);
             WaterAllocation water = SolveWater();
@@ -366,22 +370,23 @@ namespace DesertSettlement.Core.Economy
                     upkeep += lv.Upkeep ?? 0;
                     double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(facility.Id.ToString()) : 1.0;
                     double maturity = Rules.Maturity(h - facility.CompletedHour);
+                    double disaster = Disasters?.ProductionFactor(facility) ?? 1; // 전염병 피해(병원 인근은 절반)
                     double amount;
                     switch (facility.Kind)
                     {
                         case BuildingKinds.Farm:
-                            amount = (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier * Efficiency(rate, f);
+                            amount = (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier * Efficiency(rate, f) * disaster;
                             food += amount;
                             foodValued += amount * maturity;
                             if (rate > 0) wateredFarm = true;
                             break;
                         case BuildingKinds.Quarry:
-                            amount = (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier * Efficiency(rate, f);
+                            amount = (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier * Efficiency(rate, f) * disaster;
                             stone += amount;
                             stoneValued += amount * maturity;
                             break;
                         case BuildingKinds.Mine:
-                            amount = (lv.OreProduction ?? 0) * Rules.OreMultiplier * Efficiency(rate, f);
+                            amount = (lv.OreProduction ?? 0) * Rules.OreMultiplier * Efficiency(rate, f) * disaster;
                             ore += amount;
                             oreValued += amount * maturity;
                             break;
@@ -430,8 +435,10 @@ namespace DesertSettlement.Core.Economy
                 OreProduced = ore, FoodProduced = food, FoodValid = foodValid, StoneProduced = stone, StoneValid = stoneValid,
                 FoodDemand = demand, FoodDeficit = deficit, Upkeep = upkeep,
                 OreValued = oreValued, FoodValued = foodValued, StoneValued = stoneValued,
+                EpidemicDamage = Disasters?.Epidemic.Damage ?? 0,
             };
             _history.Add(record);
+            Disasters?.EndHour(h); // 전염병 심각도·저항력 갱신(이번 시간 피해를 반영한 뒤)
             CurrentHour = h + 1;
             HourSettled?.Invoke(record);
             return record;

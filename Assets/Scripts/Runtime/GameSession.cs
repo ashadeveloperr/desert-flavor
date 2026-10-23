@@ -148,6 +148,12 @@ namespace DesertSettlement.Runtime
             if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement(offerIndex);
             Auctions.AuctionOpened += e => Debug.Log($"[Auction] {(e.Kind == AuctionKind.Emergency ? "긴급 매각" : "정기")} 경매 개최 — {e.Bids.Count}명 입찰, 시세 {e.Market:0.000}");
             Auctions.Bankrupted += r => Debug.LogWarning("[Auction] 파산: " + r);
+            if (Campaign.Disasters != null)
+            {
+                Campaign.Disasters.Warned += e => Debug.Log($"[Disaster] {e.Name} 예고 — {e.StartHour}시간째 시작");
+                Campaign.Disasters.Started += e => Debug.LogWarning($"[Disaster] {e.Name} 시작");
+                Campaign.Disasters.Ended += e => Debug.Log($"[Disaster] {e.Name} 끝 ({e.EndHour}시간째)");
+            }
             Clock.ResetForNewSettlement();
             Clock.SetPaused(false);
             IsReady = true;

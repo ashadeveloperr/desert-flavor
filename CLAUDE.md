@@ -71,7 +71,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   맵 파일은 `Assets/Data/Maps/*.json`(`MapLoader`).
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵(인스펙터 지형 목록) → `Settlement` → 시계, 정각마다 `AdvanceHour()`.
 - **저장·불러오기(`Core/Progression/SaveGame`):** 시드 + 성공한 플레이어 명령 기록을 저장하고, 같은 시드로 다시 실행해 복원(F5/F9). **새 플레이어 명령을 추가하면 `Settlement.Commands.cs`(기록)와 `SaveGame.Apply`(재실행)에 함께 넣는다.** 확인 `dotnet run --project Tools/SettlementSim -- savecheck`.
-- **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), `SettlementHud`(IMGUI),
+- **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), **정식 UI `Runtime/UI/`(uGUI, `GameUi`가 뿌리, F1로 예전 IMGUI `SettlementHud`·`AuctionPanel`·`GameClockHud`와 전환)**,
   `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.
 - **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기, 생성 맵 미리보기).
   사용자가 절차 생성 규칙을 설명할 예시 맵을 그리는 용도. 저장 파일은 `Assets/Data/MapSketches/*.json`(캠페인 맵과 같은 `MapDefinition` 형식, `MapLoader.ToJson`).

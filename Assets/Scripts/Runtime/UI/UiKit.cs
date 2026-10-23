@@ -1,0 +1,154 @@
+using System;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace DesertSettlement.Runtime.UI
+{
+    /// <summary>
+    /// 정식 UI(2026-10-23, Docs/decision_log_auto.md UI1~UI5)를 코드로 만드는 도구. 색·글자 크기는 <see cref="Theme"/> 한 곳에서 바꾼다.
+    /// </summary>
+    public static class UiKit
+    {
+        /// <summary>색과 글자 크기. 어두운 반투명 패널 + 모래색 강조(UI4).</summary>
+        public static class Theme
+        {
+            public static readonly Color Panel = new Color(0.10f, 0.09f, 0.08f, 0.86f);
+            public static readonly Color PanelLight = new Color(0.20f, 0.18f, 0.15f, 0.92f);
+            public static readonly Color Text = new Color(0.94f, 0.91f, 0.85f);
+            public static readonly Color Muted = new Color(0.68f, 0.63f, 0.56f);
+            public static readonly Color Accent = new Color(0.90f, 0.72f, 0.42f);
+            public static readonly Color Good = new Color(0.52f, 0.80f, 0.50f);
+            public static readonly Color Warn = new Color(0.95f, 0.66f, 0.30f);
+            public static readonly Color Danger = new Color(0.95f, 0.38f, 0.32f);
+            public static readonly Color ButtonColor = new Color(0.28f, 0.25f, 0.21f, 1f);
+            public static readonly Color ButtonOn = new Color(0.62f, 0.47f, 0.24f, 1f);
+            public static readonly Color Water = new Color(0.42f, 0.78f, 0.92f);
+            public const int Big = 20, Title = 16, Body = 14, Small = 12;
+        }
+
+        private static Font _font;
+        /// <summary>기본 동적 폰트. 한글은 운영체제 글꼴로 대체된다(UI1).</summary>
+        public static Font Font => _font != null ? _font : (_font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
+
+        public static RectTransform Rect(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return (RectTransform)go.transform;
+        }
+
+        /// <summary>앵커와 위치. anchorMin/Max는 부모 기준 0~1, pivot은 자기 기준.</summary>
+        public static RectTransform Place(this RectTransform r, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 position, Vector2 size)
+        {
+            r.anchorMin = anchorMin;
+            r.anchorMax = anchorMax;
+            r.pivot = pivot;
+            r.anchoredPosition = position;
+            r.sizeDelta = size;
+            return r;
+        }
+
+        public static RectTransform Panel(string name, Transform parent, Color? color = null)
+        {
+            RectTransform r = Rect(name, parent);
+            r.gameObject.AddComponent<Image>().color = color ?? Theme.Panel;
+            return r;
+        }
+
+        public static Text Label(Transform parent, string text, int size = Theme.Body, Color? color = null, TextAnchor align = TextAnchor.MiddleLeft)
+        {
+            RectTransform r = Rect("Text", parent);
+            var t = r.gameObject.AddComponent<Text>();
+            t.font = Font;
+            t.fontSize = size;
+            t.color = color ?? Theme.Text;
+            t.alignment = align;
+            t.supportRichText = true;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            t.text = text;
+            return t;
+        }
+
+        public static UnityEngine.UI.Button Btn(Transform parent, string text, Action onClick, float width = -1, float height = 30, int size = Theme.Body)
+        {
+            RectTransform r = Rect("Button", parent);
+            var image = r.gameObject.AddComponent<Image>();
+            image.color = Theme.ButtonColor;
+            var b = r.gameObject.AddComponent<UnityEngine.UI.Button>();
+            b.targetGraphic = image;
+            ColorBlock colors = b.colors;
+            colors.highlightedColor = new Color(1.25f, 1.2f, 1.1f);
+            colors.pressedColor = new Color(0.8f, 0.8f, 0.8f);
+            colors.disabledColor = new Color(0.55f, 0.55f, 0.55f, 0.7f);
+            b.colors = colors;
+            if (onClick != null) b.onClick.AddListener(() => onClick());
+            Text label = Label(r, text, size, Theme.Text, TextAnchor.MiddleCenter);
+            Stretch(label.rectTransform, new Vector2(6, 2));
+            var le = r.gameObject.AddComponent<LayoutElement>();
+            le.minHeight = height;
+            le.preferredHeight = height;
+            if (width > 0) { le.minWidth = width; le.preferredWidth = width; }
+            return b;
+        }
+
+        /// <summary>버튼 글자를 바꾼다.</summary>
+        public static void SetText(this UnityEngine.UI.Button b, string text) => b.GetComponentInChildren<Text>().text = text;
+
+        /// <summary>선택된 도구처럼 켜진 버튼 색.</summary>
+        public static void SetOn(this UnityEngine.UI.Button b, bool on) => ((Image)b.targetGraphic).color = on ? Theme.ButtonOn : Theme.ButtonColor;
+
+        public static void Stretch(RectTransform r, Vector2 inset)
+        {
+            r.anchorMin = Vector2.zero;
+            r.anchorMax = Vector2.one;
+            r.offsetMin = inset;
+            r.offsetMax = -inset;
+        }
+
+        public static HorizontalLayoutGroup Row(Transform parent, float spacing = 6, int padding = 0)
+        {
+            RectTransform r = Rect("Row", parent);
+            var g = r.gameObject.AddComponent<HorizontalLayoutGroup>();
+            g.spacing = spacing;
+            g.padding = new RectOffset(padding, padding, padding, padding);
+            g.childAlignment = TextAnchor.MiddleLeft;
+            g.childControlWidth = true;
+            g.childControlHeight = true;
+            g.childForceExpandWidth = false;
+            g.childForceExpandHeight = false;
+            return g;
+        }
+
+        public static VerticalLayoutGroup Column(Transform parent, float spacing = 4, int padding = 0)
+        {
+            RectTransform r = Rect("Column", parent);
+            var g = r.gameObject.AddComponent<VerticalLayoutGroup>();
+            g.spacing = spacing;
+            g.padding = new RectOffset(padding, padding, padding, padding);
+            g.childAlignment = TextAnchor.UpperLeft;
+            g.childControlWidth = true;
+            g.childControlHeight = true;
+            g.childForceExpandWidth = true;
+            g.childForceExpandHeight = false;
+            return g;
+        }
+
+        /// <summary>내용 크기에 맞춰 늘어나게(세로 목록·패널).</summary>
+        public static void FitHeight(GameObject go)
+        {
+            var f = go.GetComponent<ContentSizeFitter>() ?? go.AddComponent<ContentSizeFitter>();
+            f.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        public static void Clear(Transform t)
+        {
+            for (int i = t.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(t.GetChild(i).gameObject);
+        }
+
+        public static string Hex(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c);
+
+        /// <summary>리치 텍스트 색 입히기.</summary>
+        public static string Paint(string text, Color c) => $"<color={Hex(c)}>{text}</color>";
+    }
+}

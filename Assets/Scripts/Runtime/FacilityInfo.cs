@@ -74,6 +74,9 @@ namespace DesertSettlement.Runtime
             return $"{(tank ? "물탱크" : "우물")} #{number}";
         }
 
+        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과 한 줄(두 화면 공통).</summary>
+        public static string TimedDisasterText(Settlement s, DisasterEvent e) => SettlementHud.TimedEffectText(s, e);
+
         public static string ShortageText(WaterShortageReason reason)
         {
             switch (reason)

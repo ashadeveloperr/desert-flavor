@@ -84,6 +84,7 @@ namespace DesertSettlement.Runtime
             Ensure<AuctionPanel>();
             Ensure<GameClockHud>();
             Ensure<WaterPathOverlay>();
+            Ensure<UI.GameUi>();
             if (go.GetComponent<DayNightLighting>() == null)
             {
                 Ensure<DayNightLighting>().Bind(session, FindSun());

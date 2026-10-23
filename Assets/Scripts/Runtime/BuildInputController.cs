@@ -55,12 +55,17 @@ namespace DesertSettlement.Runtime
         /// <summary>현재 도구를 여기 적용하면 실패하는 이유, 또는 마지막 명령 결과.</summary>
         public string HoverMessage { get; private set; }
         public string LastResult { get; private set; }
+
+        /// <summary>UI 버튼(정보 패널 등)에서 실행한 명령의 결과를 도구 막대 한 줄에 보여 준다.</summary>
+        public void ReportResult(string message) => LastResult = message;
         public int SelectedFacilityId { get; set; } = -1;
 
         private void Awake()
         {
             // 물길 표시(2026-10-23)는 예전에 만든 씬에도 자동으로 붙인다.
             if (GetComponent<WaterPathOverlay>() == null) gameObject.AddComponent<WaterPathOverlay>();
+            // 정식 UI(2026-10-23, UI1~UI5)도 예전 씬에 자동으로 붙인다. F1로 예전 임시 화면과 전환.
+            if (GetComponent<UI.GameUi>() == null && GetComponent<SettlementView>() != null) gameObject.AddComponent<UI.GameUi>();
             _session = GetComponent<GameSession>();
             _session.Initialized += () =>
             {

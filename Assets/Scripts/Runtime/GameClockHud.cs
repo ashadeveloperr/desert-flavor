@@ -44,12 +44,14 @@ namespace DesertSettlement.Runtime
 
         private void Show(string message)
         {
+            GetComponent<UI.GameUi>()?.ShowMessage(message); // 새 화면에서도 보이게
             _message = message;
             _messageUntil = Time.unscaledTime + messageSeconds;
         }
 
         private void OnGUI()
         {
+            if (!HudMode.Legacy) { HudInputBlocker.Clear(this); return; } // 새 화면(uGUI)을 쓰는 동안은 그리지 않는다(F1로 전환)
             if (_session == null || !_session.IsReady) return;
             GameClock clock = _session.Clock;
 

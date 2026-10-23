@@ -31,6 +31,7 @@ namespace DesertSettlement.Runtime
 
         private void OnGUI()
         {
+            if (!HudMode.Legacy) { HudInputBlocker.Clear(this); return; } // 새 화면(uGUI)을 쓰는 동안은 그리지 않는다(F1로 전환)
             if (!_session.IsReady)
             {
                 HudInputBlocker.Clear(this);

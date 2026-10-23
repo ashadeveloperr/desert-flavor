@@ -4,7 +4,8 @@
     "references": [
         "DesertSettlement.Core",
         "Unity.InputSystem",
-        "Unity.Cinemachine"
+        "Unity.Cinemachine",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

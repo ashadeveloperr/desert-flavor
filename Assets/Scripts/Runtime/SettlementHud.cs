@@ -41,6 +41,7 @@ namespace DesertSettlement.Runtime
 
         private void OnGUI()
         {
+            if (!HudMode.Legacy) { HudInputBlocker.Clear(this); return; } // 새 화면(uGUI)을 쓰는 동안은 그리지 않는다(F1로 전환)
             if (!_session.IsReady) return;
             Settlement s = _session.Settlement;
 
@@ -117,7 +118,7 @@ namespace DesertSettlement.Runtime
         }
 
         /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영). 2026-10-23 D1~D6.</summary>
-        private static string TimedEffectText(Settlement s, DisasterEvent e)
+        internal static string TimedEffectText(Settlement s, DisasterEvent e)
         {
             DisasterSettings c = s.Disasters.Settings;
             SettlementRules r = s.Rules;

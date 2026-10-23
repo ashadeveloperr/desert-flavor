@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace DesertSettlement.Runtime
 {
@@ -24,6 +25,8 @@ namespace DesertSettlement.Runtime
         /// <summary>화면 좌표(왼쪽 아래 원점, Input System 마우스 좌표)가 패널 위인지.</summary>
         public static bool IsOverHud(Vector2 screenPosition)
         {
+            // 정식 UI(uGUI, 2026-10-23): 마우스가 UI 위면 맵 조작을 막는다.
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return true;
             var gui = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
             foreach (List<Rect> list in Rects.Values)
             {
@@ -34,5 +37,17 @@ namespace DesertSettlement.Runtime
             }
             return false;
         }
+    }
+}
+
+namespace DesertSettlement.Runtime
+{
+    /// <summary>
+    /// 어느 화면을 쓰는지(2026-10-23 정식 UI, Docs/decision_log_auto.md UI3). false = 새 화면(uGUI), true = 예전 임시 화면(IMGUI). F1로 바꾼다.
+    /// 예전 화면 컴포넌트는 꺼지지 않고 그리기만 멈춘다(단축키·툴팁은 그대로 동작).
+    /// </summary>
+    public static class HudMode
+    {
+        public static bool Legacy;
     }
 }

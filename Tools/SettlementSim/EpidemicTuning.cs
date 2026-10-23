@@ -215,7 +215,7 @@ namespace SettlementSim
                 dm = DisasterManager.Attach(s, new DisasterSettings
                 {
                     GraceHours = src.GraceHours + (int)delay, WarningHours = src.WarningHours, ScheduleWindowHours = 1,
-                    CountWeights = new List<double> { 0, 1 }, Types = src.Types, Epidemic = epidemicSettings,
+                    CountWeights = new List<double> { 0, 1 }, Types = src.Types.Where(t => t.Id == DisasterManager.EpidemicId).ToList(), Epidemic = epidemicSettings,
                 }, 1);
             }
             var withPlan = new MapDefinition { Id = def.Id, Radius = def.Radius, Terrain = def.Terrain, SampleLayout = plan };

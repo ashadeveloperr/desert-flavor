@@ -59,7 +59,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(1, Bidder("builder").NextSettlementFreeBuilds[BuildingKinds.Quarry], "건설업자 혜택: 채석장");
             Assert.AreEqual(1, Bidder("waterBroker").NextSettlementFreeBuilds[BuildingKinds.WaterTank], "수자원 사업자 혜택: 물탱크");
             Assert.AreEqual(1, Bidder("developer").NextSettlementFreeBuilds[BuildingKinds.AuctionHall], "부동산 개발업자 혜택: 경매장");
-            Assert.AreEqual(2.5, _config.AuctionSeed.OreProduction24hValueFactor, 1e-9);
+            Assert.AreEqual(2.3, _config.AuctionSeed.OreProduction24hValueFactor, 1e-9, "2026-10-23 1-⑦ 재측정: 2.5 → 2.3");
             Assert.AreEqual(1.1, _config.Equipment.Single(e => e.Id == "wellPump").WellSupplyMultiplier, 1e-9);
         }
 

@@ -39,6 +39,10 @@ namespace DesertSettlement.Core.Economy
         public double InitialEpidemicResistance { get; set; }
         /// <summary>전염병 중 저항력이 오르는 속도 배율(방역 장비 1.5, 2026-10-23 B1 결정). 면역이 아니라 '더 빨리 회복'.</summary>
         public double EpidemicResistanceGrowthMultiplier { get; set; } = 1;
+        /// <summary>재해 피해 배율(2026-10-23 D3·D5·D6): 1 = 그대로, 0.5 = 절반. 수로 방풍막 = 모래폭풍, 방충망 = 메뚜기떼, 관개 설비 = 탄저병.</summary>
+        public double SandstormDamageMultiplier { get; set; } = 1;
+        public double LocustDamageMultiplier { get; set; } = 1;
+        public double BlightDamageMultiplier { get; set; } = 1;
 
         public static EconomyEffects Combine(IEnumerable<EconomyEffects> effects)
         {
@@ -61,6 +65,9 @@ namespace DesertSettlement.Core.Economy
                 r.ExtraStorage += e.ExtraStorage;
                 r.InitialEpidemicResistance += e.InitialEpidemicResistance;
                 r.EpidemicResistanceGrowthMultiplier *= e.EpidemicResistanceGrowthMultiplier;
+                r.SandstormDamageMultiplier *= e.SandstormDamageMultiplier;
+                r.LocustDamageMultiplier *= e.LocustDamageMultiplier;
+                r.BlightDamageMultiplier *= e.BlightDamageMultiplier;
             }
             return r;
         }
@@ -80,6 +87,7 @@ namespace DesertSettlement.Core.Economy
                 PurchasePriceMultiplier = M(PurchasePriceMultiplier), UpkeepMultiplier = M(UpkeepMultiplier),
                 ExtraConstructionSlots = ExtraConstructionSlots, ExtraStorage = ExtraStorage * s,
                 InitialEpidemicResistance = InitialEpidemicResistance * s, EpidemicResistanceGrowthMultiplier = M(EpidemicResistanceGrowthMultiplier),
+                SandstormDamageMultiplier = M(SandstormDamageMultiplier), LocustDamageMultiplier = M(LocustDamageMultiplier), BlightDamageMultiplier = M(BlightDamageMultiplier),
             };
         }
 
@@ -110,6 +118,9 @@ namespace DesertSettlement.Core.Economy
             if (ExtraStorage > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "저장 한도 +{0:0}", ExtraStorage));
             if (InitialEpidemicResistance > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "시작 전염병 저항력 +{0:0}%", InitialEpidemicResistance * 100));
             Ratio("전염병 저항력 상승 속도", EpidemicResistanceGrowthMultiplier);
+            Ratio("모래폭풍 피해", SandstormDamageMultiplier);
+            Ratio("메뚜기떼 피해", LocustDamageMultiplier);
+            Ratio("탄저병 피해", BlightDamageMultiplier);
             return parts.Count == 0 ? "효과 없음" : string.Join(", ", parts);
         }
     }

@@ -250,9 +250,40 @@ namespace DesertSettlement.Core.Config
         /// (기본값을 리스트로 두면 JSON 읽을 때 덧붙여지므로 null로 두고, 없으면 <see cref="EffectiveCountWeights"/>가 0.15·0.55·0.30을 쓴다.)
         public List<double> CountWeights { get; set; }
         public IList<double> EffectiveCountWeights => CountWeights ?? new List<double> { 0.15, 0.55, 0.30 };
-        /// <summary>나올 수 있는 재해 종류와 가중치. 지금은 전염병만.</summary>
+        /// <summary>나올 수 있는 재해 종류와 가중치(epidemic·sandstorm·locusts·blight, 2026-10-23 4종 같은 확률).</summary>
         public List<DisasterTypeDefinition> Types { get; set; }
         public EpidemicSettings Epidemic { get; set; } = new EpidemicSettings();
+        public SandstormSettings Sandstorm { get; set; } = new SandstormSettings();
+        public LocustSettings Locusts { get; set; } = new LocustSettings();
+        public BlightSettings Blight { get; set; } = new BlightSettings();
+        /// <summary>지역 모디파이어 id → 재해 종류 id → 가중치 배율(약점 모래바람 지대 = 모래폭풍 ×3 등, 2026-10-23 D7).</summary>
+        public Dictionary<string, Dictionary<string, double>> RegionWeightMultipliers { get; set; }
+    }
+
+    /// <summary>모래폭풍(2026-10-23 D1~D3): 지속 동안 수로 거리 손실 × CanalLossMultiplier, 공사 속도 × ConstructionSpeed. 수로 방풍막이 손실 증가를 줄인다.</summary>
+    public sealed class SandstormSettings
+    {
+        public int MinHours { get; set; } = 6;
+        public int MaxHours { get; set; } = 18;
+        public double CanalLossMultiplier { get; set; } = 2.0;
+        public double ConstructionSpeed { get; set; } = 0.5;
+    }
+
+    /// <summary>메뚜기떼(2026-10-23 D4·D5): 지속 동안 농장 생산 × FarmProduction, 시작할 때 식량 재고 −FoodStockLoss. 방충망이 피해를 줄인다.</summary>
+    public sealed class LocustSettings
+    {
+        public int MinHours { get; set; } = 4;
+        public int MaxHours { get; set; } = 12;
+        public double FarmProduction { get; set; } = 0.0;
+        public double FoodStockLoss { get; set; } = 0.15;
+    }
+
+    /// <summary>작물 탄저병(2026-10-23 D6): 지속 동안 농장 생산 × FarmProduction. 관개 설비가 피해를 줄인다.</summary>
+    public sealed class BlightSettings
+    {
+        public int MinHours { get; set; } = 48;
+        public int MaxHours { get; set; } = 96;
+        public double FarmProduction { get; set; } = 0.5;
     }
 
     public sealed class DisasterTypeDefinition

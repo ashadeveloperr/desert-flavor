@@ -87,6 +87,8 @@ namespace DesertSettlement.Core.Economy
         public long StartedHour { get; internal set; } = -1;
         /// <summary>이 게임 시간이 시작될 때 완료된다.</summary>
         public long DeadlineHour { get; internal set; } = -1;
+        /// <summary>모래폭풍 지연 누적(1이 되면 완공이 한 시간 늦어짐).</summary>
+        internal double DelayCarry { get; set; }
 
         public override string ToString() => $"Job#{Id} {Type} {Kind} L{TargetLevel} {State}";
     }

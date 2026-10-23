@@ -113,6 +113,17 @@ namespace DesertSettlement.Core.Tests
         // 원본 v0.8(변 중간점 취수·폐기분 제외: 광산 74.28%, V 1732.80, 매각 후 2359.49)과는 그만큼 다르다.
         // 값의 출처: dotnet run --project Tools/SettlementSim (Core ↔ 이식본 교차 검증 출력).
 
+        /// <summary>
+        /// v0.8 회귀값은 광물 가치 계수 2.5로 고정된 원본 스크립트 기준이다. 게임 밸런스 값(2026-10-23 1-⑦: 2.3)과 상관없이 2.5로 평가한다.
+        /// </summary>
+        private static ValuationResult WithV08OreFactor(Func<ValuationResult> evaluate)
+        {
+            double saved = _config.AuctionSeed.OreProduction24hValueFactor;
+            _config.AuctionSeed.OreProduction24hValueFactor = 2.5;
+            try { return evaluate(); }
+            finally { _config.AuctionSeed.OreProduction24hValueFactor = saved; }
+        }
+
         [Test]
         public void BaseScript_FirstAuctionMatchesRegression()
         {
@@ -129,7 +140,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(100.0, s.Stone, 0.01);
             Assert.AreEqual(8.0, s.StoneDiscarded, 0.01, "초과 석재 폐기 8");
 
-            ValuationResult v = SettlementValuation.Evaluate(s, 133);
+            ValuationResult v = WithV08OreFactor(() => SettlementValuation.Evaluate(s, 133));
             Assert.AreEqual(1.0, v.StoneAveragePerHour, 1e-9, "석재가 한도(100)에 차서 폐기돼도 생산 실적으로 센다(확정)");
             Assert.AreEqual(1149.63, v.Value, 0.01, "첫 경매 기준 가치 V (광물 가치 계수 2.5)");
             Assert.AreEqual(1747.16, sc.CashBefore(133) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금(중립 1.05)");
@@ -143,7 +154,7 @@ namespace DesertSettlement.Core.Tests
             sc.At(133, "warehouse", s => s.RequestBuild(BuildingKinds.Warehouse, WarehouseTile));
             sc.Run(229);
 
-            ValuationResult v = SettlementValuation.Evaluate(sc.S, 229);
+            ValuationResult v = WithV08OreFactor(() => SettlementValuation.Evaluate(sc.S, 229));
             Assert.AreEqual(1959.54, sc.CashBefore(229) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
             Assert.AreEqual(2, sc.F("mine").Level);
             Assert.GreaterOrEqual(sc.S.FoodCoefficient, 0.99);

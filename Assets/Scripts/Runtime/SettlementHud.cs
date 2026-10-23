@@ -102,6 +102,8 @@ namespace DesertSettlement.Runtime
             {
                 if (e.State == DisasterState.Warned)
                     GUILayout.Label($"⚠ {e.Name} 예고 — {e.StartHour - s.CurrentHour}시간 뒤({e.StartHour}시간째) 시작");
+                else if (e.State == DisasterState.Active && e.DurationHours > 0)
+                    GUILayout.Label($"⚠ {e.Name} 진행 중 — {e.PlannedEndHour - s.CurrentHour}시간 남음 · {TimedEffectText(s, e)}");
             }
             EpidemicState ep = d.Epidemic;
             if (ep.Active)
@@ -111,6 +113,24 @@ namespace DesertSettlement.Runtime
             else if (ep.Resistance > s.Rules.EpidemicResistanceFloor + 0.005)
             {
                 GUILayout.Label($"전염병 저항력 {ep.Resistance:P0} (서서히 줄어듦)");
+            }
+        }
+
+        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영). 2026-10-23 D1~D6.</summary>
+        private static string TimedEffectText(Settlement s, DisasterEvent e)
+        {
+            DisasterSettings c = s.Disasters.Settings;
+            SettlementRules r = s.Rules;
+            switch (e.TypeId)
+            {
+                case DisasterManager.Sandstorm:
+                    return $"수로 손실 ×{s.Disasters.CanalLossFactor:0.##}, 공사 속도 {s.Disasters.ConstructionSpeed:P0}";
+                case DisasterManager.Locusts:
+                    return $"농장 생산 {1 - (1 - c.Locusts.FarmProduction) * r.LocustDamageMultiplier:P0} (시작 때 식량 재고 −{c.Locusts.FoodStockLoss * r.LocustDamageMultiplier:P0})";
+                case DisasterManager.Blight:
+                    return $"농장 생산 {1 - (1 - c.Blight.FarmProduction) * r.BlightDamageMultiplier:P0}";
+                default:
+                    return "";
             }
         }
 

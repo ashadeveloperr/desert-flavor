@@ -65,7 +65,7 @@ namespace SettlementSim
                     }
                     double profit = c.Cash - before;
                     if (profit < 0 && firstDeficit == null) firstDeficit = $"#{n} {label}";
-                    // 경매 전에 시작한 재해 수(☣ 하나 = 전염병 한 번).
+                    // 경매 전에 시작한 재해 수(☣ 하나 = 재해 한 번, 종류 무관).
                     int hits = c.Disasters?.Events.Count(e => e.State == DisasterState.Active || e.State == DisasterState.Ended) ?? 0;
                     playedSettlements++;
                     if (hits > 0) epidemicSettlements++;
@@ -100,8 +100,8 @@ namespace SettlementSim
             Line("  처음 적자/파산: " + string.Join(", ", deficitAt));
             Line("  D 구간별 정착지 순이익 평균(정착지 수): " + string.Join(" · ", profitsByBand.Select(kv =>
                 $"D{kv.Key}~{kv.Key + 1} {kv.Value.Average():+0;-0}({kv.Value.Count}, 적자 {kv.Value.Count(x => x < 0)})")));
-            Line($"  전염병을 겪은 정착지: {epidemicSettlements}/{playedSettlements}");
-            Line("  표기: [약점 첫 글자, +강점 첫 글자] 무=무른 지반 산=고지대 마=마른 대수층 모=모래바람 염=염분 외=외딴 / +풍=풍부한 광맥 +비=오아시스 +단=단단한 암반 / ☣ = 경매 전 전염병");
+            Line($"  재해를 겪은 정착지(종류 무관): {epidemicSettlements}/{playedSettlements}");
+            Line("  표기: [약점 첫 글자, +강점 첫 글자] 무=무른 지반 산=고지대 마=마른 대수층 모=모래바람 염=염분 외=외딴 / +풍=풍부한 광맥 +비=오아시스 +단=단단한 암반 / ☣ = 경매 전 재해(종류 무관)");
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output");
             File.WriteAllText(Path.Combine(outDir, "modifier_campaign.txt"), Report.ToString(), new UTF8Encoding(false));
             return 0;

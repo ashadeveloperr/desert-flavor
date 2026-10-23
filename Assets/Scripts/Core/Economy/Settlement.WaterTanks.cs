@@ -40,10 +40,10 @@ namespace DesertSettlement.Core.Economy
 
             // 수로 변마다 이미 쓴 용량(변 입구 기준). 단계마다 더해 간다.
             var used = new Dictionary<EdgeId, double>(water.EdgeLoads.ToDictionary(kv => kv.Key, kv => kv.Value));
-            Func<CanalSegment, double> baseCapacity = Rules.Water.CapacityOf;
+            Func<CanalSegment, double> baseCapacity = WaterNow.CapacityOf;
             var remaining = new WaterNetworkSettings
             {
-                LossPerWholeEdge = Rules.Water.LossPerWholeEdge,
+                LossPerWholeEdge = WaterNow.LossPerWholeEdge,
                 CapacityOf = seg => Math.Max(0, baseCapacity(seg) - (used.TryGetValue(seg.Edge, out double u) ? u : 0)),
             };
 

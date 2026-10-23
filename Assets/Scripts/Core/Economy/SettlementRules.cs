@@ -58,6 +58,10 @@ namespace DesertSettlement.Core.Economy
         public double EpidemicResistanceFloor { get; set; }
         /// <summary>전염병 중 저항력 상승 속도 배율(방역 장비 1.5).</summary>
         public double EpidemicResistanceGrowthMultiplier { get; set; } = 1.0;
+        /// <summary>재해 피해 배율(장비, 2026-10-23). 1 = 그대로.</summary>
+        public double SandstormDamageMultiplier { get; set; } = 1.0;
+        public double LocustDamageMultiplier { get; set; } = 1.0;
+        public double BlightDamageMultiplier { get; set; } = 1.0;
         /// <summary>지금까지 건 효과를 합친 것(UI 표시용).</summary>
         public EconomyEffects AppliedEffects { get; private set; } = new EconomyEffects();
         /// <summary>
@@ -157,6 +161,9 @@ namespace DesertSettlement.Core.Economy
             BaseStoneStorage += e.ExtraStorage;
             EpidemicResistanceFloor = Math.Min(1, EpidemicResistanceFloor + e.InitialEpidemicResistance);
             EpidemicResistanceGrowthMultiplier *= e.EpidemicResistanceGrowthMultiplier;
+            SandstormDamageMultiplier *= e.SandstormDamageMultiplier;
+            LocustDamageMultiplier *= e.LocustDamageMultiplier;
+            BlightDamageMultiplier *= e.BlightDamageMultiplier;
             AppliedEffects = EconomyEffects.Combine(new[] { AppliedEffects, e });
             EfficiencyCap = AppliedEffects.EffectiveEfficiencyCap;
             if (Math.Abs(e.CanalLossMultiplier - 1) > 1e-12)

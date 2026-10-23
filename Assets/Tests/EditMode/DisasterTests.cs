@@ -38,7 +38,7 @@ namespace DesertSettlement.Core.Tests
             WarningHours = _config.Disasters.WarningHours,
             ScheduleWindowHours = 1,
             CountWeights = new List<double> { 0, 1 },
-            Types = _config.Disasters.Types,
+            Types = _config.Disasters.Types.Where(t => t.Id == DisasterManager.EpidemicId).ToList(), // 2026-10-23 재해 4종: 이 테스트는 전염병만
             Epidemic = _config.Disasters.Epidemic,
         };
 
@@ -49,7 +49,7 @@ namespace DesertSettlement.Core.Tests
         {
             Assert.AreEqual(48, _config.Disasters.GraceHours);
             Assert.AreEqual(6, _config.Disasters.WarningHours);
-            Assert.AreEqual("epidemic", _config.Disasters.Types.Single().Id);
+            Assert.IsTrue(_config.Disasters.Types.Any(t => t.Id == "epidemic"));
             Assert.AreEqual(0.5, _config.Disasters.Epidemic.HospitalDamageFactor, 1e-12);
             Assert.AreEqual(20, _config.GetLevel(BuildingKinds.Hospital, 1).Stone);
             Assert.AreEqual(1.5, _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicResistanceGrowthMultiplier, 1e-12);

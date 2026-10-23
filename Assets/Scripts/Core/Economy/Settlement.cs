@@ -309,6 +309,12 @@ namespace DesertSettlement.Core.Economy
         /// <summary>석재 외부 구매(1단위씩, 단가 상승). 저장 한도·자금 안에서만. 실제 구매 수를 돌려준다.</summary>
         private int DoBuyStone(int units) => Buy(units, isFood: false);
 
+        /// <summary>식량 재고를 비율만큼 잃는다(메뚜기떼, 2026-10-23 D4).</summary>
+        internal void LoseFood(double fraction)
+        {
+            Food = Math.Max(0, Food * (1 - Math.Max(0, Math.Min(1, fraction))));
+        }
+
         /// <summary>다음 1단위 구매 가격.</summary>
         public double NextPrice(bool food)
         {
@@ -322,7 +328,8 @@ namespace DesertSettlement.Core.Economy
         public HourRecord AdvanceHour()
         {
             long h = CurrentHour;
-            Disasters?.BeginHour(h); // 재해 예고·시작
+            Disasters?.BeginHour(h); // 재해 예고·시작·끝
+            SlowJobs(h);             // 모래폭풍 중 공사 속도 감소
             CompleteJobs(h);
             StartJobs(h);
             WaterAllocation water = SolveWater();
@@ -490,6 +497,36 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
+        /// <summary>
+        /// 공사 속도가 1보다 느린 시간(모래폭풍)에는 진행 중 작업의 완공 시각을 늦춘다: 시간마다 (1 − 속도)씩 쌓아 1이 되면 한 시간 늦춤.
+        /// 이번 시간에 막 시작한 작업은 다음 시간부터. 2026-10-23 D1.
+        /// </summary>
+        private void SlowJobs(long h)
+        {
+            double speed = Disasters?.ConstructionSpeed ?? 1;
+            if (speed >= 1 - 1e-12) return;
+            foreach (ConstructionJob job in _jobs.Where(j => j.State == JobState.InProgress && j.StartedHour < h))
+            {
+                job.DelayCarry += 1 - speed;
+                while (job.DelayCarry >= 1 - 1e-9)
+                {
+                    job.DeadlineHour++;
+                    job.DelayCarry -= 1;
+                }
+            }
+        }
+
+        /// <summary>이번 시간 물 배분 수치: 모래폭풍 중이면 수로 손실이 커진다(<see cref="DisasterManager.CanalLossFactor"/>).</summary>
+        private WaterNetworkSettings WaterNow
+        {
+            get
+            {
+                double f = Disasters?.CanalLossFactor ?? 1;
+                if (Math.Abs(f - 1) < 1e-12) return Rules.Water;
+                return new WaterNetworkSettings { LossPerWholeEdge = Math.Min(0.95, Rules.Water.LossPerWholeEdge * f), CapacityOf = Rules.Water.CapacityOf };
+            }
+        }
+
         private bool CanStart(ConstructionJob job)
         {
             if (Stone + 1e-8 < job.StoneCost) return false;
@@ -556,7 +593,7 @@ namespace DesertSettlement.Core.Economy
                 .Where(x => Counts(x) && !x.Edge.HasValue && (Level(x).WaterDemand ?? 0) > 0)
                 .Select(x => new WaterConsumer(x.Id.ToString(), x.Tile, Level(x).WaterDemand.Value)).ToList();
 
-            return WaterNetworkSolver.Solve(canals, sources, consumers, Rules.Water);
+            return WaterNetworkSolver.Solve(canals, sources, consumers, assumeJobsComplete ? Rules.Water : WaterNow);
         }
 
         // ───────────────────────── 내부 도우미 ─────────────────────────

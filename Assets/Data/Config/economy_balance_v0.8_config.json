@@ -45,7 +45,7 @@
     "maturityStartRatio": 0.7,
     "maturityFullHours": 48,
     "stoneMultiplierUsesQuarryCapacity": true,
-    "oreProduction24hValueFactor": 2.5,
+    "oreProduction24hValueFactor": 2.3,
     "foodProductionAverageForFullBonus": 8,
     "foodMaxMultiplier": 1.5,
     "stoneProductionAverageForFullBonus": 2,
@@ -195,15 +195,15 @@
       "id": "windbreak",
       "name": "수로 방풍막",
       "price": 450,
-      "description": "수로 손실 −20%. 모래바람 지대에 대응",
-      "effects": { "canalLossMultiplier": 0.8 }
+      "description": "수로 손실 −20%, 모래폭풍 중 손실 증가 절반. 모래바람 지대·모래폭풍에 대응",
+      "effects": { "canalLossMultiplier": 0.8, "sandstormDamageMultiplier": 0.5 }
     },
     {
       "id": "irrigation",
       "name": "관개 장비",
       "price": 450,
-      "description": "농장 생산 +5%. 염분 토양에 대응",
-      "effects": { "foodOutputMultiplier": 1.05 }
+      "description": "농장 생산 +5%, 작물 탄저병 피해 절반. 염분 토양·탄저병에 대응",
+      "effects": { "foodOutputMultiplier": 1.05, "blightDamageMultiplier": 0.5 }
     },
     {
       "id": "vaccination",
@@ -211,6 +211,13 @@
       "price": 500,
       "description": "전염병 중 저항력이 오르는 속도 ×1.5(면역이 아니라 더 빨리 회복). 전염병에 대응",
       "effects": { "epidemicResistanceGrowthMultiplier": 1.5 }
+    },
+    {
+      "id": "insectNet",
+      "name": "방충망",
+      "price": 450,
+      "description": "메뚜기떼 피해 절반(농장 50% 가동, 식량 재고 손실 절반). 메뚜기떼에 대응",
+      "effects": { "locustDamageMultiplier": 0.5 }
     }
   ],
   "equipmentUpgrade": {
@@ -225,8 +232,18 @@
     "scheduleWindowHours": 72,
     "countWeights": [0.15, 0.55, 0.30],
     "types": [
-      { "id": "epidemic", "name": "전염병", "weight": 1 }
+      { "id": "epidemic", "name": "전염병", "weight": 1 },
+      { "id": "sandstorm", "name": "모래폭풍", "weight": 1 },
+      { "id": "locusts", "name": "메뚜기떼", "weight": 1 },
+      { "id": "blight", "name": "작물 탄저병", "weight": 1 }
     ],
+    "regionWeightMultipliers": {
+      "sandWind": { "sandstorm": 3 },
+      "salineSoil": { "blight": 3 }
+    },
+    "sandstorm": { "minHours": 6, "maxHours": 18, "canalLossMultiplier": 2.0, "constructionSpeed": 0.5 },
+    "locusts": { "minHours": 4, "maxHours": 12, "farmProduction": 0.0, "foodStockLoss": 0.15 },
+    "blight": { "minHours": 48, "maxHours": 96, "farmProduction": 0.5 },
     "epidemic": {
       "initialSeverity": 0.35,
       "severityRisePerHour": 0.01,

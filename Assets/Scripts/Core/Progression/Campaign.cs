@@ -115,7 +115,7 @@ namespace DesertSettlement.Core.Progression
 
             Current = new Settlement(CurrentMap.CreateMap(), rules);
             Auctions = new AuctionManager(Current, _seed + SettlementNumber * 7919);
-            Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421);
+            Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421, CurrentModifiers.Select(m => m.Id));
             // 저장 파일 명령 기록(2026-10-23 로드맵 2-①): 정착지 명령·경매 결정을 모은다.
             Current.CommandRecorded += Log;
             Settlement recorded = Current;

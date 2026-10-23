@@ -9,14 +9,17 @@ namespace DesertSettlement.Runtime
     /// </summary>
     public static class WorldVisuals
     {
-        private static readonly Dictionary<Color, Material> Materials = new Dictionary<Color, Material>();
+        // 키는 8비트 색: 개량 깜빡임·수로 물결처럼 매 프레임 바뀌는 색도 머티리얼 수가 일정 이상 늘지 않는다.
+        private static readonly Dictionary<Color32, Material> Materials = new Dictionary<Color32, Material>();
         private static Shader _shader;
         private static Mesh _hexMesh;
 
         /// <summary>단색 머티리얼(URP Lit). 같은 색은 하나를 공유한다.</summary>
         public static Material Solid(Color color)
         {
-            if (Materials.TryGetValue(color, out Material m) && m != null) return m;
+            Color32 key = color;
+            if (Materials.TryGetValue(key, out Material m) && m != null) return m;
+            color = key;
             if (_shader == null)
             {
                 _shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
@@ -24,7 +27,7 @@ namespace DesertSettlement.Runtime
             m = new Material(_shader) { color = color, name = "Solid " + ColorUtility.ToHtmlStringRGB(color) };
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.1f);
-            Materials[color] = m;
+            Materials[key] = m;
             return m;
         }
 

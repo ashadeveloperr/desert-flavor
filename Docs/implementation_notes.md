@@ -143,7 +143,7 @@ Assets/Scripts/
     Config/      EconomyConfig(데이터 클래스), EconomyConfigLoader(읽기·검증)
   Runtime/     DesertSettlement.Runtime — Unity 컴포넌트(표시·입력·연결)
     GameSession          진입점. 설정→맵(지형 목록)→Settlement→GameClock, 정각마다 AdvanceHour
-    SettlementView       게임 화면 표시: 지형 타일, 시설 도형, 수로(물 흐름 색·레벨 폭, 닫힌 수로 빨강), 예약 표시, 머리 위 글자
+    SettlementView       게임 화면 표시: 지형 타일, 시설 모양(FacilityModels: 기본 도형 조합), 수로(물 흐름 색·레벨 폭, 닫힌 수로 빨강), 예약 표시, 머리 위 글자
     BuildInputController 마우스 도구 적용(C7): 타일/가장 가까운 변 강조, 클릭·드래그, 불가 이유
     SettlementHud        자원·도구·구매·작업 대기열·선택 시설 패널(임시 IMGUI)
     HoverTooltip         마우스가 타일·시설 위에 있으면 커서 옆 정보 팝업(생산·물·소비·유지비·불가 이유)
@@ -201,7 +201,8 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | 현장 장비 슬롯 수(확정 5) | `Core/Progression/Campaign.cs`의 `EquipmentSlots` |
 | 모디파이어·장비 수치 측정 | `dotnet run --project Tools/SettlementSim -- mods 1.0`(D별 약점 하나씩·대응 회복률), `-- mods campaign`(Core Campaign 봇 캠페인) |
 | 경매 입찰자·시세 무작위 시드 | `GameSession` 인스펙터 → Campaign Seed |
-| 지형·시설·수로 색, 수로 폭, 머리 위 글자 | `SettlementView` 인스펙터 |
+| 지형·시설·수로 색, 수로 폭·반짝임, 머리 위 글자 | `SettlementView` 인스펙터 |
+| 시설 모양(부품 위치·크기·재료색) | `Runtime/FacilityModels.cs` |
 | 팝업·HUD에 나오는 문구, 시설·지형 한국어 이름 | `Runtime/FacilityInfo.cs` |
 | 팝업 위치·폭·뜨는 지연 | `GameSession` 오브젝트의 `HoverTooltip` 인스펙터 |
 | 카메라 속도·각도·줌 범위·회전 각 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |

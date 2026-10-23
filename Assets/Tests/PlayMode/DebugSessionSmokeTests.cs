@@ -81,6 +81,13 @@ namespace DesertSettlement.PlayMode.Tests
             yield return null;
             yield return null;
             Assert.AreEqual(s.Facilities.Count, session.transform.Find("Facilities").childCount, "시설마다 표시 오브젝트 하나");
+            foreach (Transform shown in session.transform.Find("Facilities"))
+            {
+                if (shown.name.StartsWith("Canal")) continue;
+                FacilityModel model = shown.GetComponent<FacilityModel>();
+                Assert.IsNotNull(model, shown.name);
+                Assert.GreaterOrEqual(model.PartCount, 3, $"{shown.name}: 도형을 조합한 모양(M1)");
+            }
 
             FastForwardToAuction(session);
             Assert.IsTrue(session.Auctions.IsOpen, "109h 정기 경매(경매장 37h + 72h)");

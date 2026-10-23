@@ -12,8 +12,8 @@ namespace DesertSettlement.Runtime
     /// <summary>
     /// 게임 화면에 정착지를 기본 도형으로 그린다(임시 그래픽).
     /// - 타일: 지형 색의 납작한 육각형
-    /// - 시설: 종류별 색의 도형. 높이 = 레벨, 공사 중이면 진행률만큼 자라고 회색, 폐쇄는 어둡게
-    /// - 수로: 변 위의 막대. 물이 많이 흐를수록 진한 파랑(부하/용량), 공사 중은 회색
+    /// - 시설: 기본 도형을 조합한 종류별 모양(<see cref="FacilityModels"/>). 높이 = 레벨, 공사 중이면 진행률만큼 자라고 회색, 폐쇄는 어둡게
+    /// - 수로: 변 위의 막대. 물이 많이 흐를수록 진한 파랑(부하/용량)이고 반짝임이 흘러간다, 공사 중은 회색
     /// - 수문: 변 중간의 상자. 열림 초록 / 닫힘 빨강
     /// - 대기 중 건설 예약: 바닥의 얇은 표시
     /// - 머리 위 글자: 공사 진행률, 물 부족 이유(설정에서 끌 수 있음)
@@ -53,6 +53,9 @@ namespace DesertSettlement.Runtime
         [SerializeField] private Color planned = new Color(1f, 1f, 1f);
         [Tooltip("타일 크기 대비 수로 폭(L1). 레벨마다 50%씩 넓어진다")]
         [SerializeField] private float canalWidth = 0.08f;
+        [Tooltip("물이 흐르는 수로의 반짝임 세기(0이면 끔)")]
+        [Range(0f, 0.5f)]
+        [SerializeField] private float canalShimmer = 0.18f;
 
         [Header("글자")]
         [SerializeField] private bool showLabels = true;
@@ -172,10 +175,8 @@ namespace DesertSettlement.Runtime
             {
                 case BuildingKinds.CanalEdge:
                     return CanalBar(f.Edge.Value, _facilitiesRoot, canalDry, 0.04f, 1f);
-                case BuildingKinds.Well:
-                    return WorldVisuals.Primitive(PrimitiveType.Cylinder, "Well", _facilitiesRoot, well);
                 default:
-                    return WorldVisuals.Primitive(PrimitiveType.Cube, f.Kind, _facilitiesRoot, KindColor(f.Kind));
+                    return FacilityModels.Build(f.Kind, _facilitiesRoot, KindColor(f.Kind)).gameObject;
             }
         }
 
@@ -199,9 +200,14 @@ namespace DesertSettlement.Runtime
             {
                 Color c = canalDry;
                 if (f.State == FacilityState.Operating && s.LastWater != null &&
-                    s.LastWater.EdgeLoads.TryGetValue(f.Edge.Value, out double load))
+                    s.LastWater.EdgeLoads.TryGetValue(f.Edge.Value, out double load) && load > 1e-6)
                 {
-                    c = Color.Lerp(canalDry, canalFull, Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f)))));
+                    float fill = Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f))));
+                    c = Color.Lerp(canalDry, canalFull, fill);
+                    // 반짝임 띠가 맵을 가로질러 흘러간다(흐름 방향이 아니라 '물이 있다'는 표시, M4).
+                    Vector3 p = go.transform.position / Mathf.Max(0.01f, Size);
+                    float wave = 0.5f + 0.5f * Mathf.Sin(Time.time * 3f - (p.x + p.z) * 1.7f);
+                    c = Color.Lerp(c, Color.white, canalShimmer * wave * (0.4f + 0.6f * fill));
                 }
                 c = f.State == FacilityState.Closed ? canalClosed : Tint(c, f.State, progress);
                 WorldVisuals.SetColor(go, c);
@@ -211,15 +217,12 @@ namespace DesertSettlement.Runtime
                 return;
             }
 
-            float baseHeight = f.Kind == BuildingKinds.AuctionHall ? 0.7f : f.Kind == BuildingKinds.Farm ? 0.15f : 0.4f;
-            float height = Size * baseHeight * (1f + 0.35f * (f.Level - 1));
+            // 모양은 타일 반지름 1 기준. 레벨마다 35%씩 높아지고, 공사 중이면 진행률만큼 땅에서 솟는다.
+            float height = 1f + 0.35f * (f.Level - 1);
             if (f.State == FacilityState.Constructing) height *= Mathf.Max(0.1f, progress);
-            float footprint = Size * (f.Kind == BuildingKinds.Farm ? 1.1f : 0.6f);
-            go.transform.localScale = f.Kind == BuildingKinds.Well
-                ? new Vector3(Size * 0.5f, height * 0.5f, Size * 0.5f)            // 원기둥은 높이 2가 기본
-                : new Vector3(footprint, height, footprint);
-            go.transform.position = _session.ToWorld(_session.Layout.TileCenter(f.Tile), height * 0.5f);
-            WorldVisuals.SetColor(go, Tint(KindColor(f.Kind), f.State, progress));
+            go.transform.localScale = new Vector3(Size, Size * height, Size);
+            go.transform.position = _session.ToWorld(_session.Layout.TileCenter(f.Tile));
+            go.GetComponent<FacilityModel>().Paint(c => Tint(c, f.State, progress));
         }
 
         private static double CanalCapacity(Settlement s, Facility f) =>

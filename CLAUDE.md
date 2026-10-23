@@ -57,7 +57,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.
 - **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +96h 첫 경매·이후 96h, 완공·보류 직후 입찰자 예고,
   자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
-- 배치 모드 테스트는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`). 그때는 사용자에게 에디터를 닫거나 Test Runner로 돌려 달라고 한다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
+- 배치 모드 CLI는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`, Unity는 한 프로젝트를 한 프로세스만 연다). 테스트는 **`bash Tools/unity-tests.sh [EditMode|PlayMode|All]`**로 돌린다: 테스트 전용 사본(`.unity-testcopy/`, git 무시)에 작업 트리를 미러 복사하고 그 사본에서 배치 모드로 실행한다. **사용자가 연 에디터에는 손대지 않는다**(열린 에디터에 테스트를 시키는 방식은 작업을 방해해서 2026-10-23 폐기). 에디터를 닫아 달라고 하지 않는다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
 - **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비(우물 ×1.2) 유지, 다음 맵은 `ChooseNextMap`.
   절차 맵 설정이 있으면 처음 `fixedMapsBeforeGenerated`(1)개 뒤로는 들어가는 순간의 자금으로 D를 정해 생성(`PreviewNextDifficulty`로 상점에 표시).
   상점에서 다음 지역 후보 2곳(`NextOffers`, 약점·강점 `RegionModifiers`) 중 고르고, 현장 장비 슬롯 5개(`Loadout`·`SetEquipped`)에 넣은 장비만 효과.
@@ -100,6 +100,9 @@ $Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"
   -buildWindows64Player "$Proj\Builds\Win64\DesertSettlement.exe" -logFile "$Proj\Logs\build.log"
 ```
 
+**테스트 실행(권장):** `bash Tools/unity-tests.sh All` — 사본 동기화(robocopy /MIR: Assets·Packages·ProjectSettings) 후 사본에서 아래 CLI를 실행. 종료 코드 0 = 통과, 1 = 실패, 4 = 동기화 실패.
+처음 한 번은 사본 Library 임포트로 몇 분 걸린다. 결과·로그는 `.unity-testcopy/Logs/`. 에디터에서 저장 안 한 변경은 사본에 들어가지 않는다.
+
 **테스트 실행** (`-runTests`에는 `-quit`을 붙이지 않는다. PowerShell에서 `Start-Process -Wait`는 Unity 자식 프로세스까지 기다려 멈출 수 있으니 `-PassThru` 후 `$p.WaitForExit()`를 쓴다):
 ```powershell
 & $Unity -batchmode -nographics -projectPath $Proj -runTests -testPlatform EditMode `
@@ -109,7 +112,7 @@ $Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"
 ```
 
 - 종료 코드 0 = 성공. 실패 시 `-logFile`에 지정한 로그를 확인한다.
-- Unity 에디터가 이 프로젝트를 열고 있으면 batch mode가 실패한다(프로젝트 잠금). 먼저 에디터를 닫는다.
+- Unity 에디터가 이 프로젝트를 열고 있으면 batch mode가 실패한다(프로젝트 잠금). 테스트는 위 `unity-tests.sh`(사본)로 피한다. 빌드·씬 구성(-executeMethod)은 원본 프로젝트에 결과를 남겨야 하므로 여전히 에디터를 닫아야 한다(사용자에게 먼저 묻는다).
 
 **경제 시뮬레이터:**
 ```powershell

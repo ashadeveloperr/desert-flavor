@@ -120,3 +120,6 @@ Thumbs.db
 /Tools/SettlementSim/bin/
 /Tools/SettlementSim/obj/
 !/Tools/SettlementSim/SettlementSim.csproj
+
+# 테스트 전용 Unity 프로젝트 사본(Tools/unity-tests.sh)
+/.unity-testcopy/

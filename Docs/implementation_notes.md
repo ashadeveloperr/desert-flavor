@@ -204,4 +204,4 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 3. 왼쪽 위 배속 버튼(4x)으로 시간을 빠르게 돌리며 확인한다: 공사 진행률, 수로의 물 흐름 색, 시설의 물 부족 이유,
    자원·F 변화, 경매장 완공 후 첫 경매 예정 시각, 낮/밤 조명.
 4. 카메라: WASD/화면 가장자리 이동, 휠 줌, Q/E 회전. 우클릭·Esc는 선택 도구.
-5. 테스트: Window > General > Test Runner > EditMode·PlayMode > Run All, 또는 CLAUDE.md의 batch mode 명령.
+5. 테스트: Window > General > Test Runner > EditMode·PlayMode > Run All, 또는 `bash Tools/unity-tests.sh All`(테스트 전용 사본 `.unity-testcopy/`에서 batch mode로 실행, 열린 에디터와 무관).

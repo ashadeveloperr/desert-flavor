@@ -112,9 +112,16 @@ namespace DesertSettlement.Runtime
             foreach (EquipmentDefinition e in campaign.Shop)
             {
                 GUILayout.BeginHorizontal(GUI.skin.box);
-                GUILayout.Label($"{e.Name} — {e.Price:0}\n<size=11>{e.Description ?? e.Effects.Describe()}</size>", RichLabel);
                 if (campaign.Owns(e.Id))
                 {
+                    int lv = campaign.EquipmentLevel(e.Id), max = campaign.MaxEquipmentLevel(e);
+                    GUILayout.Label($"{e.Name} Lv{lv}/{max}\n<size=11>{campaign.EffectsOf(e).Describe()}</size>", RichLabel);
+                    double? cost = campaign.UpgradeCost(e.Id);
+                    if (cost.HasValue && GUILayout.Button($"강화 {cost.Value:0}", GUILayout.Width(80)))
+                    {
+                        var u = campaign.UpgradeEquipment(e.Id);
+                        _shopMessage = u.Success ? $"{e.Name} Lv{campaign.EquipmentLevel(e.Id)}로 강화" : u.Message;
+                    }
                     bool on = campaign.IsEquipped(e.Id);
                     bool want = GUILayout.Toggle(on, "장착", GUILayout.Width(60));
                     if (want != on)
@@ -123,7 +130,11 @@ namespace DesertSettlement.Runtime
                         _shopMessage = r.Success ? null : r.Message;
                     }
                 }
-                else if (GUILayout.Button("구매", GUILayout.Width(60)))
+                else
+                {
+                    GUILayout.Label($"{e.Name} — {e.Price:0}\n<size=11>{e.Description ?? e.Effects.Describe()}</size>", RichLabel);
+                }
+                if (!campaign.Owns(e.Id) && GUILayout.Button("구매", GUILayout.Width(60)))
                 {
                     var r = _session.BuyEquipment(e.Id);
                     _shopMessage = r.Success ? $"{e.Name} 구매" : r.Message;

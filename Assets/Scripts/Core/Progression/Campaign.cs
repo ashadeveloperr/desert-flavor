@@ -106,7 +106,7 @@ namespace DesertSettlement.Core.Progression
             SettlementRules rules = SettlementRules.FromConfig(_config);
             rules.StartingCash = Cash;
             rules.StarterFood += _pendingFoodBonus;
-            foreach (EquipmentDefinition e in Shop.Where(x => _loadout.Contains(x.Id))) rules.ApplyEffects(e.Effects);
+            foreach (EquipmentDefinition e in Shop.Where(x => _loadout.Contains(x.Id))) rules.ApplyEffects(EffectsOf(e));
             foreach (RegionModifierDefinition m in CurrentModifiers) rules.ApplyEffects(m.Effects);
             foreach (KeyValuePair<string, int> kv in _pendingFreeBuilds) rules.FreeBuilds[kv.Key] = kv.Value;
             _pendingFoodBonus = 0;
@@ -178,7 +178,51 @@ namespace DesertSettlement.Core.Progression
             if (Cash < e.Price) return CommandResult.Fail($"자금이 부족합니다({e.Price:0} 필요).");
             Cash -= e.Price;
             _owned.Add(e.Id);
+            _levels[e.Id] = 1;
             if (_loadout.Count < EquipmentSlots) _loadout.Add(e.Id);
+            return CommandResult.Ok();
+        }
+
+        // ───────────── 장비 강화(2026-10-23 로드맵 1-④, Docs/decision_log_auto.md E1~E5) ─────────────
+
+        private readonly Dictionary<string, int> _levels = new Dictionary<string, int>();
+        private EquipmentUpgradeSettings Upgrade => _config.EquipmentUpgrade ?? new EquipmentUpgradeSettings();
+
+        /// <summary>가진 장비의 강화 레벨(구매 = 1). 가지지 않았으면 0.</summary>
+        public int EquipmentLevel(string equipmentId) => _levels.TryGetValue(equipmentId, out int lv) ? lv : 0;
+
+        /// <summary>장비의 최고 레벨: 장비별 maxLevel, 없으면 강화 설정의 효과 단계 수.</summary>
+        public int MaxEquipmentLevel(EquipmentDefinition e) =>
+            Math.Max(1, Math.Min(e.MaxLevel ?? int.MaxValue, Math.Min(Upgrade.EffectiveEffectScales.Count, Upgrade.EffectiveCostMultipliers.Count + 1)));
+
+        /// <summary>지금 레벨의 효과(Lv1 = 설정 그대로).</summary>
+        public EconomyEffects EffectsOf(EquipmentDefinition e)
+        {
+            int lv = Math.Max(1, EquipmentLevel(e.Id));
+            IReadOnlyList<double> scales = Upgrade.EffectiveEffectScales;
+            double s = scales[Math.Min(lv, scales.Count) - 1];
+            return Math.Abs(s - 1) < 1e-12 ? e.Effects : e.Effects.Scaled(s);
+        }
+
+        /// <summary>다음 레벨로 강화하는 비용. 가지지 않았거나 최고 레벨이면 null.</summary>
+        public double? UpgradeCost(string equipmentId)
+        {
+            EquipmentDefinition e = Shop.FirstOrDefault(x => x.Id == equipmentId);
+            int lv = EquipmentLevel(equipmentId);
+            if (e == null || lv == 0 || lv >= MaxEquipmentLevel(e)) return null;
+            return e.Price * Upgrade.EffectiveCostMultipliers[lv - 1];
+        }
+
+        /// <summary>상점에서 가진 장비를 한 레벨 강화. 장착 여부와 상관없이 할 수 있다.</summary>
+        public CommandResult UpgradeEquipment(string equipmentId)
+        {
+            if (State != CampaignState.Shopping) return CommandResult.Fail("매각 후 상점에서만 강화할 수 있습니다.");
+            if (!_owned.Contains(equipmentId)) return CommandResult.Fail("가지지 않은 장비입니다.");
+            double? cost = UpgradeCost(equipmentId);
+            if (cost == null) return CommandResult.Fail("최고 레벨입니다.");
+            if (Cash < cost.Value) return CommandResult.Fail($"자금이 부족합니다({cost.Value:0} 필요).");
+            Cash -= cost.Value;
+            _levels[equipmentId]++;
             return CommandResult.Ok();
         }
 

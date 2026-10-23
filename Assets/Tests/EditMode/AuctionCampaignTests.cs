@@ -248,6 +248,48 @@ namespace DesertSettlement.Core.Tests
         // ───────────── 캠페인 ─────────────
 
         [Test]
+        public void EquipmentUpgrade_ScalesEffect_CostsMore_AndCarriesToNextSettlement()
+        {
+            // 2026-10-23 로드맵 1-④ 장비 강화(Docs/decision_log_auto.md E1~E5).
+            var campaign = new Campaign(_config, _maps, seed: 7);
+            Settlement first = campaign.StartNextSettlement();
+            Assert.IsEmpty(campaign.CurrentMap.RequestSampleLayout(first));
+            first.BuyStone(5);
+            RunUntilEvent(first, campaign.Auctions);
+            campaign.Auctions.Sell(0);
+            Assert.AreEqual(CampaignState.Shopping, campaign.State);
+
+            Assert.IsNull(campaign.UpgradeCost("wellPump"), "가지지 않은 장비는 강화 불가");
+            Assert.IsTrue(campaign.BuyEquipment("wellPump").Success);
+            Assert.AreEqual(1, campaign.EquipmentLevel("wellPump"));
+            Assert.AreEqual(400 * 2.0, campaign.UpgradeCost("wellPump").Value, 1e-9, "Lv1 → Lv2 = 가격 × 2.0");
+            Assume.That(campaign.Cash, Is.GreaterThanOrEqualTo(800));
+            Assert.IsTrue(campaign.UpgradeEquipment("wellPump").Success);
+            Assert.AreEqual(2, campaign.EquipmentLevel("wellPump"));
+            Assert.AreEqual(400 * 3.0, campaign.UpgradeCost("wellPump").Value, 1e-9, "Lv2 → Lv3 = 가격 × 3.0");
+
+            EquipmentDefinition crew = _config.Equipment.Single(e => e.Id == "extraCrew");
+            Assert.AreEqual(1, campaign.MaxEquipmentLevel(crew), "정수 효과(추가 작업반)는 강화 없음");
+            Assert.AreEqual(3, campaign.MaxEquipmentLevel(_config.Equipment.Single(e => e.Id == "wellPump")));
+
+            Settlement second = campaign.StartNextSettlement();
+            Assert.AreEqual(1 + 0.1 * 1.3, second.Rules.WellSupplyMultiplier, 1e-9, "Lv2 효과 = 기본 +10%의 1.3배");
+            Assert.IsFalse(campaign.UpgradeEquipment("wellPump").Success, "정착지 안에서는 강화 불가");
+        }
+
+        [Test]
+        public void EconomyEffects_Scaled_ScalesDeviationAndAdditiveValues()
+        {
+            var e = new EconomyEffects { WellSupplyMultiplier = 1.1, StoneCostMultiplier = 0.9, ExtraStorage = 50, ExtraConstructionSlots = 1, EfficiencyCap = 0.9 };
+            EconomyEffects s = e.Scaled(1.5);
+            Assert.AreEqual(1.15, s.WellSupplyMultiplier, 1e-12);
+            Assert.AreEqual(0.85, s.StoneCostMultiplier, 1e-12);
+            Assert.AreEqual(75, s.ExtraStorage, 1e-12);
+            Assert.AreEqual(1, s.ExtraConstructionSlots, "정수 슬롯은 그대로");
+            Assert.AreEqual(0.9, s.EfficiencyCap, 1e-12, "약점용 효율 상한은 그대로");
+        }
+
+        [Test]
         public void Campaign_SellBuyEquipment_NextSettlementStartsFresh()
         {
             var campaign = new Campaign(_config, _maps, seed: 7);

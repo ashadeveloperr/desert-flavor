@@ -27,11 +27,12 @@ namespace SettlementSim
         /// → 그 지역 약점의 대응 장비부터 슬롯에 넣고 나머지는 일반 장비.
         /// </summary>
         // disasters: false면 재해 없이(설정 disasters를 비움). vaccine: 봇이 방역 장비를 가장 먼저 사서 늘 장착(5-1 재측정, 2026-10-23).
-        private static int ModifierCampaign(EconomyConfig config, ProceduralMapConfig proc, int settlements = 15, bool disasters = true, bool vaccine = false)
+        private static int ModifierCampaign(EconomyConfig config, ProceduralMapConfig proc, int settlements = 15, bool disasters = true, bool vaccine = false,
+            bool upgrade = false)
         {
             if (!disasters) config.Disasters = null;
             Header($"모디파이어 캠페인 — Core Campaign + 다중 봇(장비 구매·후보 선택·슬롯), 정착지 최대 {settlements}개, DPerSettlement {proc.Difficulty.DPerSettlement}, CashPerD {proc.Difficulty.CashPerD}"
-                + $", 재해 {(disasters ? "있음" : "없음")}{(vaccine ? ", 방역 장비 우선" : "")}");
+                + $", 재해 {(disasters ? "있음" : "없음")}{(vaccine ? ", 방역 장비 우선" : "")}{(upgrade ? ", 장비 강화" : "")}");
             var reachD1 = new List<int>();
             var maps = LoadMaps();
             string[] buyOrder = { "wellPump", "miningGear", "windbreak", "reinforcedMaterials", "oxygenSupply", "irrigation", "extraCrew", "bigStorage" };
@@ -78,6 +79,10 @@ namespace SettlementSim
                         var e = config.Equipment.Single(x => x.Id == id);
                         if (!c.Owns(id) && c.Cash - e.Price >= 2500) c.BuyEquipment(id);
                     }
+                    // 장비 강화(2026-10-23 로드맵 1-④): 예비금 2500을 남기고 일반 우선순위대로 한 단계씩.
+                    if (upgrade)
+                        foreach (string id in generalOrder)
+                            while (c.UpgradeCost(id) is double cost && c.Cash - cost >= 2500) c.UpgradeEquipment(id);
                     var offers = c.NextOffers();
                     RegionOffer pick = offers.OrderBy(o => o.Weaknesses.Count(w => !CounterOf.ContainsKey(w.Id) || !c.Owns(CounterOf[w.Id])))
                         .ThenByDescending(o => o.Strengths.Count()).First();
@@ -112,12 +117,12 @@ namespace SettlementSim
                 // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] : 곡선 후보를 바꿔 가며 비교.
                 // nodisaster = 재해 끔, vaccine = 봇이 방역 장비 우선 구매·장착. 위치와 상관없이 쓸 수 있다.
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
-                bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine");
-                args = args.Where(a => a != "nodisaster" && a != "vaccine").ToArray();
+                bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade");
+                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade").ToArray();
                 if (args.Length > 1) proc.Difficulty.DPerSettlement = double.Parse(args[1], inv);
                 if (args.Length > 2) proc.Difficulty.CashPerD = double.Parse(args[2], inv);
                 int count = args.Length > 3 ? int.Parse(args[3], inv) : 15;
-                return ModifierCampaign(config, proc, count, !noDisaster, vaccine);
+                return ModifierCampaign(config, proc, count, !noDisaster, vaccine, upgrade);
             }
             double d = args.Length > 0 ? double.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture) : 1.0;
 

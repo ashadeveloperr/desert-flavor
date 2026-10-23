@@ -65,6 +65,24 @@ namespace DesertSettlement.Core.Economy
             return r;
         }
 
+        /// <summary>
+        /// 효과 세기를 s배로 바꾼 사본(장비 강화, 2026-10-23 로드맵 1-④). 배율은 1에서 벗어난 만큼을 s배(1.1 → s=2면 1.2),
+        /// 더하는 값은 s배. 효율 상한(약점 전용)과 동시 작업 슬롯(정수)은 바꾸지 않는다. Docs/decision_log_auto.md E2.
+        /// </summary>
+        public EconomyEffects Scaled(double s)
+        {
+            double M(double m) => 1 + (m - 1) * s;
+            return new EconomyEffects
+            {
+                StoneCostMultiplier = M(StoneCostMultiplier), EfficiencyCap = EfficiencyCap, EfficiencyCapBonus = EfficiencyCapBonus * s,
+                WellSupplyMultiplier = M(WellSupplyMultiplier), CanalLossMultiplier = M(CanalLossMultiplier),
+                FoodOutputMultiplier = M(FoodOutputMultiplier), StoneOutputMultiplier = M(StoneOutputMultiplier), OreOutputMultiplier = M(OreOutputMultiplier),
+                PurchasePriceMultiplier = M(PurchasePriceMultiplier), UpkeepMultiplier = M(UpkeepMultiplier),
+                ExtraConstructionSlots = ExtraConstructionSlots, ExtraStorage = ExtraStorage * s,
+                InitialEpidemicResistance = InitialEpidemicResistance * s, EpidemicResistanceGrowthMultiplier = M(EpidemicResistanceGrowthMultiplier),
+            };
+        }
+
         /// <summary>최종 효율 상한(상한 + 보너스, 최대 1).</summary>
         public double EffectiveEfficiencyCap => Math.Min(1, EfficiencyCap + EfficiencyCapBonus);
 

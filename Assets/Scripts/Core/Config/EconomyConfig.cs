@@ -19,6 +19,8 @@ namespace DesertSettlement.Core.Config
         public AuctionSettings Auction { get; set; }
         /// <summary>영구 장비 목록(4단계, 잠정).</summary>
         public List<EquipmentDefinition> Equipment { get; set; }
+        /// <summary>장비 강화 규칙(2026-10-23). 없으면 기본값(효과 1.0/1.3/1.5배, 비용 가격 ×2.0/×3.0).</summary>
+        public EquipmentUpgradeSettings EquipmentUpgrade { get; set; }
         /// <summary>재해(2026-10-23: 전염병). 없으면 재해 없음.</summary>
         public DisasterSettings Disasters { get; set; }
 
@@ -168,6 +170,23 @@ namespace DesertSettlement.Core.Config
 
         /// <summary>우물 방출량 배율(1.2 = +20%). Effects에서 읽는다.</summary>
         public double WellSupplyMultiplier => Effects?.WellSupplyMultiplier ?? 1;
+        /// <summary>강화 최고 레벨(구매 = Lv1). 없으면 강화 설정의 효과 단계 수. 1이면 강화 불가(정수 효과인 추가 작업반 등).</summary>
+        public int? MaxLevel { get; set; }
+    }
+
+    /// <summary>
+    /// 장비 강화(2026-10-23 로드맵 1-④, 수치 잠정). Lv n의 효과 = 기본 효과 × EffectScales[n-1](<see cref="DesertSettlement.Core.Economy.EconomyEffects.Scaled"/>),
+    /// Lv n → n+1 비용 = 가격 × CostMultipliers[n-1]. 근거는 Docs/decision_log_auto.md E1~E5.
+    /// </summary>
+    public sealed class EquipmentUpgradeSettings
+    {
+        public string Status { get; set; }
+        // 리스트 기본값을 두지 않는다: Newtonsoft가 기본값 리스트에 JSON 값을 덧붙이는 문제(2026-10-23 재해 설정에서 겪음).
+        public List<double> EffectScales { get; set; }
+        public List<double> CostMultipliers { get; set; }
+
+        public IReadOnlyList<double> EffectiveEffectScales => EffectScales ?? new List<double> { 1.0, 1.3, 1.5 };
+        public IReadOnlyList<double> EffectiveCostMultipliers => CostMultipliers ?? new List<double> { 2.0, 3.0 };
     }
 
     public sealed class InfraMultipliers

@@ -8,13 +8,11 @@ namespace DesertSettlement.Core.Auction
 {
     public enum AuctionKind
     {
-        /// <summary>경매장 완공 후 96시간, 이후 96시간마다.</summary>
         Regular,
-        /// <summary>자금이 0 이하가 되는 순간(경매장이 있을 때). 입찰가 감액.</summary>
         Emergency,
     }
 
-    /// <summary>입찰자 한 명의 제안.</summary>
+    /// <summary>입찰자 개별 제안</summary>
     public sealed class AuctionBid
     {
         public BidderProfile Bidder { get; internal set; }

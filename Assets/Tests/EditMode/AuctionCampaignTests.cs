@@ -50,11 +50,33 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Config_HasAuctionBiddersAndEquipment()
         {
-            Assert.AreEqual(2, _config.Auction.Bidders.Count);
+            // 2026-10-23 로드맵 1-⑥: 기획서 8.4의 6종(Docs/decision_log_auto.md B1~B6).
+            CollectionAssert.AreEquivalent(new[] { "industrialist", "farmer", "distributor", "builder", "waterBroker", "developer" },
+                _config.Auction.Bidders.Select(b => b.Id));
             Assert.AreEqual(0.2, _config.Auction.EmergencyPenalty, 1e-9);
             Assert.AreEqual(1, Bidder("farmer").NextSettlementFreeBuilds[BuildingKinds.Farm], "농장주 혜택: 완공된 농장 1개");
+            Assert.AreEqual(1, Bidder("distributor").NextSettlementFreeBuilds[BuildingKinds.Warehouse], "유통 사업가 혜택: 창고");
+            Assert.AreEqual(1, Bidder("builder").NextSettlementFreeBuilds[BuildingKinds.Quarry], "건설업자 혜택: 채석장");
+            Assert.AreEqual(1, Bidder("waterBroker").NextSettlementFreeBuilds[BuildingKinds.WaterTank], "수자원 사업자 혜택: 물탱크");
+            Assert.AreEqual(1, Bidder("developer").NextSettlementFreeBuilds[BuildingKinds.AuctionHall], "부동산 개발업자 혜택: 경매장");
             Assert.AreEqual(2.5, _config.AuctionSeed.OreProduction24hValueFactor, 1e-9);
             Assert.AreEqual(1.1, _config.Equipment.Single(e => e.Id == "wellPump").WellSupplyMultiplier, 1e-9);
+        }
+
+        [Test]
+        public void OpenLandShare_DropsAsDesertIsBuilt_AndOnlyDeveloperFeelsIt()
+        {
+            var map = new HexMap(3);
+            map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
+            var s = new Settlement(map, SettlementRules.FromConfig(_config));
+            Assert.AreEqual(1.0, SettlementValuation.OpenLandShare(s), 1e-12, "빈 맵은 사막이 전부 빈 땅");
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, new HexCoord(1, 0)).Success);
+            Assert.Less(SettlementValuation.OpenLandShare(s), 1.0, "건설 예약한 타일은 빈 땅이 아니다");
+
+            ValuationResult neutral = SettlementValuation.Evaluate(s, s.CurrentHour);
+            ValuationResult developer = SettlementValuation.EvaluateFor(s, s.CurrentHour, Bidder("developer"));
+            Assert.AreEqual(1.0, neutral.OpenLandMultiplier, 1e-12, "중립·다른 입찰자는 빈 땅 배율 1");
+            Assert.Greater(developer.OpenLandMultiplier, 1.0, "빈 땅이 기준(0.5)보다 많으면 부동산 개발업자는 더 쳐준다");
         }
 
         [Test]

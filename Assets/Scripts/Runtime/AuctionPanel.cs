@@ -80,7 +80,7 @@ namespace DesertSettlement.Runtime
                 GUILayout.Label($"   현금 {bid.Cash:0.0}{FacilityInfo.PerkText(bid.NextSettlementFoodBonus, bid.NextSettlementFreeBuilds)}");
                 var v = bid.Valuation;
                 string dev = v.DevelopmentOre > 0.01 ? $" (개발 중 자산 +{v.DevelopmentOre:0.0})" : "";
-                GUILayout.Label($"   가치 {v.Value:0.0} = 광물 {v.OreLast24h:0.0}{dev} 기반 {v.BaseValue:0.0} × 식량 {v.FoodMultiplier:0.00} × 석재 {v.StoneMultiplier:0.00} × 인프라 {v.InfraMultiplier:0.00}");
+                GUILayout.Label($"   가치 {v.Value:0.0} = 광물 {v.OreLast24h:0.0}{dev} 기반 {v.BaseValue:0.0} × 식량 {v.FoodMultiplier:0.00} × 석재 {v.StoneMultiplier:0.00} × 인프라 {v.InfraMultiplier:0.00}{(System.Math.Abs(v.OpenLandMultiplier - 1) > 1e-9 ? $" × 빈 땅 {v.OpenLandMultiplier:0.00}" : "")}");
                 // 가동 숙성(막 완공한 시설은 실적을 덜 쳐줌)·채석장 능력이 가치에 준 영향을 보여 준다.
                 var notes = new System.Collections.Generic.List<string>();
                 if (v.OreRawLast24h - v.OreLast24h > 0.05) notes.Add($"광물 실적 {v.OreRawLast24h:0.0} 중 {v.OreLast24h:0.0}만 인정(막 지은 시설은 {_session.Settlement.Rules.MaturityFullHours:0}시간 동안 {_session.Settlement.Rules.MaturityStartRatio:P0}→100%)");

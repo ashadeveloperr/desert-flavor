@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DesertSettlement.Core.Config;
+using DesertSettlement.Core.Hex;
 using DesertSettlement.Core.Water;
 
 namespace DesertSettlement.Core.Economy
@@ -44,12 +45,14 @@ namespace DesertSettlement.Core.Economy
         public readonly double FoodMultiplier;
         public readonly double StoneMultiplier;
         public readonly double InfraMultiplier;
+        /// <summary>빈 땅 배율(부동산 개발업자, 2026-10-23 로드맵 1-⑥). 다른 입찰자는 1.</summary>
+        public readonly double OpenLandMultiplier;
         public readonly double BaseValue;
-        /// <summary>가치 V = 광물 기반 가치 × 식량·석재·인프라 배율.</summary>
+        /// <summary>가치 V = 광물 기반 가치 × 식량·석재·인프라·빈 땅 배율.</summary>
         public readonly double Value;
 
         public ValuationResult(string bidderId, double ore, double devOre, double food, double stone,
-            double mf, double ms, double mi, double baseValue, double oreRaw = double.NaN, bool stoneFromCapacity = false)
+            double mf, double ms, double mi, double baseValue, double oreRaw = double.NaN, bool stoneFromCapacity = false, double mo = 1)
         {
             BidderId = bidderId;
             OreLast24h = ore;
@@ -61,8 +64,9 @@ namespace DesertSettlement.Core.Economy
             FoodMultiplier = mf;
             StoneMultiplier = ms;
             InfraMultiplier = mi;
+            OpenLandMultiplier = mo;
             BaseValue = baseValue;
-            Value = baseValue * mf * ms * mi;
+            Value = baseValue * mf * ms * mi * mo;
         }
 
         /// <summary>입찰가 = V × 배율(시세 등).</summary>
@@ -129,6 +133,7 @@ namespace DesertSettlement.Core.Economy
                 + s.OperatingOf(BuildingKinds.CanalEdge).Count() * infra.PerOperationalCanal
                 + s.OperatingOf(BuildingKinds.Warehouse).Count() * infra.PerOperationalWarehouse
                 + s.OperatingOf(BuildingKinds.Hospital).Count() * infra.PerOperationalHospital
+                + s.OperatingOf(BuildingKinds.WaterTank).Count() * infra.PerOperationalWaterTank
                 + devInfra;
             miRaw = Math.Min(infra.Maximum, miRaw);
 
@@ -136,7 +141,20 @@ namespace DesertSettlement.Core.Economy
             double ms = 1 + (msRaw - 1) * bidder.StoneMultiplierWeight;
             double mi = 1 + (miRaw - 1) * bidder.InfraWeight;
             double baseValue = seed.OreProduction24hValueFactor * (ore + devOre) * bidder.OreWeight;
-            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity);
+            double mo = 1 + bidder.OpenLandWeight * (OpenLandShare(s) - seed.OpenLandShareCenter);
+            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity, Math.Max(0, mo));
+        }
+
+        /// <summary>
+        /// 개발 가능한 빈 땅 비율 = 시설·예약이 없는 사막 타일 / 사막 타일 전체(0~1). 부동산 개발업자·건설업자가 본다
+        /// (기획서 8.4 '개발 가능 부지', Docs/decision_log_auto.md B3).
+        /// </summary>
+        public static double OpenLandShare(Settlement s)
+        {
+            var desert = s.Map.Tiles.Where(t => t.Terrain == TerrainType.Desert).Select(t => t.Coord).ToList();
+            if (desert.Count == 0) return 0;
+            int used = desert.Count(c => s.FacilityAt(c) != null || s.Jobs.Any(j => j.Type == JobType.Build && !j.Edge.HasValue && j.Tile == c));
+            return (desert.Count - used) / (double)desert.Count;
         }
 
         /// <summary>개발 중 자산 목록(중립 가중치). 비율이 0이면 비어 있다.</summary>

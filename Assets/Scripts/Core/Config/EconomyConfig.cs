@@ -97,6 +97,8 @@ namespace DesertSettlement.Core.Config
         public double FoodMaxMultiplier { get; set; }
         public double StoneProductionAverageForFullBonus { get; set; }
         public double StoneMaxMultiplier { get; set; }
+        /// <summary>빈 땅 배율의 기준 비율(이 비율이면 배율 1). 2026-10-23 로드맵 1-⑥, 기본 0.6.</summary>
+        public double OpenLandShareCenter { get; set; } = 0.6;
         /// <summary>
         /// 가동 숙성(2026-10-23, 몰아짓기 방지): 막 완공한 생산 시설의 실적은 이 비율로 시작해 MaturityFullHours 동안 100%까지 오른다.
         /// 1이면 숙성 없음(원본 v0.8). 개발 중 자산도 이 비율을 곱한다.
@@ -140,6 +142,8 @@ namespace DesertSettlement.Core.Config
         public double FoodMultiplierWeight { get; set; } = 1;
         public double StoneMultiplierWeight { get; set; } = 1;
         public double InfraWeight { get; set; } = 1;
+        /// <summary>빈 땅 배율 가중치(부동산 개발업자·건설업자, 2026-10-23 로드맵 1-⑥). 배율 = 1 + 가중치 × (빈 땅 비율 − 기준 비율). 0이면 영향 없음.</summary>
+        public double OpenLandWeight { get; set; }
         /// <summary>공사 중 시설 종류별 개발 중 자산 가중치(없는 종류는 1).</summary>
         public Dictionary<string, double> DevelopmentWeights { get; set; }
         /// <summary>현금으로 주는 비율. 1보다 작으면 그만큼 다음 정착지 혜택으로 보상한다.</summary>
@@ -197,6 +201,8 @@ namespace DesertSettlement.Core.Config
         public double PerOperationalWarehouse { get; set; }
         /// <summary>가동 중 병원 하나당 기반시설 배율 가산(2026-10-23 제안 0.01).</summary>
         public double PerOperationalHospital { get; set; }
+        /// <summary>가동 중 물탱크 하나당 기반시설 배율 가산(2026-10-23 로드맵 1-⑥, 수자원 사업자가 크게 봄).</summary>
+        public double PerOperationalWaterTank { get; set; }
         public double Maximum { get; set; }
     }
 

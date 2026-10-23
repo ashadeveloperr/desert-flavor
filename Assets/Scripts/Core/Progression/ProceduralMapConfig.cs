@@ -71,7 +71,9 @@ namespace DesertSettlement.Core.Progression
         /// 생성 맵 정착지마다 D에 더하는 값(2026-10-23 확정: 자금과 별개로 정착지 수로도 난이도가 오른다).
         /// 첫 생성 맵 정착지는 0, 그다음부터 1개마다 이만큼. 수익이 줄어도 난이도가 계속 올라 결국 적자에 닿게 한다.
         /// </summary>
-        public double DPerSettlement { get; set; } = 0.2;
+        public double DPerSettlement { get; set; } = 0.25; // 2026-10-23 F5: 0.2 → 0.25(D=1 도달 6번째)
+        /// <summary>난이도 자금 항에 더하는 '지금까지 장비 구매·강화에 쓴 돈'의 비율(2026-10-23 E5). 0이면 보유 자금만 본다.</summary>
+        public double EquipmentSpendInDifficulty { get; set; }
 
         /// <summary>반경: D &lt; FirstRadiusStepD이면 BaseRadius, 이후 RadiusStepD마다 +1, 최대 MaxRadius(HexMap 한도 7).</summary>
         public int BaseRadius { get; set; } = 3;

@@ -154,7 +154,8 @@ namespace DesertSettlement.Core.Progression
                 return new[] { new RegionOffer { Index = 0, FixedMap = _maps[(next - 1) % _maps.Count] } };
 
             int generatedBefore = next - 1 - _procedural.FixedMapsBeforeGenerated;
-            DifficultyParams p = DifficultyParams.For(DifficultyParams.DifficultyFromProgress(Cash, generatedBefore, _procedural.Difficulty), _procedural.Difficulty);
+            double difficultyCash = Cash + _procedural.Difficulty.EquipmentSpendInDifficulty * EquipmentSpent; // E5: 장비에 쓴 돈도 일부 자금으로 친다
+            DifficultyParams p = DifficultyParams.For(DifficultyParams.DifficultyFromProgress(difficultyCash, generatedBefore, _procedural.Difficulty), _procedural.Difficulty);
             var offers = new List<RegionOffer>();
             var taken = new HashSet<string>();
             for (int i = 0; i < Math.Max(1, _procedural.RegionChoices); i++)
@@ -183,6 +184,7 @@ namespace DesertSettlement.Core.Progression
             if (_owned.Contains(e.Id)) return CommandResult.Fail("이미 가진 장비입니다.");
             if (Cash < e.Price) return CommandResult.Fail($"자금이 부족합니다({e.Price:0} 필요).");
             Cash -= e.Price;
+            EquipmentSpent += e.Price;
             _owned.Add(e.Id);
             _levels[e.Id] = 1;
             if (_loadout.Count < EquipmentSlots) _loadout.Add(e.Id);
@@ -193,6 +195,9 @@ namespace DesertSettlement.Core.Progression
         // ───────────── 장비 강화(2026-10-23 로드맵 1-④, Docs/decision_log_auto.md E1~E5) ─────────────
 
         private readonly Dictionary<string, int> _levels = new Dictionary<string, int>();
+
+        /// <summary>지금까지 장비 구매·강화에 쓴 돈(난이도 계산 E5용).</summary>
+        public double EquipmentSpent { get; private set; }
         private EquipmentUpgradeSettings Upgrade => _config.EquipmentUpgrade ?? new EquipmentUpgradeSettings();
 
         /// <summary>가진 장비의 강화 레벨(구매 = 1). 가지지 않았으면 0.</summary>
@@ -229,6 +234,7 @@ namespace DesertSettlement.Core.Progression
             if (cost == null) return CommandResult.Fail("최고 레벨입니다.");
             if (Cash < cost.Value) return CommandResult.Fail($"자금이 부족합니다({cost.Value:0} 필요).");
             Cash -= cost.Value;
+            EquipmentSpent += cost.Value;
             _levels[equipmentId]++;
             Log(new GameCommand { Type = GameCommand.UpgradeEquipment, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
             return CommandResult.Ok();

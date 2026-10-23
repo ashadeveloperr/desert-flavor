@@ -22,7 +22,8 @@
   "difficulty": {
     "cashAtD0": 1000,
     "cashPerD": 14000,
-    "dPerSettlement": 0.2,
+    "dPerSettlement": 0.25,
+    "equipmentSpendInDifficulty": 0,
     "baseRadius": 3,
     "firstRadiusStepD": 1.0,
     "radiusStepD": 1.0,

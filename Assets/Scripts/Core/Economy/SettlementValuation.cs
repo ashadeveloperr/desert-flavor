@@ -31,8 +31,12 @@ namespace DesertSettlement.Core.Economy
     public readonly struct ValuationResult
     {
         public readonly string BidderId;
-        /// <summary>직전 24시간 실제 광물 생산(개발 중 자산 제외).</summary>
+        /// <summary>직전 24시간 광물 실적(가동 숙성 반영, 개발 중 자산 제외).</summary>
         public readonly double OreLast24h;
+        /// <summary>직전 24시간 실제 광물 생산(숙성 반영 전).</summary>
+        public readonly double OreRawLast24h;
+        /// <summary>석재 배율이 24h 평균 대신 가동 중 채석장 능력으로 정해졌는지.</summary>
+        public readonly bool StoneFromQuarryCapacity;
         /// <summary>개발 중 자산에서 온 광물 환산량(입찰자 가중치 적용).</summary>
         public readonly double DevelopmentOre;
         public readonly double FoodAveragePerHour;
@@ -45,10 +49,12 @@ namespace DesertSettlement.Core.Economy
         public readonly double Value;
 
         public ValuationResult(string bidderId, double ore, double devOre, double food, double stone,
-            double mf, double ms, double mi, double baseValue)
+            double mf, double ms, double mi, double baseValue, double oreRaw = double.NaN, bool stoneFromCapacity = false)
         {
             BidderId = bidderId;
             OreLast24h = ore;
+            OreRawLast24h = double.IsNaN(oreRaw) ? ore : oreRaw;
+            StoneFromQuarryCapacity = stoneFromCapacity;
             DevelopmentOre = devOre;
             FoodAveragePerHour = food;
             StoneAveragePerHour = stone;
@@ -69,6 +75,9 @@ namespace DesertSettlement.Core.Economy
     /// - 개발 중 자산(A3 확정): 공사 중인 시설은 '완공 가정 물 배분'의 기대 생산 × 24시간 × 진행률 × 비율,
     ///   24시간 안에 완공(또는 개량 완료)한 시설은 실적이 없던 시간 × 현재 기대 생산 × 비율을 더한다.
     ///   공사 중 우물·수로·창고·경매장은 인프라 보너스 × 진행률 × 비율.
+    /// - 가동 숙성(2026-10-23, 경매 직전 몰아짓기 방지): 생산 시설의 실적은 완공 직후 maturityStartRatio(0.7)로 시작해
+    ///   maturityFullHours(48h) 동안 100%까지 오른다(시간마다 HourRecord.*Valued로 기록). 개발 중 자산에도 시작 비율을 곱한다.
+    /// - 석재 배율(2026-10-23, 다 지은 뒤 채석장 철거 방지): 24h 평균과 가동 중 채석장의 생산 능력 중 큰 값.
     /// - 입찰자 성향(A2): 광물 가중치, 배율 가중치(1을 넘는 부분에 곱함), 공사 중 시설 종류별 개발 가중치.
     /// 계수는 설정 auctionSeed / auction의 잠정값.
     /// </summary>
@@ -84,9 +93,11 @@ namespace DesertSettlement.Core.Economy
             int window = s.Rules.Config.ConfirmedRules.AuctionHistoryGameHours;
             List<HourRecord> records = s.History.Where(r => r.Hour >= auctionHour - window && r.Hour < auctionHour).ToList();
 
-            double ore = records.Sum(r => r.OreProduced);
-            double foodSum = records.Sum(r => r.FoodProduced);
-            double stoneSum = records.Sum(r => r.StoneProduced);
+            // 가동 숙성 반영 실적(막 완공한 시설은 덜 쳐준다). 숙성이 꺼져 있으면 실제 생산과 같다.
+            double oreRaw = records.Sum(r => r.OreProduced);
+            double ore = records.Sum(r => r.OreValued);
+            double foodSum = records.Sum(r => r.FoodValued);
+            double stoneSum = records.Sum(r => r.StoneValued);
 
             double devOre = 0, devFood = 0, devStone = 0, devInfra = 0;
             foreach (DevelopmentAsset d in DevelopmentAssets(s, auctionHour))
@@ -100,6 +111,13 @@ namespace DesertSettlement.Core.Economy
 
             double food = (foodSum + devFood) / window;
             double stone = (stoneSum + devStone) / window;
+            // 다 지은 뒤 채석장을 철거하면 손해가 되도록: 석재 배율은 24h 평균과 '지금 가동 중인 채석장의 생산 능력' 중 큰 값.
+            bool stoneFromCapacity = false;
+            if (s.Rules.StoneMultiplierUsesQuarryCapacity)
+            {
+                double capacity = s.OperatingOf(BuildingKinds.Quarry).Sum(q => (s.LevelOf(q).StoneProduction ?? 0) * s.Rules.StoneOutputMultiplier);
+                if (capacity > stone) { stone = capacity; stoneFromCapacity = true; }
+            }
             double mfRaw = 1 + (seed.FoodMaxMultiplier - 1) * Math.Min(1, food / seed.FoodProductionAverageForFullBonus);
             double msRaw = 1 + (seed.StoneMaxMultiplier - 1) * Math.Min(1, stone / seed.StoneProductionAverageForFullBonus);
 
@@ -117,7 +135,7 @@ namespace DesertSettlement.Core.Economy
             double ms = 1 + (msRaw - 1) * bidder.StoneMultiplierWeight;
             double mi = 1 + (miRaw - 1) * bidder.InfraWeight;
             double baseValue = seed.OreProduction24hValueFactor * (ore + devOre) * bidder.OreWeight;
-            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue);
+            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity);
         }
 
         /// <summary>개발 중 자산 목록(중립 가중치). 비율이 0이면 비어 있다.</summary>
@@ -164,7 +182,8 @@ namespace DesertSettlement.Core.Economy
                 BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
                 double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(f.Id.ToString()) : 1.0;
                 double perHour = Math.Min(s.Rules.EfficiencyCap, rate * s.FoodCoefficient);
-                double amount = perHour * missingHours * progress * ratio;
+                // 개발 중 자산은 막 지은 시설이므로 숙성 시작 비율을 곱한다.
+                double amount = perHour * missingHours * progress * ratio * s.Rules.MaturityStartRatio;
                 switch (f.Kind)
                 {
                     case BuildingKinds.Farm: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, amount * (lv.FoodProduction ?? 0) * s.Rules.FoodOutputMultiplier, 0, 0)); break;

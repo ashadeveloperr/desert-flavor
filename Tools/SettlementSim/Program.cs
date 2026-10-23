@@ -27,6 +27,8 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "tune") return DifficultyTuning(args.Skip(1).ToArray());
             // dotnet run --project Tools/SettlementSim -- mods : 지역 모디파이어·장비 수치 측정(ModifierTuning.cs).
             if (args.Length > 0 && args[0] == "mods") return ModifierTuning(args.Skip(1).ToArray());
+            // dotnet run --project Tools/SettlementSim -- exploit : 작업 목록 3번 재현·대책 비교(ExploitTuning.cs).
+            if (args.Length > 0 && args[0] == "exploit") return ExploitTuning(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();
@@ -702,6 +704,8 @@ namespace SettlementSim
             map.GetTile(new HexCoord(2, 0)).Terrain = TerrainType.OreVein;
             var rules = DesertSettlement.Core.Economy.SettlementRules.FromConfig(config);
             if (developmentRatio.HasValue) rules.DevelopmentAssetRatio = developmentRatio.Value; // 이식본엔 개발 중 자산이 없으므로 비교 시 0
+            rules.MaturityStartRatio = 1; // 이식본(v0.8)엔 가동 숙성·채석장 능력 규칙이 없으므로 비교 때는 끈다
+            rules.StoneMultiplierUsesQuarryCapacity = false;
             var s = new DesertSettlement.Core.Economy.Settlement(map, rules);
 
             var tiles = new Dictionary<string, HexCoord>

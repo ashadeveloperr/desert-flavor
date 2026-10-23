@@ -53,7 +53,13 @@ namespace DesertSettlement.Core.Tests
 
             public Script(Action<SettlementRules> tweak = null)
             {
-                S = NewSettlement(tweak);
+                // v0.8 이식본과 같은 수치를 비교하는 스크립트라, 원본에 없는 가동 숙성·채석장 능력 규칙(2026-10-23)은 끈다.
+                S = NewSettlement(r =>
+                {
+                    r.MaturityStartRatio = 1;
+                    r.StoneMultiplierUsesQuarryCapacity = false;
+                    tweak?.Invoke(r);
+                });
                 S.JobStarted += job =>
                 {
                     if (_jobNames.TryGetValue(job.Id, out string name) && job.Type == JobType.Build) Ids[name] = job.FacilityId;

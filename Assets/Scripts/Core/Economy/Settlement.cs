@@ -353,6 +353,7 @@ namespace DesertSettlement.Core.Economy
             WaterAllocation water = SolveWater();
 
             double demand = 0, upkeep = 0, food = 0, stone = 0, ore = 0;
+            double foodValued = 0, stoneValued = 0, oreValued = 0; // 가동 숙성 반영(경매 가치용)
             double f = FoodCoefficient;
             bool wateredFarm = false;
             foreach (Facility facility in _facilities.Values.OrderBy(x => x.Id))
@@ -364,17 +365,25 @@ namespace DesertSettlement.Core.Economy
                     demand += lv.FoodUse ?? 0;
                     upkeep += lv.Upkeep ?? 0;
                     double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(facility.Id.ToString()) : 1.0;
+                    double maturity = Rules.Maturity(h - facility.CompletedHour);
+                    double amount;
                     switch (facility.Kind)
                     {
                         case BuildingKinds.Farm:
-                            food += (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier * Efficiency(rate, f);
+                            amount = (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier * Efficiency(rate, f);
+                            food += amount;
+                            foodValued += amount * maturity;
                             if (rate > 0) wateredFarm = true;
                             break;
                         case BuildingKinds.Quarry:
-                            stone += (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier * Efficiency(rate, f);
+                            amount = (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier * Efficiency(rate, f);
+                            stone += amount;
+                            stoneValued += amount * maturity;
                             break;
                         case BuildingKinds.Mine:
-                            ore += (lv.OreProduction ?? 0) * Rules.OreMultiplier * Efficiency(rate, f);
+                            amount = (lv.OreProduction ?? 0) * Rules.OreMultiplier * Efficiency(rate, f);
+                            ore += amount;
+                            oreValued += amount * maturity;
                             break;
                     }
                 }
@@ -420,6 +429,7 @@ namespace DesertSettlement.Core.Economy
                 Hour = h, Cash = Cash, Food = Food, Stone = Stone, FoodCoefficient = FoodCoefficient,
                 OreProduced = ore, FoodProduced = food, FoodValid = foodValid, StoneProduced = stone, StoneValid = stoneValid,
                 FoodDemand = demand, FoodDeficit = deficit, Upkeep = upkeep,
+                OreValued = oreValued, FoodValued = foodValued, StoneValued = stoneValued,
             };
             _history.Add(record);
             CurrentHour = h + 1;

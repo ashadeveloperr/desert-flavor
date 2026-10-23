@@ -42,6 +42,9 @@
     }
   },
   "auctionSeed": {
+    "maturityStartRatio": 0.7,
+    "maturityFullHours": 48,
+    "stoneMultiplierUsesQuarryCapacity": true,
     "oreProduction24hValueFactor": 2.5,
     "foodProductionAverageForFullBonus": 8,
     "foodMaxMultiplier": 1.5,

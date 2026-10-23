@@ -146,5 +146,7 @@ namespace DesertSettlement.Core.Economy
         public double FoodProduced, FoodValid;
         public double StoneProduced, StoneValid;
         public double FoodDemand, FoodDeficit, Upkeep;
+        /// <summary>가동 숙성을 반영한 생산(경매 가치가 쓴다). 숙성이 꺼져 있으면 *Produced와 같다.</summary>
+        public double OreValued, FoodValued, StoneValued;
     }
 }

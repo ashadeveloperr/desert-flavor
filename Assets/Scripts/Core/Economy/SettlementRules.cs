@@ -63,6 +63,19 @@ namespace DesertSettlement.Core.Economy
         public Dictionary<string, int> FreeBuilds { get; } = new Dictionary<string, int>();
         /// <summary>개발 중 자산 가치 비율(설정 auction.developmentAssetRatio). 0이면 개발 중 자산을 평가하지 않는다.</summary>
         public double DevelopmentAssetRatio { get; set; }
+        /// <summary>가동 숙성 시작 비율(설정 auctionSeed.maturityStartRatio). 1이면 숙성 없음.</summary>
+        public double MaturityStartRatio { get; set; } = 1;
+        /// <summary>가동 숙성이 100%가 되는 연속 가동 시간(완공 기준).</summary>
+        public double MaturityFullHours { get; set; } = 48;
+        /// <summary>석재 배율에 가동 중 채석장 능력을 쓸지(설정 auctionSeed.stoneMultiplierUsesQuarryCapacity).</summary>
+        public bool StoneMultiplierUsesQuarryCapacity { get; set; }
+
+        /// <summary>완공 후 hoursSinceBuilt 시간이 지난 생산 시설의 숙성 비율(0h = 시작 비율 → MaturityFullHours = 1).</summary>
+        public double Maturity(double hoursSinceBuilt)
+        {
+            if (MaturityStartRatio >= 1 || MaturityFullHours <= 0) return 1;
+            return Math.Min(1, MaturityStartRatio + (1 - MaturityStartRatio) * Math.Max(0, hoursSinceBuilt) / MaturityFullHours);
+        }
 
         /// <summary>
         /// 시설 종류별로 지을 수 있는 지형. [확정 2026-10-22]
@@ -111,6 +124,9 @@ namespace DesertSettlement.Core.Economy
                 ClosedUpkeepRatio = p.ClosedFacilityUpkeepRatio,
                 MaxFacilityLevel = p.InitialMvpMaxFacilityLevel > 0 ? p.InitialMvpMaxFacilityLevel : int.MaxValue,
                 DevelopmentAssetRatio = config.Auction?.DevelopmentAssetRatio ?? 0,
+                MaturityStartRatio = config.AuctionSeed?.MaturityStartRatio ?? 1,
+                MaturityFullHours = config.AuctionSeed?.MaturityFullHours ?? 48,
+                StoneMultiplierUsesQuarryCapacity = config.AuctionSeed?.StoneMultiplierUsesQuarryCapacity ?? false,
                 Water = WaterNetworkSettings.FromConfig(config),
             };
         }

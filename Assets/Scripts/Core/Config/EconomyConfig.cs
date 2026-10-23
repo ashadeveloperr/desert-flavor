@@ -93,6 +93,14 @@ namespace DesertSettlement.Core.Config
         public double FoodMaxMultiplier { get; set; }
         public double StoneProductionAverageForFullBonus { get; set; }
         public double StoneMaxMultiplier { get; set; }
+        /// <summary>
+        /// 가동 숙성(2026-10-23, 몰아짓기 방지): 막 완공한 생산 시설의 실적은 이 비율로 시작해 MaturityFullHours 동안 100%까지 오른다.
+        /// 1이면 숙성 없음(원본 v0.8). 개발 중 자산도 이 비율을 곱한다.
+        /// </summary>
+        public double MaturityStartRatio { get; set; } = 1;
+        public double MaturityFullHours { get; set; } = 48;
+        /// <summary>석재 배율이 '24h 평균'과 '가동 중 채석장의 생산 능력' 중 큰 값을 쓴다(2026-10-23, 다 지은 뒤 채석장 철거 방지).</summary>
+        public bool StoneMultiplierUsesQuarryCapacity { get; set; }
         public InfraMultipliers Infra { get; set; }
         public double FixedTestBidMultiplier { get; set; }
     }

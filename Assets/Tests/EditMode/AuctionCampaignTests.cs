@@ -128,7 +128,7 @@ namespace DesertSettlement.Core.Tests
             ValuationResult industrialist = SettlementValuation.EvaluateFor(s, 133, Bidder("industrialist"));
             ValuationResult farmer = SettlementValuation.EvaluateFor(s, 133, Bidder("farmer"));
 
-            Assert.AreEqual(neutral.BaseValue * 1.15, industrialist.BaseValue, 1e-6, "산업가 광물 가중치 1.15");
+            Assert.AreEqual(neutral.BaseValue * 1.3, industrialist.BaseValue, 1e-6, "산업가 광물 가중치 1.3(취향 2배, F2)");
             Assert.Less(industrialist.FoodMultiplier, neutral.FoodMultiplier, "산업가는 식량 배율을 덜 반영");
             Assert.Greater(farmer.FoodMultiplier, neutral.FoodMultiplier, "농장주는 식량 배율을 더 반영");
         }
@@ -316,7 +316,7 @@ namespace DesertSettlement.Core.Tests
         {
             var campaign = new Campaign(_config, _maps, seed: 7);
             Settlement first = campaign.StartNextSettlement();
-            Assert.AreEqual(1000.0, first.Cash);
+            Assert.AreEqual(700.0, first.Cash, "시작 자금 700(2026-10-23 게임성 보강 F3)");
             Assert.IsEmpty(campaign.CurrentMap.RequestSampleLayout(first));
             first.BuyStone(5);
             RunUntilEvent(first, campaign.Auctions);

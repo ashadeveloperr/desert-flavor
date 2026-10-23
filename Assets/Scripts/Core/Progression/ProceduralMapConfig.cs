@@ -81,22 +81,22 @@ namespace DesertSettlement.Core.Progression
         public int MaxRadius { get; set; } = 7;
 
         /// <summary>37칸당 우물 수: D0 → D1, 이후 같은 기울기. 37칸당 하한 MinWellsPer37, 맵 전체 최소 1.</summary>
-        public double WellsPer37AtD0 { get; set; } = 3;
+        public double WellsPer37AtD0 { get; set; } = 2; // 2026-10-23 게임성 보강 R3: 3 → 2
         public double WellsPer37AtD1 { get; set; } = 1;
         public double MinWellsPer37 { get; set; } = 0.3;
 
         /// <summary>37칸당 광맥 수: D0 → D1, 이후 같은 기울기. 37칸당 하한 MinOresPer37, 맵 전체 최소 1.</summary>
-        public double OresPer37AtD0 { get; set; } = 3;
+        public double OresPer37AtD0 { get; set; } = 1.5; // R3: 3 → 1.5
         public double OresPer37AtD1 { get; set; } = 0.9;
         public double MinOresPer37 { get; set; } = 0.3;
 
         /// <summary>장애물 비율: D0 → D1, 이후 같은 기울기, 상한 MaxObstacleDensity(맵을 막지 않는 한도).</summary>
-        public double ObstacleAtD0 { get; set; } = 0.15;
+        public double ObstacleAtD0 { get; set; } = 0.20; // R3: 0.15 → 0.20
         public double ObstacleAtD1 { get; set; } = 0.30;
         public double MaxObstacleDensity { get; set; } = 0.40;
 
         /// <summary>가장 가까운 우물–광맥 거리 목표: D0 → D1, 이후 같은 기울기, 상한 = 반경.</summary>
-        public double DistanceAtD0 { get; set; } = 2;
+        public double DistanceAtD0 { get; set; } = 3; // R3: 2 → 3
         public double DistanceAtD1 { get; set; } = 4;
 
         public DifficultyCurve Clone() => (DifficultyCurve)MemberwiseClone();

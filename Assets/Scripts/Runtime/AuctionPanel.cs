@@ -65,7 +65,8 @@ namespace DesertSettlement.Runtime
             GUILayout.Label(emergency
                 ? $"⚠ 긴급 매각 경매 — 자금이 바닥났습니다 (입찰가 −{auction.Penalty:P0})"
                 : $"정기 경매 — 정착지 {auction.Hour}시간째");
-            GUILayout.Label($"당일 시세 ×{auction.Market:0.000}   정착지 자금 {_session.Settlement.Cash:0.0}");
+            string holdNote = _session.Auctions.Holds > 0 ? $" (보류 {_session.Auctions.Holds}번으로 ×{_session.Auctions.HoldFactor:0.00} 포함)" : "";
+            GUILayout.Label($"당일 시세 ×{auction.Market:0.000}{holdNote}   정착지 자금 {_session.Settlement.Cash:0.0}");
             if (emergency && _session.Auctions.HoursUntilBankruptcy.HasValue)
             {
                 GUILayout.Label($"보류하면 자금이 음수인 채로 {_session.Auctions.HoursUntilBankruptcy}시간 뒤 파산합니다.");
@@ -92,7 +93,9 @@ namespace DesertSettlement.Runtime
 
             GUILayout.Space(6);
             long next = (_session.Auctions.CurrentAuction?.Hour ?? 0) + _session.Config.ConfirmedRules.AuctionRepeatsGameHours;
-            string holdText = emergency ? "보류 (파산 카운트다운 계속)" : $"보류 — 계속 운영, 다음 경매 {next}시간째";
+            double holdPenalty = _session.Config.Auction.HoldMarketPenalty;
+            string penaltyText = holdPenalty > 0 ? $", 보류할 때마다 이후 시세 −{holdPenalty:P0}" : "";
+            string holdText = emergency ? "보류 (파산 카운트다운 계속)" : $"보류 — 계속 운영, 다음 경매 {next}시간째{penaltyText}";
             if (GUILayout.Button(holdText, GUILayout.Height(28))) _session.HoldAuction();
         }
 

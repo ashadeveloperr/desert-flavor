@@ -85,6 +85,10 @@ namespace DesertSettlement.Core.Auction
         public long? NegativeCashSinceHour { get; private set; }
         public string BankruptcyReason { get; private set; }
         public int AuctionsHeld { get; private set; }
+        /// <summary>플레이어가 보류한 횟수. 보류할 때마다 다음 경매 시세가 HoldMarketPenalty만큼 줄어든다(2026-10-23 게임성 보강, Docs/decision_log_auto.md F1).</summary>
+        public int Holds { get; private set; }
+        /// <summary>지금까지의 보류로 줄어든 시세 배율(보류 0번 = 1).</summary>
+        public double HoldFactor => Math.Pow(1 - Math.Max(0, Math.Min(1, _settings.HoldMarketPenalty)), Holds);
 
         /// <summary>파산까지 남은 시간(카운트다운 중이 아니면 null).</summary>
         public long? HoursUntilBankruptcy => NegativeCashSinceHour.HasValue
@@ -163,7 +167,7 @@ namespace DesertSettlement.Core.Auction
 
         private void Open(AuctionKind kind, long hour, List<BidderProfile> bidders)
         {
-            double market = _settings.MarketCenter * (1 + _settings.MarketSwing * (2 * _rng.NextDouble() - 1));
+            double market = _settings.MarketCenter * (1 + _settings.MarketSwing * (2 * _rng.NextDouble() - 1)) * HoldFactor;
             double penalty = kind == AuctionKind.Emergency ? _settings.EmergencyPenalty : 0;
             var bids = new List<AuctionBid>();
             foreach (BidderProfile b in bidders)
@@ -207,6 +211,7 @@ namespace DesertSettlement.Core.Auction
         {
             if (!IsOpen) throw new InvalidOperationException("열린 경매가 없습니다.");
             Held?.Invoke();
+            Holds++;
             AuctionEvent auction = CurrentAuction;
             CurrentAuction = null;
             Phase = AuctionPhase.Scheduled;

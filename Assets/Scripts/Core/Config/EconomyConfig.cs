@@ -123,6 +123,8 @@ namespace DesertSettlement.Core.Config
         public double MarketSwing { get; set; }
         /// <summary>긴급 매각 입찰가 감액 비율(0.2 = −20%).</summary>
         public double EmergencyPenalty { get; set; }
+        /// <summary>보류 한 번마다 이후 경매 시세에 곱하는 감소율(0.1 = 보류마다 ×0.9). 2026-10-23 게임성 보강: '늘 보류+투자'가 정답이 되지 않게.</summary>
+        public double HoldMarketPenalty { get; set; }
         /// <summary>개발 중 자산 가치 = 기대 생산 × 진행률 × 이 값.</summary>
         public double DevelopmentAssetRatio { get; set; }
         /// <summary>자금 &lt; 0 상태가 이 시간 이상 이어지면 파산(경매장이 있을 때).</summary>

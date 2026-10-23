@@ -35,6 +35,7 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "bidders") return BidderTuning(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "savecheck") return SaveCheck(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "botdiag") return BotDiagnose(args.Skip(1).ToArray());
+            if (args.Length > 0 && args[0] == "funcheck") return FunCheck(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();
@@ -712,6 +713,7 @@ namespace SettlementSim
             if (developmentRatio.HasValue) rules.DevelopmentAssetRatio = developmentRatio.Value; // 이식본엔 개발 중 자산이 없으므로 비교 시 0
             if (!currentRules)
             {
+                rules.StartingCash = 1000; // v0.8 원본 시작 자금(게임 값은 2026-10-23 게임성 보강으로 700)
                 rules.MaturityStartRatio = 1; // 이식본(v0.8)엔 가동 숙성·채석장 능력 규칙이 없으므로 비교 때는 끈다
                 rules.StoneMultiplierUsesQuarryCapacity = false;
             }

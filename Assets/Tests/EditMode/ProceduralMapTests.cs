@@ -74,15 +74,15 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Difficulty_Values_MatchTunedCurve()
         {
-            // 2026-10-23 조정 결과(Docs/implementation_notes.md): D 0·0.25·0.5·0.75·1 → 광맥 3·2·2·1·1, D<1은 반경 3.
-            int[] ores = { 3, 2, 2, 1, 1 };
+            // 2026-10-23 게임성 보강 R3(Docs/decision_log_auto.md F3): D 0·0.25·0.5·0.75·1 → 광맥 2·1·1·1·1, D<1은 반경 3.
+            int[] ores = { 2, 1, 1, 1, 1 };
             for (int i = 0; i < ores.Length; i++)
             {
                 DifficultyParams p = DifficultyParams.For(i * 0.25, _proc.Difficulty);
                 Assert.AreEqual(ores[i], p.OreCount, $"D {i * 0.25} 광맥");
                 Assert.AreEqual(i < 4 ? 3 : 4, p.Radius, $"D {i * 0.25} 반경");
             }
-            Assert.AreEqual(3, DifficultyParams.For(0, _proc.Difficulty).WellCount);
+            Assert.AreEqual(2, DifficultyParams.For(0, _proc.Difficulty).WellCount, "R3: D0 우물 3 → 2");
             Assert.AreEqual(2, DifficultyParams.For(1, _proc.Difficulty).WellCount, "반경 4(61칸)에서 37칸당 1 → 2개");
         }
 
@@ -122,7 +122,7 @@ namespace DesertSettlement.Core.Tests
         {
             // Tools/SettlementSim 리포트의 '기준 맵 서명(D 0.50, 시드 42)'과 같아야 한다(Unity와 .NET에서 같은 맵).
             // 생성 규칙·난수·설정을 바꾸면 시뮬레이터를 다시 돌려 이 값을 갱신한다.
-            const string golden = "r3 2,-3Ob 1,-1Or 1,0Ob 3,0Wa 0,1Be 1,1Ob 2,1Ob 0,2Ob 1,2Ob -3,3Wa 0,3Or";
+            const string golden = "r3 1,-3Wa 3,-1Be 0,0Or 2,0Ob 3,0Ob -2,1Be -1,1Ob 2,1Wa -1,2Ob -1,3Ob"; // 2026-10-23 R3로 갱신
             GeneratedMap g = ProceduralMapGenerator.Generate(DifficultyParams.For(0.5, _proc.Difficulty), _proc.Generator, 42);
             string signature = $"r{g.Map.Radius} " + string.Join(" ", g.Map.Terrain.Select(t => $"{t.Q},{t.R}{t.Type.Substring(0, 2)}"));
             Assert.AreEqual(golden, signature);

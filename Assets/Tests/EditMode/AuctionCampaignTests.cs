@@ -177,7 +177,8 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Hold_SchedulesNextAuctionAndAnnouncesAgain()
         {
-            (Settlement s, AuctionManager a) = NewRun();
+            // 보류 뒤 72h를 버티도록 이전 시작 자금 700(게임 값 500은 2026-10-24 FB1: 샘플 배치는 143h에 자금이 바닥나 긴급 매각).
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 700);
             RunUntilEvent(s, a);
             int announcements = 0;
             a.BiddersAnnounced += _ => announcements++;
@@ -317,7 +318,7 @@ namespace DesertSettlement.Core.Tests
         {
             var campaign = new Campaign(_config, _maps, seed: 7);
             Settlement first = campaign.StartNextSettlement();
-            Assert.AreEqual(700.0, first.Cash, "시작 자금 700(2026-10-23 게임성 보강 F3)");
+            Assert.AreEqual(500.0, first.Cash, "시작 자금 500(2026-10-24 재미 보강 FB1, 이전 700)");
             Assert.IsEmpty(campaign.CurrentMap.RequestSampleLayout(first));
             first.BuyStone(5);
             RunUntilEvent(first, campaign.Auctions);
@@ -333,10 +334,13 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(CampaignState.Shopping, campaign.State);
             Assert.AreEqual(settlementCash + chosen.Cash, campaign.Cash, 1e-6, "대금 100% + 남은 정착지 자금");
             Assert.AreEqual(1, campaign.Sales.Count);
+            Assert.AreEqual(chosen.Cash, campaign.TotalSaleCash, 1e-6, "기록: 누적 매각 대금(FB3)");
+            Assert.AreEqual(campaign.Cash, campaign.PeakCash, 1e-6, "기록: 매각 직후 최대 자금");
 
             double before = campaign.Cash;
             Assert.IsTrue(campaign.BuyEquipment("wellPump").Success);
             Assert.AreEqual(before - 400, campaign.Cash, 1e-9);
+            Assert.AreEqual(before, campaign.PeakCash, 1e-6, "장비를 사도 최대 자금 기록은 남는다");
             Assert.IsFalse(campaign.BuyEquipment("wellPump").Success, "중복 구매 불가");
 
             Settlement second = campaign.StartNextSettlement();

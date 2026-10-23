@@ -36,6 +36,7 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "savecheck") return SaveCheck(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "botdiag") return BotDiagnose(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "funcheck") return FunCheck(args.Skip(1).ToArray());
+            if (args.Length > 0 && args[0] == "funboost") return FunBoost(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();

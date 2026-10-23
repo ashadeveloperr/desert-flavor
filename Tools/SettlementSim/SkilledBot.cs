@@ -23,6 +23,9 @@ namespace SettlementSim
         /// <summary>측정 출력용 누적 횟수(보류·광산 개량·병원).</summary>
         public static int Holds, MineUpgrades, Hospitals;
 
+        /// <summary>매각 직전 경매(측정용, 재미 보강 측정 2026-10-24). null이면 아무것도 안 함.</summary>
+        public static Action<AuctionEvent> BeforeSell;
+
         public static bool PlayCampaignSettlement(Campaign c, int maxHours = 900)
         {
             List<MapBuildEntry> plan = ReferenceBot.Plan(c.CurrentMap, BotStrategy.Multi);
@@ -46,6 +49,7 @@ namespace SettlementSim
                         continue;
                     }
                     var bids = a.CurrentAuction.Bids.ToList();
+                    BeforeSell?.Invoke(a.CurrentAuction);
                     a.Sell(bids.IndexOf(bids.OrderByDescending(b => b.Cash).First()));
                     return c.State == CampaignState.Shopping;
                 }

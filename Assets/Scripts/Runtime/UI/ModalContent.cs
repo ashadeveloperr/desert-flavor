@@ -95,6 +95,8 @@ namespace DesertSettlement.Runtime.UI
                 Label(_root, $"정착지 {sale.SettlementNumber} 매각 — {sale.BidderName}{(sale.Emergency ? " (긴급)" : "")}", Theme.Big, Theme.Accent);
                 Label(_root, $"매각 대금 {sale.SaleCash:0}{FacilityInfo.PerkText(sale.FoodBonus, sale.FreeBuilds)}", Theme.Body, Theme.Muted);
             }
+            bool record = RecordBook.Submit(c);
+            Label(_root, (record ? Paint("새 기록!  ", Theme.Good) : "") + RecordBook.Describe(c), Theme.Small, Theme.Muted);
             Label(_root, $"보유 자금 {Paint(c.Cash.ToString("0"), Theme.Text)}   ·   현장 장비 슬롯 {c.Loadout.Count}/{Campaign.EquipmentSlots} (장착한 것만 다음 정착지에서 효과)", Theme.Body, Theme.Muted);
 
             Label(_root, "영구 장비", Theme.Title, Theme.Accent);
@@ -170,6 +172,9 @@ namespace DesertSettlement.Runtime.UI
             Label(_root, "파산했습니다", Theme.Big, Theme.Danger);
             Label(_root, "이유: " + c.BankruptcyReason);
             Label(_root, $"정착지 {c.SettlementNumber}까지 진행, 매각 {c.Sales.Count}회", Theme.Body, Theme.Muted);
+            bool record = RecordBook.Submit(c);
+            if (record) Label(_root, "새 기록!", Theme.Title, Theme.Good);
+            Label(_root, RecordBook.Describe(c), Theme.Body, Theme.Text);
             Btn(_root, "새 캠페인 시작", () => { _ui.Session.RestartCampaign(); _changed(); }, -1, 40);
         }
     }

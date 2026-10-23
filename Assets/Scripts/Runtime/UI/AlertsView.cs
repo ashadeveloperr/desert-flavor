@@ -101,6 +101,11 @@ namespace DesertSettlement.Runtime.UI
                 list.Add(($"경매장 완공 {s.Rules.Config.ConfirmedRules.AuctionRepeatsGameHours}시간 뒤 첫 경매", Theme.Muted));
             }
             if (auctions.HoursUntilBankruptcy.HasValue) list.Add(($"⚠ 자금 음수 — {auctions.HoursUntilBankruptcy}시간 뒤 파산", Theme.Danger));
+            else if (CashRunsOutIn(s) is double runOut)
+            {
+                // 자금 경고(RC4): 지난 3시간 추세로 24시간 안에 0이 되면 미리 알린다. 0 이하가 되면 바로 긴급 매각(경매장·광산이 없으면 파산).
+                list.Add(($"⚠ 이대로면 약 {runOut:0}시간 뒤 자금 0 — 0 이하가 되면 바로 긴급 매각(−{s.Rules.Config.Auction.EmergencyPenalty:P0})", Theme.Warn));
+            }
             foreach (string kind in BuildingKinds.All)
             {
                 int free = s.FreeBuildsRemaining(kind);
@@ -119,6 +124,17 @@ namespace DesertSettlement.Runtime.UI
                 if (ep.Active) list.Add(($"☣ 전염병 — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 −{ep.Damage:P0}", Theme.Danger));
             }
             return list;
+        }
+
+        /// <summary>지난 3시간 자금 추세로 0이 될 때까지 남은 시간(24시간 안일 때만). 자금이 늘거나 이미 0 이하면 null.</summary>
+        private static double? CashRunsOutIn(Settlement s)
+        {
+            int n = s.History.Count;
+            if (n < 4 || s.Cash <= 0) return null;
+            double perHour = (s.History[n - 1].Cash - s.History[n - 4].Cash) / 3.0;
+            if (perHour >= -1e-6) return null;
+            double hours = s.Cash / -perHour;
+            return hours <= 24 ? hours : (double?)null;
         }
     }
 }

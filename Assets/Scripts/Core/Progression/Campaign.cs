@@ -56,6 +56,12 @@ namespace DesertSettlement.Core.Progression
         public double Cash { get; private set; }
         /// <summary>1부터.</summary>
         public int SettlementNumber { get; private set; }
+
+        // ── 이번 캠페인 기록(2026-10-24 재미 보강 RC1): 상점·파산 화면에 보이고, Runtime이 최고 기록과 비교해 저장한다. ──
+        /// <summary>매각 뒤 가장 많았던 보유 자금(매각 전이면 지금 자금).</summary>
+        public double PeakCash => _sales.Count == 0 ? Cash : Math.Max(Cash, _sales.Max(s => s.CampaignCashAfter));
+        /// <summary>지금까지 매각 대금 합.</summary>
+        public double TotalSaleCash => _sales.Sum(s => s.SaleCash);
         public MapDefinition CurrentMap { get; private set; }
         /// <summary>지금 정착지가 생성 맵이면 생성 정보(난이도 등), 고정 맵이면 null.</summary>
         public GeneratedMap CurrentGenerated { get; private set; }
@@ -110,8 +116,12 @@ namespace DesertSettlement.Core.Progression
             foreach (EquipmentDefinition e in Shop.Where(x => _loadout.Contains(x.Id))) rules.ApplyEffects(EffectsOf(e));
             foreach (RegionModifierDefinition m in CurrentModifiers) rules.ApplyEffects(m.Effects);
             // 난이도 비례 유지비(후보, 기본 0): 생성 맵에서 D가 높을수록 운영비가 비싸진다.
-            if (CurrentGenerated != null && _procedural != null && _procedural.Difficulty.UpkeepPerD > 0)
-                rules.UpkeepMultiplier *= 1 + _procedural.Difficulty.UpkeepPerD * CurrentGenerated.Params.D;
+            // UpkeepMinD(기본 0): D가 낮아도 이 D만큼은 운영비를 올린다(고정 맵은 D 0으로 본다). 초반 긴장 후보(2026-10-24 재미 보강 측정).
+            if (_procedural != null && _procedural.Difficulty.UpkeepPerD > 0 && (CurrentGenerated != null || _procedural.Difficulty.UpkeepMinD > 0))
+            {
+                double upkeepD = Math.Max(CurrentGenerated?.Params.D ?? 0, _procedural.Difficulty.UpkeepMinD);
+                rules.UpkeepMultiplier *= 1 + _procedural.Difficulty.UpkeepPerD * upkeepD;
+            }
             foreach (KeyValuePair<string, int> kv in _pendingFreeBuilds) rules.FreeBuilds[kv.Key] = kv.Value;
             _pendingFoodBonus = 0;
             _pendingFreeBuilds.Clear();

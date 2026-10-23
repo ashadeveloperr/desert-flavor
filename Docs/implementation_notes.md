@@ -54,7 +54,7 @@
 | 2026-10-23 | 도로·물류(로드맵 1-⑤, 기획서 C-24) | **도로 시설은 만들지 않는다**(공유 재고·운반 거리 없음 확정 규칙과 충돌, 가치만 올리는 시설은 몰아짓기 요령). 입찰자의 '물류 기반'은 창고 한도·생산 규모로 대신 본다. 근거 Docs/decision_log_auto.md R1~R3 | [자동 결정] |
 | 2026-10-23 | 저장·불러오기(로드맵 2-①) | 시드 + 성공한 플레이어 명령 기록을 저장하고, 불러올 때 같은 시드로 명령을 같은 시각에 다시 실행. 저장 칸 1개(persistentDataPath), F5/F9. 규칙이 바뀌어 실패한 명령은 건너뛰고 경고. 근거 Docs/decision_log_auto.md S1~S5. 새 플레이어 명령을 만들면 `Settlement.Commands.cs`(기록)와 `SaveGame.Apply`(재실행)에 추가할 것 | [자동 결정, 구현됨] |
 | 2026-10-23 | 물길 표시(정식 UI 2-② 일부) | 선택한 시설의 실제 물길(하늘색)과 막힌 수로(빨강)를 맵에 표시, 정보창에 경로별 문구. 물 배분 결과가 경로의 수로 목록을 가진다(`WaterIntakeFlow.Edges`). 근거 Docs/decision_log_auto.md V1~V4 | [자동 결정, 구현됨] |
-| 2026-10-23 | 게임성 보강(보류·입찰자·초반) | 보류마다 이후 시세 ×0.9, 입찰자 취향 2배, 시작 자금 700, 낮은 D 맵 자원 감소(D0 우물 2·광맥 1.5·거리 3·장애물 20%). 근거·측정 Docs/decision_log_auto.md F1~F5 | [사용자 결정, 수치 잠정, 구현됨] |
+| 2026-10-23 | 게임성 보강(보류·입찰자·초반) | 보류마다 이후 시세 ×0.9, 입찰자 취향 2배, 시작 자금 700(→ 2026-10-24 **500**, FB1), 낮은 D 맵 자원 감소(D0 우물 2·광맥 1.5·거리 3·장애물 20%). 근거·측정 Docs/decision_log_auto.md F1~F5 | [사용자 결정, 수치 잠정, 구현됨] |
 | 2026-10-23 | 난이도 속도·장비 투자 | 정착지마다 D 증가 0.2 → 0.25(D=1 도달 6번째). 장비에 쓴 돈은 난이도에 넣지 않음(옵션 `equipmentSpendInDifficulty` = 0). 근거 Docs/decision_log_auto.md G1·G2 | [사용자 결정] |
 | 2026-10-23 | 정식 UI 1차(로드맵 2-②) | uGUI를 코드로 생성(`Runtime/UI/`): 위쪽 자원·시계 띠, 아래 건설 도구 막대(분류별), 왼쪽 알림·작업 대기열, 오른쪽 선택 시설 정보, 가운데 경매·상점·파산 창. F1 = 예전 임시 화면과 전환. 근거 Docs/decision_log_auto.md UI1~UI7 | [자동 결정, 구현됨, 피드백 대기] |
 | 2026-10-23 | 새 툴팁·숙련 봇 | 툴팁을 uGUI로(이름·상태, 핵심 정보 6줄, 건설 가능 여부·비용, UI8). 측정용 숙련 봇(`-- mods campaign … smart`: 개량·보류 판단·병원·재해 장비, O5~O9) — 숙련 봇 기준으로는 후반이 쉬움(결정 필요) | [자동 결정, 구현됨] |
@@ -212,6 +212,9 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme`(색, `Big`·`Title`·`Body`·`Small` 글자 크기) |
 | UI 구역 위치·크기 | 위쪽 띠 `TopBarView`, 도구 막대 `BuildBarView`, 알림 `AlertsView`, 정보창 `InspectorView`, 가운데 창(경매·상점) `ModalView`·`ModalContent`, 툴팁 `TooltipView` — 모두 `Runtime/UI/` |
 | 시작 카메라 줌·각도 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
+| 시작 자금, 경매 참석 인원 | 경제 설정 JSON `prototype.startingCash`(500), `auction.attendeesMin`·`attendeesMax`(2~3) |
+| 최고 기록(도달 정착지·최대 자금·누적 매각) | `Runtime/RecordBook.cs`, 파일 `Application.persistentDataPath/records.json`(지우면 초기화) |
+| 자금 0 예측 경고(몇 시간 안이면 알릴지) | `Runtime/UI/AlertsView.cs`의 `CashRunsOutIn` |
 | 바꾼 화면을 에디터 없이 보기 | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png` |
 | 철거 환급·철거 시간·광물 배율 | `Core/Economy/SettlementRules.cs`의 `DemolishRefundRatio`, `DemolishHoursRatio`, `OreMultiplier` |
 | 지형별 건설 가능 시설, MVP 금지 시설, 폐쇄 불가 시설 | `SettlementRules`의 `AllowedTerrain`, `DisabledKinds`, `CannotClose` |

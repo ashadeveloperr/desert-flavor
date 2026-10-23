@@ -134,7 +134,7 @@ dotnet run --project Tools/SettlementSim
 - 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
 - 절차 맵: 생성기는 Core 파일을 링크하고 수치는 `procedural_map_config.json`을 읽는다. `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
   난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
-  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign [dPerSettlement] [cashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k]`(`ModifierTuning.cs`, 난이도 기준은 `smart` 숙련 봇). 그 밖에 `-- upgrades`(장비 강화), `-- bidders`(입찰자), `-- savecheck`(저장 재실행), `-- botdiag`(봇 진단), `-- funcheck`(보류·초반 긴장·입찰자 차이). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
+  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign [dPerSettlement] [cashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k]`(`ModifierTuning.cs`, 난이도 기준은 `smart` 숙련 봇). 그 밖에 `-- upgrades`(장비 강화), `-- bidders`(입찰자), `-- savecheck`(저장 재실행), `-- botdiag`(봇 진단), `-- funcheck`(보류·초반 긴장·입찰자 차이), `-- funboost`(재미 보강 후보: 초반 긴장·매각 선택). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
   난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
 
 ## 작업 방식 (사용자 선호, 2026-10-23 정리)

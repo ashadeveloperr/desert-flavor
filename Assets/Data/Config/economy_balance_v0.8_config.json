@@ -17,7 +17,7 @@
   },
   "prototype": {
     "economicTickGameHours": 1,
-    "startingCash": 700,
+    "startingCash": 500,
     "siteStarterStone": 75,
     "siteStarterFood": 48,
     "starterSuppliesAreSiteSpecific": true,
@@ -65,8 +65,8 @@
   },
   "auction": {
     "status": "playtest_seed_2026-10-22",
-    "attendeesMin": 1,
-    "attendeesMax": 2,
+    "attendeesMin": 2,
+    "attendeesMax": 3,
     "marketCenter": 1.05,
     "marketSwing": 0.1,
     "emergencyPenalty": 0.2,

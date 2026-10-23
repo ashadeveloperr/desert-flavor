@@ -15,12 +15,16 @@ namespace DesertSettlement.EditorTools
     /// - 왼쪽 클릭/드래그: 고른 지형으로 칠하기   - Shift + 클릭/드래그: 사막으로 지우기
     /// - 숫자 1~5: 사막·수원·광맥·암반·장애물 고르기   - Alt + 드래그: 씬 뷰 회전(Unity 기본)
     /// 인스펙터에서 저장(JSON)·불러오기·전체 지우기. 저장 형식은 캠페인 맵과 같다.
+    /// '생성 맵 미리보기': 난이도 D·시드로 절차 맵을 만들어 스케치에 그린다(수치는 procedural_map_config.json).
     /// </summary>
     [CustomEditor(typeof(MapSketch))]
     public sealed class MapSketchEditor : UnityEditor.Editor
     {
         private const string BrushPrefKey = "DesertSettlement.MapSketch.Brush";
         private const string SketchFolder = "Assets/Data/MapSketches";
+        private const string ProceduralConfigPath = "Assets/Data/Config/procedural_map_config.json";
+        private const string PreviewDPrefKey = "DesertSettlement.MapSketch.PreviewD";
+        private const string PreviewSeedPrefKey = "DesertSettlement.MapSketch.PreviewSeed";
 
         private static readonly TerrainType[] Palette =
         {
@@ -34,6 +38,7 @@ namespace DesertSettlement.EditorTools
         }
 
         private HexCoord? _hover;
+        private string _previewInfo;
 
         public static string TerrainLabel(TerrainType t)
         {
@@ -91,6 +96,57 @@ namespace DesertSettlement.EditorTools
                 Undo.RecordObject(sketch, "Clear Map Sketch");
                 sketch.tiles.Clear();
                 MarkDirty(sketch);
+            }
+
+            DrawProceduralPreview(sketch);
+        }
+
+        // ───────────── 생성 맵 미리보기 ─────────────
+
+        private void DrawProceduralPreview(MapSketch sketch)
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("생성 맵 미리보기", EditorStyles.boldLabel);
+            float d = EditorGUILayout.Slider("난이도 D", EditorPrefs.GetFloat(PreviewDPrefKey, 0.5f), 0f, 5f);
+            EditorPrefs.SetFloat(PreviewDPrefKey, d);
+            EditorGUILayout.BeginHorizontal();
+            int seed = EditorGUILayout.IntField("시드", EditorPrefs.GetInt(PreviewSeedPrefKey, 1));
+            if (GUILayout.Button("다음 시드", GUILayout.Width(80))) seed++;
+            EditorGUILayout.EndHorizontal();
+            EditorPrefs.SetInt(PreviewSeedPrefKey, seed);
+            EditorGUILayout.HelpBox("보유 자금 → D: D = (자금 − cashAtD0) / cashPerD. 덮어쓰기 전에 지금 스케치를 저장해 두세요.", MessageType.None);
+
+            if (GUILayout.Button("생성해서 스케치에 그리기")) GeneratePreview(sketch, d, seed);
+            if (!string.IsNullOrEmpty(_previewInfo)) EditorGUILayout.HelpBox(_previewInfo, MessageType.Info);
+        }
+
+        private void GeneratePreview(MapSketch sketch, float d, int seed)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(ProceduralConfigPath);
+            if (asset == null)
+            {
+                _previewInfo = "설정 파일이 없습니다: " + ProceduralConfigPath;
+                return;
+            }
+            try
+            {
+                ProceduralMapConfig config = ProceduralMapConfigLoader.Parse(asset.text);
+                DifficultyParams p = DifficultyParams.For(d, config.Difficulty);
+                GeneratedMap g = ProceduralMapGenerator.Generate(p, config.Generator, seed);
+                if (g == null)
+                {
+                    _previewInfo = $"{p}\n규칙을 맞추는 맵을 만들지 못했습니다(시도 {config.Generator.MaxAttempts}회). 시드를 바꿔 보세요.";
+                    return;
+                }
+                Undo.RecordObject(sketch, "Generate Map Preview");
+                sketch.LoadDefinition(g.Map);
+                MarkDirty(sketch);
+                _previewInfo = $"{p}\n시도 {g.Attempts}회, 산맥 {g.Formations.Count(f => f.kind == FormationKind.Mountain)} · 고원 {g.Formations.Count(f => f.kind == FormationKind.Plateau)}" +
+                               $"{(g.IsolatedObstacle.HasValue ? " · 독립 장애물 1" : "")}, 가장 가까운 우물–광맥 {g.NearestWellOreDistance}칸 · 수로 {g.ShortestWellOreCanalPath}변";
+            }
+            catch (ArgumentException e)
+            {
+                _previewInfo = e.Message;
             }
         }
 

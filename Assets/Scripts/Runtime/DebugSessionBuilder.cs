@@ -20,13 +20,15 @@ namespace DesertSettlement.Runtime
             public Camera MainCamera;
         }
 
-        public static Result Build(TextAsset economyConfig, System.Collections.Generic.IEnumerable<TextAsset> maps)
+        /// <param name="proceduralMapConfig">절차 맵 설정(null이면 고정 맵만 순환).</param>
+        public static Result Build(TextAsset economyConfig, System.Collections.Generic.IEnumerable<TextAsset> maps, TextAsset proceduralMapConfig = null)
         {
             var sessionObject = new GameObject("GameSession");
             sessionObject.SetActive(false); // 설정을 넣은 뒤 Awake가 돌도록
             var session = sessionObject.AddComponent<GameSession>();
             session.SetConfig(economyConfig);
             if (maps != null) session.SetMaps(maps);
+            session.SetProceduralMapConfig(proceduralMapConfig);
             EnsureComponents(session);
 
             Camera main = Camera.main;

@@ -3,7 +3,7 @@
 사막 정착지 경영 시뮬레이션(Desert Settlement Simulator) — Unity 3D 헥스타일 기반 정착지 개발·생산망·경매 경영 게임 프로토타입.
 현재 Core에 헥스 그리드·수로 그래프·GameClock·설정 로딩·물 배분·정착지 경제(건설 큐·생산·식량·유지비·가치 평가)까지 구현됐고,
 `SampleScene`에서 임시 그래픽·IMGUI 건설 UI·탑다운 카메라로 플레이할 수 있다.
-경매(입찰자 예고·당일 시세·산업가/농장주·긴급 매각·파산)와 캠페인(매각 → 장비 상점 → 고정 맵 2종 순환)까지 MVP 루프가 돈다.
+경매(입찰자 예고·당일 시세·산업가/농장주·긴급 매각·파산)와 캠페인(매각 → 장비 상점 → 다음 정착지: 첫 정착지는 고정 맵 1, 이후 보유 자금 비례 난이도의 BSP 절차 생성 맵)까지 MVP 루프가 돈다.
 구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`.
 
 ## 환경
@@ -24,6 +24,7 @@ Assets/
   Settings/                       # URP 에셋·렌더러·볼륨 프로파일
   InputSystem_Actions.inputactions
   Data/Config/economy_balance_v0.8_config.json   # 경제 수치 원본 (TextAsset)
+  Data/Config/procedural_map_config.json        # 절차 맵 난이도 곡선·생성 규칙 수치 (TextAsset)
   Scripts/
     Core/     # DesertSettlement.Core — 순수 C# 규칙 (noEngineReferences). Hex/ Canal/ Timing/ Config/
     Runtime/  # DesertSettlement.Runtime — MonoBehaviour (GameSession, 디버그 뷰, 낮/밤 조명, HUD)
@@ -58,11 +59,14 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
 - 배치 모드 테스트는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`). 그때는 사용자에게 에디터를 닫거나 Test Runner로 돌려 달라고 한다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
 - **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비(우물 ×1.2) 유지, 다음 맵은 `ChooseNextMap`.
+  절차 맵 설정이 있으면 처음 `fixedMapsBeforeGenerated`(1)개 뒤로는 들어가는 순간의 자금으로 D를 정해 생성(`PreviewNextDifficulty`로 상점에 표시).
+- **`Core/Progression/ProceduralMapGenerator`:** BSP 절차 맵(채택 이유는 클래스 주석), `DifficultyParams.For(d, curve)`·`FromCash`. 수치는 `ProceduralMapConfig`(JSON).
+  난수는 `DeterministicRandom`(Unity·.NET 같은 수열) — 생성 절차를 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests` 골든 값을 함께 갱신.
   맵 파일은 `Assets/Data/Maps/*.json`(`MapLoader`).
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵(인스펙터 지형 목록) → `Settlement` → 시계, 정각마다 `AdvanceHour()`.
 - **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), `SettlementHud`(IMGUI),
   `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.
-- **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기).
+- **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기, 생성 맵 미리보기).
   사용자가 절차 생성 규칙을 설명할 예시 맵을 그리는 용도. 저장 파일은 `Assets/Data/MapSketches/*.json`(캠페인 맵과 같은 `MapDefinition` 형식, `MapLoader.ToJson`).
   예시를 받으면 JSON을 읽어 정확한 좌표·지형을 확인한다.
 - 씬 재구성: `Unity.exe -batchmode -nographics -quit -projectPath $Proj -executeMethod DesertSettlement.EditorTools.DebugSessionMenu.SetupSampleScene`
@@ -117,9 +121,9 @@ v0.8 경제 시뮬레이터 이식본으로 규칙 후보를 비교한다. 원�
 dotnet run --project Tools/SettlementSim
 ```
 - 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
-- 절차 맵 프로토타입: `Tools/SettlementSim/ProceduralMap.cs`(BSP 생성기·난이도 수치), `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
-  난이도 곡선 조절값은 `DifficultyCurve`, 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
-  난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기'로 확인). Core로 옮기기 전 단계.
+- 절차 맵: 생성기는 Core 파일을 링크하고 수치는 `procedural_map_config.json`을 읽는다. `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
+  난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
+  난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
 
 ## 규칙
 

@@ -41,9 +41,9 @@
 | 2026-10-22 | 농장주 혜택 변경(플레이테스트) | 식량 +50(저장 한도에 막혀 가치 0) → **다음 정착지에서 완공된 농장 1개를 무료 배치**(석재·공사 시간·작업 슬롯 없이, 위치는 플레이어가 선택). 설정 `nextSettlementFreeBuilds` | [확정] |
 | 2026-10-22 | A4 MVP 영구 장비 | **우물 성능 향상**(우물 방출량 +20%, 가격 400) | [확정, 수치 잠정] |
 | 2026-10-22 | A5 파산·긴급 매각 | 경매장과 광산(공사 중 포함)이 모두 있으면: 자금이 0이 되는 순간 **긴급 매각 경매**(입찰가 약 −20%). 팔지 않고 자금 < 0이 24시간 지속되면 파산. **경매장이나 광산이 없으면 자금이 0이 되는 즉시 파산**(광산 조건은 플레이테스트 후 추가: 광산 없이는 가치가 0이라 긴급 매각이 의미 없음) | [확정] |
-| 2026-10-22 | 다음 정착지 난이도 (후속) | 다음 정착지로 넘어갈 때 **보유 자금에 비례해 정착지 난이도가 올라간다.** 지금 구현할 루프에는 넣지 않음. 기획서 9.1 "지역 난이도 후보"와 연결 | [확정, 후속 구현] |
+| 2026-10-22 | 다음 정착지 난이도 (후속) | 다음 정착지로 넘어갈 때 **보유 자금에 비례해 정착지 난이도가 올라간다.** 지금 구현할 루프에는 넣지 않음. 기획서 9.1 "지역 난이도 후보"와 연결 | [확정, 구현됨: 절차 맵] |
 | 2026-10-23 | 장애물과 수로 | **양쪽 타일이 모두 장애물인 변에는 수로 건설 불가**(장애물 지형 안으로 물이 못 지나감). 맵 경계 변은 해당 없음 | [확정, 구현됨] |
-| 2026-10-23 | 절차 맵: BSP 채택 | 장애물 지형이 서로 이어져 맵을 가로막지 않게 하려고 **BSP로 구역을 나누고 구역마다 장애물 지형 하나**를 둔다. 구현 시 채택 이유를 코드 주석으로 남길 것 | [확정, 미구현] |
+| 2026-10-23 | 절차 맵: BSP 채택 | 장애물 지형이 서로 이어져 맵을 가로막지 않게 하려고 **BSP로 구역을 나누고 구역마다 장애물 지형 하나**를 둔다. 채택 이유는 `Core/Progression/ProceduralMapGenerator.cs` 클래스 주석 | [확정, 구현됨] |
 | 2026-10-23 | 절차 맵: 생성 규칙(사용자 정의) | ① 장애물: 지형마다 **산맥(선)** 또는 **고원(덩어리)** 중 하나. 다른 장애물 지형과 이어져 맵을 가로막으면 안 됨. 15% 확률로 독립된 한 칸 장애물. ② 광맥: 난이도 수치만큼, 90% 확률로 장애물 근처. ③ 암반: 90% 확률로 이미 놓인 장애물 칸을 대신. ④ 우물(수원): 난이도 수치만큼, 사막 위에 한 칸씩, 반경 2 안에 다른 우물 없음. 예시: `Assets/Data/MapSketches/sketch_01.json` | [확정, 세부 수치 미정] |
 | 2026-10-23 | 절차 맵: 난이도 | **D = max(0, (자금 − 1000) / 10500)**, 상한 없음. 값은 D=0 → D=1 직선, D>1은 같은 기울기로 연장(하한·상한 있음): 37칸(반경 3)당 우물 3 → 1(하한 0.3), 37칸당 광맥 3 → 0.9(하한 0.3) — 둘 다 맵 칸 수 비율만큼 곱하고 맵 전체 최소 1, 장애물 15% → 30%(상한 40%), 가장 가까운 우물–광맥 거리 목표 2 → 4(±1, 상한 = 반경), 반경 3(D<1) → D=1부터 D 1마다 +1(최대 7). 결과: D 0·0.25·0.5·0.75·1 = 광맥 3·2·2·1·1. 조절값은 `Tools/SettlementSim/ProceduralMap.cs`의 `DifficultyCurve`. 암반은 지형마다 1(90% 장애물 속). 첫 정착지는 고정 맵 1, 두 번째부터 생성 맵 | [확정, 수치 조정됨(시뮬레이터)] |
 | 2026-10-23 | 절차 맵: 세부 규칙(제안 확정) | 지형 3~6칸, 산맥/고원 50:50(지형마다), 산맥 60° 꺾임 25%, 지형끼리 최소 1칸 간격, 독립 장애물은 맵마다 15%, 광맥 '근처' = 바로 옆·광맥 간 최소 거리 2, 우물 주변 사막 2칸 이상, 순서 장애물 → 암반 → 광맥 → 우물, 생성 후 트인 땅 연결·수로 경로(우물→광맥·암반) 검사, 실패 시 재생성 | [확정] |
@@ -84,6 +84,12 @@
   '결국 적자'(확정 목표 ⑦)는 지역 모디파이어(미정)가 맡아야 한다.
 - 단일 봇: D0 +891 → D1 +616(D0.75부터 광맥이 1개라 다중 봇과 같다).
 
+**Core 이동(2026-10-23):** 생성기를 `Core/Progression`으로 옮기고 수치를 `procedural_map_config.json`으로 뺐다. 시뮬레이터는 같은 Core 파일·JSON을 링크한다.
+System.Random 대신 `DeterministicRandom`(SplitMix64)을 써서 Unity와 .NET에서 같은 시드 = 같은 맵(시뮬레이터 '기준 맵 서명' = EditMode 골든 테스트).
+난수를 바꾼 뒤 다시 잰 값(40장 중앙값, 다중 봇): D0 +2673 · D0.5 +1873 · D0.75 +776 · D1 +562 · D2 +382 · D3 +296 · D4 +185 · D5 +173(반경 7에 닿아 D4 이후 지형 한계), 캠페인 6번째 정착지 D 0.99~1.03.
+캠페인: 정착지 1 = 고정 맵 1, 2번째부터 정착지에 들어가는 순간의 보유 자금(장비 구매 후)으로 D를 정해 생성. 시드 = 캠페인 시드 × 31 + 정착지 번호 × 104729. 생성 실패 시 고정 맵으로 대신.
+상점 화면에 다음 정착지 예상 난이도 표시(`Campaign.PreviewNextDifficulty`).
+
 **근거:** `dotnet run --project Tools/SettlementSim` 시뮬레이션(원본 v0.8 회귀값 재현 + 규칙 후보 비교). 주요 근거:
 - W3 변 중간점 방출이면 우물 꼭짓점에서 뻗은 수로에 물이 안 가서 원본 배치에서 물 0%.
 - W4 단일 취수는 막힌 경로를 고르면 농장 0%·우물 물 40 남음 → 다중 취수 100%.
@@ -102,6 +108,8 @@ Assets/Scripts/
                  SettlementValuation(24h 실적 + 개발 중 자산, 입찰자별 가치)
     Auction/     AuctionManager(일정·예고·당일 시세·입찰·긴급 매각·파산 판정)
     Progression/ Campaign(정착지 연속·장비 상점·자금 이월), MapDefinition / MapLoader(고정 맵 파일)
+                 ProceduralMapGenerator(BSP 절차 맵·DifficultyParams·CanalPaths), ProceduralMapConfig(+Loader, 난이도 곡선·생성 규칙),
+                 DeterministicRandom(런타임과 상관없이 같은 시드 = 같은 수열)
     Timing/      GameClock, GameTimeSettings
     Config/      EconomyConfig(데이터 클래스), EconomyConfigLoader(읽기·검증)
   Runtime/     DesertSettlement.Runtime — Unity 컴포넌트(표시·입력·연결)
@@ -120,9 +128,10 @@ Assets/Scripts/
     GameClockHud         시각·배속 표시와 버튼(임시 IMGUI)
   Editor/      DesertSettlement.EditorTools — 에디터 메뉴
     DebugSessionMenu     Tools > Desert Settlement > 디버그 세션 만들기 / SetupSampleScene(batch용)
+    MapSketchEditor      맵 스케치 씬 칠하기·JSON 저장·불러오기, 생성 맵 미리보기(D·시드)
 Assets/Tests/PlayMode/  DesertSettlement.PlayMode.Tests — 디버그 세션 스모크 테스트
 Assets/Tests/EditMode/  DesertSettlement.Core.Tests — Core 단위 테스트
-Assets/Data/Config/     경제 설정 JSON (auction·equipment 항목 포함)
+Assets/Data/Config/     경제 설정 JSON(auction·equipment 항목 포함), 절차 맵 설정 JSON(procedural_map_config.json)
 Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다 파일명 순서대로 사용
 ```
 
@@ -148,7 +157,12 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | 맵 지형·샘플 배치, 맵 추가 | `Assets/Data/Maps/*.json` (새 파일은 `GameSession`의 Maps 목록에 추가하거나 메뉴 '디버그 세션 만들기'를 다시 실행) |
 | 입찰자 성향·혜택, 시세 폭, 긴급 감액, 개발 중 자산 비율, 파산 유예 시간 | 설정 JSON `auction` |
 | 영구 장비 가격·효과 | 설정 JSON `equipment` |
-| 다음 맵 선택 규칙(후속: 자금 비례 난이도) | `Core/Progression/Campaign.cs`의 `ChooseNextMap` |
+| 다음 맵 선택 규칙(고정 맵 몇 개 뒤 생성 맵, 생성 시드) | `Core/Progression/Campaign.cs`의 `ChooseNextMap`·`MapSeed`. 고정 맵 개수는 절차 맵 JSON `fixedMapsBeforeGenerated` |
+| 절차 맵 난이도 곡선(자금 → D, D별 반경·우물·광맥·장애물·거리) | `Assets/Data/Config/procedural_map_config.json`의 `difficulty` (설명: `Core/Progression/ProceduralMapConfig.cs`의 `DifficultyCurve`). 바꾼 뒤 `dotnet run --project Tools/SettlementSim -- tune`으로 곡선 확인 |
+| 절차 맵 생성 규칙 확률·크기(지형 크기, 산맥/고원 비율, 광맥·암반 위치 확률, 우물 간격) | 같은 JSON의 `generator` (`GeneratorRules`) |
+| 생성 절차 자체(BSP·지형 키우기·배치 순서·검사) | `Core/Progression/ProceduralMapGenerator.cs` — 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests.Generate_MatchesSimulatorGoldenMap` 기대값을 갱신 |
+| 생성 맵 눈으로 보기 | 맵 스케치 씬 → `MapSketch` 인스펙터 '생성 맵 미리보기'(난이도 D·시드 → '생성해서 스케치에 그리기') |
+| 절차 맵 끄기(고정 맵만 순환) | `GameSession` 인스펙터의 Procedural Map Config를 비운다 |
 | 경매 입찰자·시세 무작위 시드 | `GameSession` 인스펙터 → Campaign Seed |
 | 지형·시설·수로 색, 수로 폭, 머리 위 글자 | `SettlementView` 인스펙터 |
 | 팝업·HUD에 나오는 문구, 시설·지형 한국어 이름 | `Runtime/FacilityInfo.cs` |

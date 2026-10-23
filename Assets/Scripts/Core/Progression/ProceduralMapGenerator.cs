@@ -1,46 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using DesertSettlement.Core.Hex;
-using DesertSettlement.Core.Progression;
 
-namespace SettlementSim
+namespace DesertSettlement.Core.Progression
 {
-    // 절차 맵 생성기 프로토타입. Core의 헥스 타입만 쓰므로 검증 후 Core(Progression)로 옮길 수 있다.
-    // 규칙 출처: Docs/implementation_notes.md "절차 맵" 항목(2026-10-23 사용자 정의 + 제안 확정).
+    // 절차 맵 생성기. Tools/SettlementSim에서 프로토타입·난이도 조정을 마친 뒤 Core로 옮겼다(2026-10-23).
+    // 규칙 출처: Docs/implementation_notes.md "절차 맵" 항목. 수치는 ProceduralMapConfig(설정 JSON).
+    // 시뮬레이터도 이 파일을 그대로 링크해 쓴다(같은 시드 = 같은 맵).
 
-    /// <summary>
-    /// 난이도 곡선의 조절값. D = 0(쉬움)과 D = 1(목표: 숙련 플레이어가 겨우 흑자) 두 끝값을 정하고,
-    /// D &gt; 1은 같은 기울기로 계속 늘린다(상한 없음, 2026-10-23 확정). 각 값에는 하한·상한이 있다.
-    /// 우물·광맥은 '반경 3 맵(37칸)당 개수'로 정해 맵 칸 수 비율만큼 늘린다.
-    /// </summary>
-    public sealed class DifficultyCurve
-    {
-        /// <summary>D = max(0, (보유 자금 − CashAtD0) / CashPerD). 상한 없음.</summary>
-        public double CashAtD0 = 1000;
-        public double CashPerD = 10500; // 조정: 숙련 봇이 6~7번째 정착지에서 D=1 (2026-10-23, -- tune E105)
-
-        /// <summary>반경: D &lt; FirstRadiusStepD이면 3, 이후 RadiusStepD마다 +1, 최대 MaxRadius(HexMap 한도 7).</summary>
-        public int BaseRadius = 3;
-        public double FirstRadiusStepD = 1.0; // D<1은 반경 3: 반경이 커질 때 광맥 수가 늘어 순서가 뒤집히는 것을 막는다
-        public double RadiusStepD = 1.0;
-        public int MaxRadius = 7;
-
-        /// <summary>37칸당 우물 수: D0 → D1, 이후 같은 기울기. 37칸당 하한 MinWellsPer37, 맵 전체 최소 1.</summary>
-        public double WellsPer37AtD0 = 3, WellsPer37AtD1 = 1, MinWellsPer37 = 0.3;
-        /// <summary>37칸당 광맥 수: D0 → D1, 이후 같은 기울기. 37칸당 하한 MinOresPer37, 맵 전체 최소 1.</summary>
-        public double OresPer37AtD0 = 3, OresPer37AtD1 = 0.9, MinOresPer37 = 0.3;
-
-        /// <summary>장애물 비율: D0 → D1, 이후 같은 기울기, 상한 MaxObstacleDensity(맵을 막지 않는 한도).</summary>
-        public double ObstacleAtD0 = 0.15, ObstacleAtD1 = 0.30, MaxObstacleDensity = 0.40;
-
-        /// <summary>가장 가까운 우물–광맥 거리 목표: D0 → D1, 이후 같은 기울기, 상한 = 반경.</summary>
-        public double DistanceAtD0 = 2, DistanceAtD1 = 4;
-
-        public DifficultyCurve Clone() => (DifficultyCurve)MemberwiseClone();
-    }
-
-    /// <summary>난이도 D(0 이상, 상한 없음)에서 정해지는 생성 수치.</summary>
+    /// <summary>난이도 D(0 이상, 상한 없음)에서 정해지는 생성 수치. <see cref="For"/>로 만든다.</summary>
     public sealed class DifficultyParams
     {
         public double D;
@@ -51,26 +21,20 @@ namespace SettlementSim
         /// <summary>가장 가까운 우물–광맥 타일 거리 목표. 실제 값이 [T−1, T+1] 안이어야 한다.</summary>
         public int TargetWellOreDistance;
 
-        /// <summary>시뮬레이터 기본 곡선(조정 결과). 바꿔 보려면 이 값을 고치거나 For(d, curve)에 다른 곡선을 넘긴다.</summary>
-        public static DifficultyCurve DefaultCurve = new DifficultyCurve();
-
-        public static double DifficultyFromCash(double cash, DifficultyCurve c = null)
-        {
-            c = c ?? DefaultCurve;
-            return Math.Max(0, (cash - c.CashAtD0) / c.CashPerD);
-        }
-
-        public static DifficultyParams FromCash(double cash, DifficultyCurve c = null) => For(DifficultyFromCash(cash, c), c);
-
         /// <summary>우물·광맥 수 기준이 되는 맵 크기(반경 3 = 37칸).</summary>
         public const int BaseTiles = 37;
 
         /// <summary>반경 r 헥스 맵의 칸 수 = 3r(r+1)+1.</summary>
         public static int TileCount(int radius) => 3 * radius * (radius + 1) + 1;
 
-        public static DifficultyParams For(double d, DifficultyCurve c = null)
+        /// <summary>보유 자금 → D. D = max(0, (자금 − CashAtD0) / CashPerD), 상한 없음.</summary>
+        public static double DifficultyFromCash(double cash, DifficultyCurve c) => Math.Max(0, (cash - c.CashAtD0) / c.CashPerD);
+
+        public static DifficultyParams FromCash(double cash, DifficultyCurve c) => For(DifficultyFromCash(cash, c), c);
+
+        public static DifficultyParams For(double d, DifficultyCurve c)
         {
-            c = c ?? DefaultCurve;
+            if (c == null) throw new ArgumentNullException(nameof(c));
             d = Math.Max(0, d);
             int radius = d < c.FirstRadiusStepD ? c.BaseRadius
                 : c.BaseRadius + 1 + (int)Math.Floor((d - c.FirstRadiusStepD) / c.RadiusStepD);
@@ -80,6 +44,7 @@ namespace SettlementSim
             {
                 D = d,
                 Radius = radius,
+                // 우물·광맥 = (37칸당 개수, 난이도 직선·하한) × (맵 칸 수 / 37), 맵 전체 최소 1.
                 WellCount = Math.Max(1, Round(Math.Max(c.MinWellsPer37, Lerp(c.WellsPer37AtD0, c.WellsPer37AtD1, d)) * scale)),
                 OreCount = Math.Max(1, Round(Math.Max(c.MinOresPer37, Lerp(c.OresPer37AtD0, c.OresPer37AtD1, d)) * scale)),
                 ObstacleDensity = Math.Min(c.MaxObstacleDensity, Lerp(c.ObstacleAtD0, c.ObstacleAtD1, d)),
@@ -91,32 +56,9 @@ namespace SettlementSim
         private static double Lerp(double a, double b, double t) => a + (b - a) * t;
         private static int Round(double x) => (int)Math.Round(x, MidpointRounding.AwayFromZero);
 
-        public override string ToString() =>
-            $"D {D:0.00}: 반경 {Radius}, 우물 {WellCount}, 광맥 {OreCount}, 장애물 {ObstacleDensity:P0}, 우물–광맥 거리 목표 {TargetWellOreDistance}";
-    }
-
-    /// <summary>생성 규칙의 확률·크기(사용자 규칙 + 제안 확정값).</summary>
-    public sealed class GeneratorRules
-    {
-        public int FormationMinSize = 3;
-        public int FormationMaxSize = 6;
-        /// <summary>장애물 지형마다 산맥(선)일 확률. 나머지는 고원(덩어리).</summary>
-        public double MountainChance = 0.5;
-        /// <summary>산맥이 한 칸 나아갈 때 60° 꺾일 확률.</summary>
-        public double MountainTurnChance = 0.25;
-        /// <summary>맵마다 한 번: 독립된 한 칸 장애물이 생길 확률.</summary>
-        public double IsolatedObstacleChance = 0.15;
-        public double OreNearObstacleChance = 0.9;
-        public double BedrockInObstacleChance = 0.9;
-        /// <summary>BSP 구역의 최소 타일 수.</summary>
-        public int MinLeafTiles = 5;
-        /// <summary>우물 반경 이 거리 안에는 다른 우물이 없다.</summary>
-        public int WellExclusionRadius = 2;
-        /// <summary>우물 주변 6칸 중 최소 사막 칸 수(농장·경매장 자리).</summary>
-        public int MinDesertAroundWell = 2;
-        public int MinOreSpacing = 2;
-        public int MinDesertTiles = 8;
-        public int MaxAttempts = 300;
+        public override string ToString() => string.Format(CultureInfo.InvariantCulture,
+            "D {0:0.00}: 반경 {1}, 우물 {2}, 광맥 {3}, 장애물 {4:0}%, 우물–광맥 거리 목표 {5}",
+            D, Radius, WellCount, OreCount, ObstacleDensity * 100, TargetWellOreDistance);
     }
 
     public enum FormationKind { Mountain, Plateau }
@@ -151,7 +93,7 @@ namespace SettlementSim
     {
         public static GeneratedMap Generate(DifficultyParams p, GeneratorRules rules, int seed)
         {
-            var rng = new Random(seed);
+            var rng = new DeterministicRandom(seed);
             for (int attempt = 1; attempt <= rules.MaxAttempts; attempt++)
             {
                 GeneratedMap result = TryGenerate(p, rules, rng);
@@ -159,15 +101,15 @@ namespace SettlementSim
                 result.Seed = seed;
                 result.Attempts = attempt;
                 result.Params = p;
-                result.Map.Id = $"gen_d{p.D:0.00}_s{seed}";
-                result.Map.Name = $"생성 맵 (난이도 {p.D:0.00}, 시드 {seed})";
+                result.Map.Id = string.Format(CultureInfo.InvariantCulture, "gen_d{0:0.00}_s{1}", p.D, seed);
+                result.Map.Name = string.Format(CultureInfo.InvariantCulture, "생성 맵 (난이도 {0:0.00}, 시드 {1})", p.D, seed);
                 result.Map.Description = p.ToString();
                 return result;
             }
             return null;
         }
 
-        private static GeneratedMap TryGenerate(DifficultyParams p, GeneratorRules rules, Random rng)
+        private static GeneratedMap TryGenerate(DifficultyParams p, GeneratorRules rules, DeterministicRandom rng)
         {
             List<HexCoord> all = HexCoord.Range(p.Radius).ToList();
             var inMap = new HashSet<HexCoord>(all);
@@ -307,7 +249,7 @@ namespace SettlementSim
         private static int Axis(HexCoord c, int axis) => axis == 0 ? c.Q : axis == 1 ? c.R : c.S;
 
         /// <summary>가장 큰 구역부터 cube 축 직선으로 나눠 target개 구역을 만든다(못 나누면 그대로).</summary>
-        private static List<List<HexCoord>> Bsp(List<HexCoord> tiles, int target, int minLeaf, Random rng)
+        private static List<List<HexCoord>> Bsp(List<HexCoord> tiles, int target, int minLeaf, DeterministicRandom rng)
         {
             var leaves = new List<List<HexCoord>> { tiles };
             while (leaves.Count < target)
@@ -321,7 +263,7 @@ namespace SettlementSim
             return leaves;
         }
 
-        private static List<HexCoord>[] Split(List<HexCoord> region, int minLeaf, Random rng)
+        private static List<HexCoord>[] Split(List<HexCoord> region, int minLeaf, DeterministicRandom rng)
         {
             foreach (int axis in new[] { 0, 1, 2 }.OrderBy(_ => rng.Next()))
             {
@@ -342,7 +284,7 @@ namespace SettlementSim
 
         // ───────────── 장애물 지형 ─────────────
 
-        private static List<HexCoord> GrowMountain(List<HexCoord> leaf, int size, Func<HexCoord, bool> allowed, double turnChance, Random rng)
+        private static List<HexCoord> GrowMountain(List<HexCoord> leaf, int size, Func<HexCoord, bool> allowed, double turnChance, DeterministicRandom rng)
         {
             List<HexCoord> starts = leaf.Where(allowed).ToList();
             if (starts.Count == 0) return new List<HexCoord>();
@@ -372,7 +314,7 @@ namespace SettlementSim
             return tiles;
         }
 
-        private static List<HexCoord> GrowPlateau(List<HexCoord> leaf, int size, Func<HexCoord, bool> allowed, Random rng)
+        private static List<HexCoord> GrowPlateau(List<HexCoord> leaf, int size, Func<HexCoord, bool> allowed, DeterministicRandom rng)
         {
             List<HexCoord> starts = leaf.Where(allowed).ToList();
             if (starts.Count == 0) return new List<HexCoord>();

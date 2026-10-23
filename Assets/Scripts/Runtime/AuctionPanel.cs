@@ -116,6 +116,11 @@ namespace DesertSettlement.Runtime
             }
             if (!string.IsNullOrEmpty(_shopMessage)) GUILayout.Label(_shopMessage);
             GUILayout.Space(8);
+            // 다음 정착지 난이도는 들어가는 순간의 보유 자금으로 정해진다(장비를 사면 내려간다).
+            DifficultyParams next = campaign.PreviewNextDifficulty();
+            GUILayout.Label(next == null
+                ? "다음 정착지: 고정 맵"
+                : $"다음 정착지: 생성 맵 — 난이도 {next.D:0.00} (반경 {next.Radius}, 우물 {next.WellCount}, 광맥 {next.OreCount}, 장애물 {next.ObstacleDensity:P0})");
             if (GUILayout.Button($"다음 정착지로 (정착지 {campaign.SettlementNumber + 1})", GUILayout.Height(32)))
             {
                 _shopMessage = null;

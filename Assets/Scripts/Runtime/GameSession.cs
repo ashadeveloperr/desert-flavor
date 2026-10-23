@@ -42,6 +42,8 @@ namespace DesertSettlement.Runtime
         [SerializeField] private TextAsset economyConfig;
         [Tooltip("Assets/Data/Maps/*.json. 정착지마다 순서대로 사용. 비어 있으면 아래 대체 지형 한 장")]
         [SerializeField] private List<TextAsset> maps = new List<TextAsset>();
+        [Tooltip("Assets/Data/Config/procedural_map_config.json. 지정하면 첫 정착지 뒤로는 보유 자금 비례 난이도의 생성 맵. 비우면 위 맵 파일만 순환")]
+        [SerializeField] private TextAsset proceduralMapConfig;
         [Tooltip("경매 입찰자·시세 무작위 시드(같으면 같은 결과)")]
         [SerializeField] private int campaignSeed = 20261022;
 
@@ -97,6 +99,9 @@ namespace DesertSettlement.Runtime
         /// <summary>코드에서 세션을 만들 때 맵 파일 목록을 지정한다. Awake 전에 호출해야 한다.</summary>
         public void SetMaps(IEnumerable<TextAsset> mapFiles) => maps = mapFiles.ToList();
 
+        /// <summary>코드에서 세션을 만들 때 절차 맵 설정을 지정한다(null이면 고정 맵만). Awake 전에 호출해야 한다.</summary>
+        public void SetProceduralMapConfig(TextAsset config) => proceduralMapConfig = config;
+
         /// <summary>설정·맵을 읽고 새 캠페인의 첫 정착지를 시작한다. 실패하면 콘솔에 이유를 남기고 IsReady = false.</summary>
         public void Initialize()
         {
@@ -109,7 +114,8 @@ namespace DesertSettlement.Runtime
                 if (definitions.Count == 0) definitions.Add(FallbackMap());
 
                 Layout = new HexLayout(tileSize);
-                Campaign = new Campaign(Config, definitions, campaignSeed);
+                ProceduralMapConfig procedural = proceduralMapConfig != null ? ProceduralMapConfigLoader.Parse(proceduralMapConfig.text) : null;
+                Campaign = new Campaign(Config, definitions, campaignSeed, procedural);
 
                 if (Clock == null)
                 {

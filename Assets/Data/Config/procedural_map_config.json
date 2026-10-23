@@ -1,0 +1,39 @@
+{
+  "schema": "desert-settlement-procedural-map-v1",
+  "_note": "절차 맵 수치. 설명은 Core/Progression/ProceduralMapConfig.cs 주석과 Docs/implementation_notes.md '절차 맵'. 바꾼 뒤 dotnet run --project Tools/SettlementSim -- tune 으로 난이도 곡선을 확인한다.",
+  "fixedMapsBeforeGenerated": 1,
+  "difficulty": {
+    "cashAtD0": 1000,
+    "cashPerD": 10500,
+    "baseRadius": 3,
+    "firstRadiusStepD": 1.0,
+    "radiusStepD": 1.0,
+    "maxRadius": 7,
+    "wellsPer37AtD0": 3,
+    "wellsPer37AtD1": 1,
+    "minWellsPer37": 0.3,
+    "oresPer37AtD0": 3,
+    "oresPer37AtD1": 0.9,
+    "minOresPer37": 0.3,
+    "obstacleAtD0": 0.15,
+    "obstacleAtD1": 0.30,
+    "maxObstacleDensity": 0.40,
+    "distanceAtD0": 2,
+    "distanceAtD1": 4
+  },
+  "generator": {
+    "formationMinSize": 3,
+    "formationMaxSize": 6,
+    "mountainChance": 0.5,
+    "mountainTurnChance": 0.25,
+    "isolatedObstacleChance": 0.15,
+    "oreNearObstacleChance": 0.9,
+    "bedrockInObstacleChance": 0.9,
+    "minLeafTiles": 5,
+    "wellExclusionRadius": 2,
+    "minDesertAroundWell": 2,
+    "minOreSpacing": 2,
+    "minDesertTiles": 8,
+    "maxAttempts": 300
+  }
+}

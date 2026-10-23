@@ -160,6 +160,7 @@ MonoBehaviour:
   maps:
   - {fileID: 4900000, guid: d8ce8a084c28b3b438fb9b5ee3b913ca, type: 3}
   - {fileID: 4900000, guid: 396d14279b1531e4e834fd24dfebb093, type: 3}
+  proceduralMapConfig: {fileID: 4900000, guid: 242825af776179f4f84973f17ce1022b, type: 3}
   campaignSeed: 20261022
   mapRadius: 3
   terrain:

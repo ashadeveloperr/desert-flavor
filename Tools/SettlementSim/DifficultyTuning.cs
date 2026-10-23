@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
@@ -18,7 +19,7 @@ namespace SettlementSim
             var candidates = TuningCandidates();
             if (args.Length > 0) candidates = candidates.Where(c => args.Contains(c.name)).ToList();
             var config = LoadConfig();
-            var rules = new GeneratorRules();
+            var rules = LoadProceduralConfig().Generator;
             const int mapsPerD = 24;
 
             Header($"난이도 곡선 후보 — 다중 봇 첫 경매 매각 순이익 중앙값 (시작 자금 2000, D마다 {mapsPerD}장)");
@@ -99,7 +100,7 @@ namespace SettlementSim
         {
             var list = new List<(string, DifficultyCurve)>();
             DifficultyCurve Make(Action<DifficultyCurve> f) { var c = new DifficultyCurve(); f(c); return c; }
-            list.Add(("현재", Make(c => { })));   // = DifficultyCurve 기본값(후보 E에서 CashPerD 10500, 2026-10-23 확정)
+            list.Add(("현재", LoadProceduralConfig().Difficulty));   // = procedural_map_config.json(후보 E에서 CashPerD 10500, 2026-10-23 확정)
             // 아래는 2026-10-23 조정 때 비교한 후보(기록용). 당시 기본값은 CashPerD 4000, 반경 첫 증가 D 0.5, 37칸당 광맥 D1 = 2.
             DifficultyCurve Old(Action<DifficultyCurve> f) => Make(c => { c.CashPerD = 4000; c.FirstRadiusStepD = 0.5; c.OresPer37AtD1 = 2; f(c); });
             list.Add(("이전", Old(c => { })));

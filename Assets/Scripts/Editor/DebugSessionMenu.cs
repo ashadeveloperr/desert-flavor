@@ -16,6 +16,7 @@ namespace DesertSettlement.EditorTools
     {
         private const string ConfigPath = "Assets/Data/Config/economy_balance_v0.8_config.json";
         private const string MapsFolder = "Assets/Data/Maps";
+        private const string ProceduralConfigPath = "Assets/Data/Config/procedural_map_config.json";
 
         [MenuItem("Tools/Desert Settlement/디버그 세션 만들기")]
         public static void CreateDebugSession()
@@ -27,9 +28,10 @@ namespace DesertSettlement.EditorTools
                 Undo.RegisterFullObjectHierarchyUndo(existing.gameObject, "Update Debug Session");
                 int added = DebugSessionBuilder.EnsureComponents(existing);
                 bool mapsAssigned = AssignMapsIfEmpty(existing, maps);
+                bool proceduralAssigned = AssignProceduralIfEmpty(existing);
                 Selection.activeObject = existing.gameObject;
-                if (added > 0 || mapsAssigned) EditorSceneManager.MarkSceneDirty(existing.gameObject.scene);
-                Debug.Log($"[DebugSessionMenu] 씬에 이미 GameSession이 있습니다. 빠진 컴포넌트 {added}개{(mapsAssigned ? ", 맵 목록" : "")}를 채웠습니다.");
+                if (added > 0 || mapsAssigned || proceduralAssigned) EditorSceneManager.MarkSceneDirty(existing.gameObject.scene);
+                Debug.Log($"[DebugSessionMenu] 씬에 이미 GameSession이 있습니다. 빠진 컴포넌트 {added}개{(mapsAssigned ? ", 맵 목록" : "")}{(proceduralAssigned ? ", 절차 맵 설정" : "")}를 채웠습니다.");
                 return;
             }
 
@@ -40,7 +42,7 @@ namespace DesertSettlement.EditorTools
                 return;
             }
 
-            DebugSessionBuilder.Result result = DebugSessionBuilder.Build(config, maps);
+            DebugSessionBuilder.Result result = DebugSessionBuilder.Build(config, maps, AssetDatabase.LoadAssetAtPath<TextAsset>(ProceduralConfigPath));
             Undo.RegisterCreatedObjectUndo(result.Session.gameObject, "Create Debug Session");
             Undo.RegisterCreatedObjectUndo(result.CameraRig.gameObject, "Create Debug Session");
             Undo.RegisterCreatedObjectUndo(result.VirtualCamera, "Create Debug Session");
@@ -69,6 +71,18 @@ namespace DesertSettlement.EditorTools
                 .OrderBy(p => p, System.StringComparer.Ordinal)
                 .Select(AssetDatabase.LoadAssetAtPath<TextAsset>)
                 .ToList();
+
+        /// <summary>절차 맵 설정이 비어 있으면 연결한다(첫 정착지 뒤로 생성 맵).</summary>
+        private static bool AssignProceduralIfEmpty(GameSession session)
+        {
+            var so = new SerializedObject(session);
+            SerializedProperty prop = so.FindProperty("proceduralMapConfig");
+            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(ProceduralConfigPath);
+            if (prop == null || prop.objectReferenceValue != null || asset == null) return false;
+            prop.objectReferenceValue = asset;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return true;
+        }
 
         private static bool AssignMapsIfEmpty(GameSession session, List<TextAsset> maps)
         {

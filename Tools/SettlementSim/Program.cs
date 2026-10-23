@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using DesertSettlement.Core.Canal;
 using DesertSettlement.Core.Hex;
+using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
@@ -459,6 +460,17 @@ namespace SettlementSim
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
+        /// <summary>Assets/Data/Config/procedural_map_config.json(게임과 같은 절차 맵 수치).</summary>
+        private static ProceduralMapConfig LoadProceduralConfig()
+        {
+            string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "procedural_map_config.json"));
+            var config = System.Text.Json.JsonSerializer.Deserialize<ProceduralMapConfig>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var problems = config.Validate();
+            if (problems.Count > 0) throw new InvalidOperationException("절차 맵 설정 오류: " + string.Join("; ", problems));
+            return config;
+        }
+
         private static List<DesertSettlement.Core.Progression.MapDefinition> LoadMaps()
         {
             var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -538,16 +550,17 @@ namespace SettlementSim
         {
             Header("절차 맵 생성 (BSP) — 난이도별 40장, 기준 봇(시작 자금 2000 고정)으로 첫 경매까지");
             var config = LoadConfig();
-            var rules = new GeneratorRules();
+            var proc = LoadProceduralConfig();
+            var rules = proc.Generator;
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output", "generated_maps");
             Directory.CreateDirectory(outDir);
             foreach (string old in Directory.GetFiles(outDir, "*.json")) File.Delete(old);
 
             Line("  D    | 생성 성공 | 평균 시도 | 산맥/고원 | 독립 장애물 | 광맥 장애물옆 | 암반 장애물속 | 우물–광맥 거리 | 수로 경로 | 봇 경매 성공 | 파산 | 경매 시각 | 기준 V | 매각 후 순이익 ‖ 다중 봇: 우물/광산 | 경매 성공 | 파산 | 경매 시각 | 기준 V | 매각 후 순이익");
             int violations = 0;
-            foreach (double d in new[] { 0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0 })
+            foreach (double d in new[] { 0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0 })
             {
-                DifficultyParams p = DifficultyParams.For(d);
+                DifficultyParams p = DifficultyParams.For(d, proc.Difficulty);
                 var maps = new List<GeneratedMap>();
                 for (int i = 0; i < 40; i++)
                 {
@@ -596,8 +609,16 @@ namespace SettlementSim
                     File.WriteAllText(Path.Combine(outDir, def.Id + ".json"), json, new UTF8Encoding(false));
                 }
             }
+            // Unity EditMode 테스트(ProceduralMapTests.Generate_MatchesSimulatorGoldenMap)와 같은 맵이 나오는지 확인하는 서명.
+            Line($"  기준 맵 서명(D 0.50, 시드 42): {GoldenSignature(proc)}");
             Check(violations == 0, $"생성된 모든 맵이 규칙 준수(지형끼리 붙지 않음, 트인 땅 연결, 우물 간격, 수원·광맥·암반 존재) — 위반 {violations}");
             Line($"  예시 맵 JSON: Tools/balance_output/generated_maps/ (맵 스케치 씬 → 'JSON 불러오기')");
+        }
+
+        internal static string GoldenSignature(ProceduralMapConfig proc)
+        {
+            GeneratedMap g = ProceduralMapGenerator.Generate(DifficultyParams.For(0.5, proc.Difficulty), proc.Generator, 42);
+            return g == null ? "생성 실패" : $"r{g.Map.Radius} " + string.Join(" ", g.Map.Terrain.Select(t => $"{t.Q},{t.R}{t.Type.Substring(0, 2)}"));
         }
 
         /// <summary>생성된 맵이 규칙을 어긴 횟수(0이어야 한다).</summary>
@@ -633,7 +654,8 @@ namespace SettlementSim
             Header("절차 맵 캠페인 — 정착지 1 = 고정 맵 1, 이후 자금 비례 난이도 생성 맵 (기준 봇, 첫 경매에서 현금 최대 입찰 매각)");
             var config = LoadConfig();
             var map1 = LoadMaps()[0];
-            var rules = new GeneratorRules();
+            var proc = LoadProceduralConfig();
+            var rules = proc.Generator;
             foreach (BotStrategy strategy in new[] { BotStrategy.Single, BotStrategy.Multi })
             foreach (int campaignSeed in new[] { 1, 2, 3 })
             {
@@ -647,7 +669,7 @@ namespace SettlementSim
                     DifficultyParams p = null;
                     if (n > 1)
                     {
-                        p = DifficultyParams.FromCash(cash);
+                        p = DifficultyParams.FromCash(cash, proc.Difficulty);
                         var g = ProceduralMapGenerator.Generate(p, rules, campaignSeed * 100 + n);
                         if (g == null) { line.Append($"| #{n} 생성 실패 "); break; }
                         def = g.Map;

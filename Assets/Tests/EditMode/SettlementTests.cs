@@ -206,14 +206,19 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Upgrade_IsCappedAtMvpLevel2()
+        public void Upgrade_GoesUpToLevel3()
         {
-            Script sc = new Script().Run(30);
+            // 2026-10-23 로드맵 1-③: 레벨 상한 2 → 3(Docs/decision_log_auto.md U1).
+            Script sc = new Script(r => r.StartingCash = 100000).Run(30);
             Facility farm = sc.F("farm");
+            sc.S.BuyStone(60);
             Assert.IsTrue(sc.S.RequestUpgrade(farm.Id).Success);
             sc.S.AdvanceHours(20);
             Assert.AreEqual(2, farm.Level);
-            Assert.IsFalse(sc.S.RequestUpgrade(farm.Id).Success, "L3는 MVP에서 잠금");
+            Assert.IsTrue(sc.S.RequestUpgrade(farm.Id).Success, "L3 개량 가능");
+            sc.S.AdvanceHours(20);
+            Assert.AreEqual(3, farm.Level);
+            Assert.IsFalse(sc.S.RequestUpgrade(farm.Id).Success, "L3가 최고");
         }
 
         [Test]
@@ -279,7 +284,7 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Warehouse_CannotClose_AndDemolishChecksStorage()
+        public void Warehouse_CloseAndDemolish_CheckStorage()
         {
             Script sc = new Script(r => r.StartingCash = 100000); // 석재를 한도 가까이 사 모을 수 있게
             sc.At(40, "warehouse", s => s.RequestBuild(BuildingKinds.Warehouse, WarehouseTile));
@@ -287,10 +292,9 @@ namespace DesertSettlement.Core.Tests
             Settlement st = sc.S;
             Facility wh = sc.F("warehouse");
             Assert.AreEqual(200.0, st.StoneCapacity);
-            Assert.IsFalse(st.SetClosed(wh.Id, true).Success, "MVP: 창고 수동 폐쇄 불가");
-
             st.BuyStone(200);
             Assert.Greater(st.Stone, 100.0);
+            Assert.IsFalse(st.SetClosed(wh.Id, true).Success, "폐쇄 후 한도(100)를 재고가 넘으면 거부(2026-10-23 창고 폐쇄 허용)");
             Assert.IsFalse(st.RequestDemolish(wh.Id).Success, "철거 후 한도(100)를 재고가 넘으면 거부");
         }
 

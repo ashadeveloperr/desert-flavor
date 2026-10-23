@@ -292,6 +292,11 @@ namespace DesertSettlement.Core.Economy
             Facility f = GetFacility(facilityId);
             if (f == null) return CommandResult.Fail("시설이 없습니다.");
             if (closed && Rules.CannotClose.Contains(f.Kind)) return CommandResult.Fail($"{f.Kind}은(는) 폐쇄할 수 없습니다.");
+            if (closed && f.State == FacilityState.Operating)
+            {
+                string storage = StorageProblemIfRemoved(f);
+                if (storage != null) return CommandResult.Fail(storage);
+            }
             if (closed && f.State == FacilityState.Operating) f.State = FacilityState.Closed;
             else if (!closed && f.State == FacilityState.Closed) f.State = FacilityState.Operating;
             else return CommandResult.Fail("운영 중인 시설만 폐쇄, 폐쇄된 시설만 재개할 수 있습니다.");
@@ -586,7 +591,7 @@ namespace DesertSettlement.Core.Economy
             double stoneCapAfter = StoneCapacity - (f.IsOperating ? lv.StoneStorageBonus ?? 0 : 0);
             if (Food > foodCapAfter + 1e-9 || Stone > stoneCapAfter + 1e-9)
             {
-                return $"철거 후 저장 한도(식량 {foodCapAfter:0}, 석재 {stoneCapAfter:0})를 현재 재고가 넘습니다.";
+                return $"철거·폐쇄 후 저장 한도(식량 {foodCapAfter:0}, 석재 {stoneCapAfter:0})를 현재 재고가 넘습니다.";
             }
             return null;
         }

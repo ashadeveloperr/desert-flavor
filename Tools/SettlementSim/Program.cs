@@ -31,6 +31,7 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "exploit") return ExploitTuning(args.Skip(1).ToArray());
             // dotnet run --project Tools/SettlementSim -- epidemic : 전염병·병원·방역 장비 측정(EpidemicTuning.cs).
             if (args.Length > 0 && args[0] == "epidemic") return EpidemicTuning(args.Skip(1).ToArray());
+            if (args.Length > 0 && args[0] == "upgrades") return UpgradeTuning(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();
@@ -698,7 +699,7 @@ namespace SettlementSim
 
         private static DesertSettlement.Core.Economy.Settlement RunCoreScript(DesertSettlement.Core.Config.EconomyConfig config,
             (string name, string action, int time)[] extra, Dictionary<int, int> stoneBuys, Dictionary<int, int> foodBuys, int until,
-            double? developmentRatio = 0.0)
+            double? developmentRatio = 0.0, bool currentRules = false)
         {
             var map = new HexMap(3);
             map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
@@ -706,8 +707,11 @@ namespace SettlementSim
             map.GetTile(new HexCoord(2, 0)).Terrain = TerrainType.OreVein;
             var rules = DesertSettlement.Core.Economy.SettlementRules.FromConfig(config);
             if (developmentRatio.HasValue) rules.DevelopmentAssetRatio = developmentRatio.Value; // 이식본엔 개발 중 자산이 없으므로 비교 시 0
-            rules.MaturityStartRatio = 1; // 이식본(v0.8)엔 가동 숙성·채석장 능력 규칙이 없으므로 비교 때는 끈다
-            rules.StoneMultiplierUsesQuarryCapacity = false;
+            if (!currentRules)
+            {
+                rules.MaturityStartRatio = 1; // 이식본(v0.8)엔 가동 숙성·채석장 능력 규칙이 없으므로 비교 때는 끈다
+                rules.StoneMultiplierUsesQuarryCapacity = false;
+            }
             var s = new DesertSettlement.Core.Economy.Settlement(map, rules);
 
             var tiles = new Dictionary<string, HexCoord>

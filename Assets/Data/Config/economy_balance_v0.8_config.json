@@ -29,7 +29,7 @@
     "foodRecoveryFreezesWhenNoDemand": true,
     "closedFacilityUpkeepRatio": 0.3,
     "canalLossPerWholeEdge": 0.05,
-    "initialMvpMaxFacilityLevel": 2
+    "initialMvpMaxFacilityLevel": 3
   },
   "purchase": {
     "food": {

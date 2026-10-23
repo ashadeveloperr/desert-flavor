@@ -100,8 +100,9 @@ namespace DesertSettlement.Core.Economy
         /// <summary>지을 수 없는 시설. 2026-10-23 로드맵 1-② 물탱크를 열어 지금은 비어 있다(전에는 물탱크, W7).</summary>
         public HashSet<string> DisabledKinds { get; } = new HashSet<string>();
 
-        /// <summary>수동 폐쇄할 수 없는 시설(MVP: 창고).</summary>
-        public HashSet<string> CannotClose { get; } = new HashSet<string> { BuildingKinds.Warehouse };
+        /// <summary>수동 폐쇄할 수 없는 시설. 2026-10-23 로드맵 1-③ 창고 폐쇄를 열어 지금은 비어 있다(전에는 창고).
+        /// 창고는 재고가 폐쇄 뒤 저장 한도 안일 때만 닫을 수 있다(철거와 같은 조건, Docs/decision_log_auto.md U3).</summary>
+        public HashSet<string> CannotClose { get; } = new HashSet<string>();
 
         public WaterNetworkSettings Water { get; set; }
 

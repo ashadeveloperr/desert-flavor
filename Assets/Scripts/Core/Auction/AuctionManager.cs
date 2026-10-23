@@ -94,6 +94,8 @@ namespace DesertSettlement.Core.Auction
         public event Action<IReadOnlyList<BidderProfile>> BiddersAnnounced;
         public event Action<AuctionEvent> AuctionOpened;
         public event Action<SaleResult> Sold;
+        /// <summary>플레이어가 경매를 보류했을 때(저장 파일 명령 기록용, 2026-10-23).</summary>
+        public event Action Held;
         public event Action<string> Bankrupted;
 
         public AuctionManager(Settlement settlement, int seed)
@@ -204,6 +206,7 @@ namespace DesertSettlement.Core.Auction
         public void Hold()
         {
             if (!IsOpen) throw new InvalidOperationException("열린 경매가 없습니다.");
+            Held?.Invoke();
             AuctionEvent auction = CurrentAuction;
             CurrentAuction = null;
             Phase = AuctionPhase.Scheduled;

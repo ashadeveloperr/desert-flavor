@@ -68,6 +68,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   난수는 `DeterministicRandom`(Unity·.NET 같은 수열) — 생성 절차를 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests` 골든 값을 함께 갱신.
   맵 파일은 `Assets/Data/Maps/*.json`(`MapLoader`).
 - **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵(인스펙터 지형 목록) → `Settlement` → 시계, 정각마다 `AdvanceHour()`.
+- **저장·불러오기(`Core/Progression/SaveGame`):** 시드 + 성공한 플레이어 명령 기록을 저장하고, 같은 시드로 다시 실행해 복원(F5/F9). **새 플레이어 명령을 추가하면 `Settlement.Commands.cs`(기록)와 `SaveGame.Apply`(재실행)에 함께 넣는다.** 확인 `dotnet run --project Tools/SettlementSim -- savecheck`.
 - **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), `SettlementHud`(IMGUI),
   `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.
 - **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기, 생성 맵 미리보기).

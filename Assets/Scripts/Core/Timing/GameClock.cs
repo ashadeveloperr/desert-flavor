@@ -92,6 +92,12 @@ namespace DesertSettlement.Core.Timing
             _elapsedHours = 0;
         }
 
+        /// <summary>불러오기: 정착지 시작 뒤 지난 시간으로 시계를 맞춘다(이벤트 없음, 2026-10-23 저장·불러오기).</summary>
+        public void RestoreElapsedHours(long hours)
+        {
+            _elapsedHours = Math.Max(0, hours);
+        }
+
         public void SetPaused(bool paused)
         {
             if (IsPaused == paused) return;

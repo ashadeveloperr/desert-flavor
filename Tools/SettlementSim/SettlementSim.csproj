@@ -17,6 +17,7 @@
     <Compile Include="../../Assets/Scripts/Core/Economy/*.cs" Link="Core/Economy/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Auction/*.cs" Link="Core/Auction/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Progression/Campaign.cs" Link="Core/Progression/Campaign.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/SaveGame.cs" Link="Core/Progression/SaveGame.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/MapDefinition.cs" Link="Core/Progression/MapDefinition.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/DeterministicRandom.cs" Link="Core/Progression/DeterministicRandom.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfig.cs" Link="Core/Progression/ProceduralMapConfig.cs" />

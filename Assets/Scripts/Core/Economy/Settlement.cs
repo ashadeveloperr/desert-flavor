@@ -142,7 +142,7 @@ namespace DesertSettlement.Core.Economy
         /// 타일 시설 건설 예약. 석재는 착공 때 차감된다.
         /// 무료 완공 배치(<see cref="FreeBuildsRemaining"/>)가 남아 있으면 대기열 없이 바로 운영 중인 L1 시설이 생긴다(JobId -1).
         /// </summary>
-        public CommandResult RequestBuild(string kind, HexCoord tile)
+        private CommandResult DoRequestBuild(string kind, HexCoord tile)
         {
             CommandResult check = CanBuild(kind, tile);
             if (!check.Success) return check;
@@ -163,13 +163,13 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>변 위 수로 건설 예약.</summary>
-        public CommandResult RequestCanal(EdgeId edge)
+        private CommandResult DoRequestCanal(EdgeId edge)
         {
             CommandResult check = CanBuildCanal(edge);
             return check.Success ? Enqueue(JobType.Build, BuildingKinds.CanalEdge, default, edge, -1, 1) : check;
         }
 
-        public CommandResult RequestUpgrade(int facilityId)
+        private CommandResult DoRequestUpgrade(int facilityId)
         {
             CommandResult check = CanUpgrade(facilityId);
             if (!check.Success) return check;
@@ -177,7 +177,7 @@ namespace DesertSettlement.Core.Economy
             return Enqueue(JobType.Upgrade, f.Kind, f.Tile, f.Edge, f.Id, f.Level + 1);
         }
 
-        public CommandResult RequestDemolish(int facilityId)
+        private CommandResult DoRequestDemolish(int facilityId)
         {
             CommandResult check = CanDemolish(facilityId);
             if (!check.Success) return check;
@@ -246,7 +246,7 @@ namespace DesertSettlement.Core.Economy
         /// <summary>
         /// 작업 취소. 대기 중이면 비용 없이 삭제, 진행 중이면 투입 석재의 <see cref="SettlementRules.CancelRefundRatio"/>를 돌려받고 원상태로 되돌린다.
         /// </summary>
-        public CommandResult CancelJob(int jobId)
+        private CommandResult DoCancelJob(int jobId)
         {
             ConstructionJob job = GetJob(jobId);
             if (job == null) return CommandResult.Fail("작업이 없습니다.");
@@ -273,7 +273,7 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>대기 중인 작업의 순서를 바꾼다. newQueuedIndex는 '대기 중 작업들' 사이의 위치(0 = 맨 앞).</summary>
-        public CommandResult MoveQueuedJob(int jobId, int newQueuedIndex)
+        private CommandResult DoMoveQueuedJob(int jobId, int newQueuedIndex)
         {
             ConstructionJob job = GetJob(jobId);
             if (job == null) return CommandResult.Fail("작업이 없습니다.");
@@ -287,7 +287,7 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>시설 폐쇄/재개. 폐쇄 중에는 물 수요·식량 소비 0, 유지비 일부.</summary>
-        public CommandResult SetClosed(int facilityId, bool closed)
+        private CommandResult DoSetClosed(int facilityId, bool closed)
         {
             Facility f = GetFacility(facilityId);
             if (f == null) return CommandResult.Fail("시설이 없습니다.");
@@ -304,10 +304,10 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>식량 외부 구매(1단위씩, 단가 상승). 저장 한도·자금 안에서만. 실제 구매 수를 돌려준다.</summary>
-        public int BuyFood(int units) => Buy(units, isFood: true);
+        private int DoBuyFood(int units) => Buy(units, isFood: true);
 
         /// <summary>석재 외부 구매(1단위씩, 단가 상승). 저장 한도·자금 안에서만. 실제 구매 수를 돌려준다.</summary>
-        public int BuyStone(int units) => Buy(units, isFood: false);
+        private int DoBuyStone(int units) => Buy(units, isFood: false);
 
         /// <summary>다음 1단위 구매 가격.</summary>
         public double NextPrice(bool food)

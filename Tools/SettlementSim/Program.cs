@@ -33,6 +33,7 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "epidemic") return EpidemicTuning(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "upgrades") return UpgradeTuning(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "bidders") return BidderTuning(args.Skip(1).ToArray());
+            if (args.Length > 0 && args[0] == "savecheck") return SaveCheck(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();

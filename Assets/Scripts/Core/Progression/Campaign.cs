@@ -99,6 +99,7 @@ namespace DesertSettlement.Core.Progression
             IReadOnlyList<RegionOffer> offers = NextOffers();
             if (offerIndex < 0 || offerIndex >= offers.Count) throw new ArgumentOutOfRangeException(nameof(offerIndex), "없는 지역 후보입니다.");
             RegionOffer offer = offers[offerIndex];
+            _log.Add(new GameCommand { Type = GameCommand.Start, Index = offerIndex, Settlement = SettlementNumber + 1 });
 
             SettlementNumber++;
             CurrentMap = MapFor(offer);
@@ -115,6 +116,11 @@ namespace DesertSettlement.Core.Progression
             Current = new Settlement(CurrentMap.CreateMap(), rules);
             Auctions = new AuctionManager(Current, _seed + SettlementNumber * 7919);
             Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421);
+            // 저장 파일 명령 기록(2026-10-23 로드맵 2-①): 정착지 명령·경매 결정을 모은다.
+            Current.CommandRecorded += Log;
+            Settlement recorded = Current;
+            Auctions.Held += () => Log(new GameCommand { Type = GameCommand.Hold, Hour = recorded.CurrentHour });
+            Auctions.Sold += sale => Log(new GameCommand { Type = GameCommand.Sell, Hour = recorded.CurrentHour, Index = IndexOfBid(sale) });
             Auctions.Sold += OnSold;
             Auctions.Bankrupted += OnBankrupt;
             State = CampaignState.InSettlement;
@@ -180,6 +186,7 @@ namespace DesertSettlement.Core.Progression
             _owned.Add(e.Id);
             _levels[e.Id] = 1;
             if (_loadout.Count < EquipmentSlots) _loadout.Add(e.Id);
+            Log(new GameCommand { Type = GameCommand.BuyEquipment, Kind = e.Id, Hour = Current?.CurrentHour ?? 0 });
             return CommandResult.Ok();
         }
 
@@ -223,6 +230,7 @@ namespace DesertSettlement.Core.Progression
             if (Cash < cost.Value) return CommandResult.Fail($"자금이 부족합니다({cost.Value:0} 필요).");
             Cash -= cost.Value;
             _levels[equipmentId]++;
+            Log(new GameCommand { Type = GameCommand.UpgradeEquipment, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
             return CommandResult.Ok();
         }
 
@@ -241,11 +249,39 @@ namespace DesertSettlement.Core.Progression
         {
             if (State == CampaignState.InSettlement && Current != null) return CommandResult.Fail("장비는 정착지에 들어가기 전에만 바꿀 수 있습니다.");
             if (!_owned.Contains(equipmentId)) return CommandResult.Fail("가지지 않은 장비입니다.");
-            if (!equipped) { _loadout.Remove(equipmentId); return CommandResult.Ok(); }
+            if (!equipped)
+            {
+                if (_loadout.Remove(equipmentId)) Log(new GameCommand { Type = GameCommand.Unequip, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
+                return CommandResult.Ok();
+            }
             if (_loadout.Contains(equipmentId)) return CommandResult.Ok();
             if (_loadout.Count >= EquipmentSlots) return CommandResult.Fail($"현장 장비 슬롯 {EquipmentSlots}개가 가득 찼습니다.");
             _loadout.Add(equipmentId);
+            Log(new GameCommand { Type = GameCommand.Equip, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
             return CommandResult.Ok();
+        }
+
+        // ───────────── 저장 파일 명령 기록(2026-10-23 로드맵 2-①, SaveGame) ─────────────
+
+        private readonly List<GameCommand> _log = new List<GameCommand>();
+
+        /// <summary>이 캠페인에서 성공한 플레이어 명령 전부(순서대로). 저장 파일에 그대로 들어간다.</summary>
+        public IReadOnlyList<GameCommand> CommandLog => _log;
+
+        /// <summary>캠페인 시드(같은 시드 + 같은 명령 = 같은 결과).</summary>
+        public int Seed => _seed;
+
+        private void Log(GameCommand c)
+        {
+            c.Settlement = SettlementNumber;
+            _log.Add(c);
+        }
+
+        private static int IndexOfBid(SaleResult sale)
+        {
+            for (int i = 0; i < sale.Auction.Bids.Count; i++)
+                if (ReferenceEquals(sale.Auction.Bids[i], sale.Bid)) return i;
+            return 0;
         }
 
         private void OnSold(SaleResult sale)

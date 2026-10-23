@@ -110,31 +110,87 @@ namespace DesertSettlement.Runtime
             IsReady = false;
             try
             {
-                if (economyConfig == null) throw new InvalidOperationException("economyConfig(TextAsset)가 지정되지 않았습니다.");
-                Config = EconomyConfigLoader.Parse(economyConfig.text);
-                List<MapDefinition> definitions = maps.Where(m => m != null).Select(m => MapLoader.Parse(m.text)).ToList();
-                if (definitions.Count == 0) definitions.Add(FallbackMap());
-
-                Layout = new HexLayout(tileSize);
-                ProceduralMapConfig procedural = proceduralMapConfig != null ? ProceduralMapConfigLoader.Parse(proceduralMapConfig.text) : null;
+                LoadData(out List<MapDefinition> definitions, out ProceduralMapConfig procedural);
                 Campaign = new Campaign(Config, definitions, campaignSeed, procedural);
-
-                if (Clock == null)
-                {
-                    Clock = new GameClock(timeSettings, Config.ConfirmedRules.GameDayRealSecondsAt1x);
-                    Clock.HourPassed += OnHourPassed;
-                    if (logClockEvents)
-                    {
-                        Clock.DayStarted += t => Debug.Log($"[GameClock] {t.Day}일차 시작");
-                        Clock.PhaseChanged += t => Debug.Log($"[GameClock] {t} — {(t.Phase == DayPhase.Day ? "낮" : "밤")}이 되었습니다");
-                    }
-                }
-
+                EnsureClock();
                 BeginSettlement();
             }
             catch (Exception e)
             {
                 Debug.LogError($"[GameSession] 초기화 실패: {e.Message}", this);
+            }
+        }
+
+        private void LoadData(out List<MapDefinition> definitions, out ProceduralMapConfig procedural)
+        {
+            if (economyConfig == null) throw new InvalidOperationException("economyConfig(TextAsset)가 지정되지 않았습니다.");
+            Config = EconomyConfigLoader.Parse(economyConfig.text);
+            definitions = maps.Where(m => m != null).Select(m => MapLoader.Parse(m.text)).ToList();
+            if (definitions.Count == 0) definitions.Add(FallbackMap());
+            Layout = new HexLayout(tileSize);
+            procedural = proceduralMapConfig != null ? ProceduralMapConfigLoader.Parse(proceduralMapConfig.text) : null;
+        }
+
+        private void EnsureClock()
+        {
+            if (Clock != null) return;
+            Clock = new GameClock(timeSettings, Config.ConfirmedRules.GameDayRealSecondsAt1x);
+            Clock.HourPassed += OnHourPassed;
+            if (logClockEvents)
+            {
+                Clock.DayStarted += t => Debug.Log($"[GameClock] {t.Day}일차 시작");
+                Clock.PhaseChanged += t => Debug.Log($"[GameClock] {t} — {(t.Phase == DayPhase.Day ? "낮" : "밤")}이 되었습니다");
+            }
+        }
+
+        // ───────────── 저장·불러오기(2026-10-23 로드맵 2-①, Docs/decision_log_auto.md S1~S5) ─────────────
+
+        /// <summary>저장 파일 위치(한 칸). 에디터·빌드 모두 Application.persistentDataPath 아래.</summary>
+        public string SavePath => System.IO.Path.Combine(Application.persistentDataPath, "desert_settlement_save.json");
+
+        public bool HasSave => System.IO.File.Exists(SavePath);
+
+        /// <summary>지금 캠페인을 저장한다(명령 기록 + 시드 + 지금 시간). 결과 문구를 돌려준다.</summary>
+        public string SaveGame()
+        {
+            if (!IsReady || Campaign == null) return "저장할 게임이 없습니다.";
+            try
+            {
+                SaveData data = DesertSettlement.Core.Progression.SaveGame.Capture(Campaign, DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
+                System.IO.File.WriteAllText(SavePath, SaveGameJson.Serialize(data));
+                Debug.Log($"[Save] {SavePath} — {data.Summary}, 명령 {data.Commands.Count}개");
+                return $"저장했습니다: {data.Summary}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Save] 저장 실패: {e.Message}", this);
+                return "저장 실패: " + e.Message;
+            }
+        }
+
+        /// <summary>저장 파일을 읽어 같은 시드로 명령을 다시 실행해 캠페인을 되살린다. 결과 문구를 돌려준다.</summary>
+        public string LoadGame()
+        {
+            if (!HasSave) return "저장 파일이 없습니다.";
+            try
+            {
+                SaveData data = SaveGameJson.Deserialize(System.IO.File.ReadAllText(SavePath));
+                LoadData(out List<MapDefinition> definitions, out ProceduralMapConfig procedural);
+                var result = DesertSettlement.Core.Progression.SaveGame.Replay(Config, definitions, procedural, data);
+                foreach (string p in result.Problems) Debug.LogWarning("[Save] 복원 중 " + p);
+                IsReady = false;
+                Campaign = result.Campaign;
+                EnsureClock();
+                HookSettlement();
+                Clock.RestoreElapsedHours(Settlement?.CurrentHour ?? 0);
+                Clock.SetPaused(true); // 불러온 뒤에는 멈춘 상태로 시작
+                string warn = result.Problems.Count > 0 ? $" (경고 {result.Problems.Count}개, 콘솔 참고)" : "";
+                return $"불러왔습니다: {data.Summary}{warn}";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Save] 불러오기 실패: {e.Message}", this);
+                return "불러오기 실패: " + e.Message;
             }
         }
 
@@ -146,6 +202,15 @@ namespace DesertSettlement.Runtime
         private void BeginSettlement(int offerIndex = 0)
         {
             if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement(offerIndex);
+            Clock.ResetForNewSettlement();
+            Clock.SetPaused(false);
+            HookSettlement();
+        }
+
+        /// <summary>지금 정착지의 로그 이벤트를 연결하고 뷰에 다시 그리라고 알린다(새 정착지·불러오기 공통).</summary>
+        private void HookSettlement()
+        {
+            if (Auctions == null) return;
             Auctions.AuctionOpened += e => Debug.Log($"[Auction] {(e.Kind == AuctionKind.Emergency ? "긴급 매각" : "정기")} 경매 개최 — {e.Bids.Count}명 입찰, 시세 {e.Market:0.000}");
             Auctions.Bankrupted += r => Debug.LogWarning("[Auction] 파산: " + r);
             if (Campaign.Disasters != null)
@@ -154,8 +219,6 @@ namespace DesertSettlement.Runtime
                 Campaign.Disasters.Started += e => Debug.LogWarning($"[Disaster] {e.Name} 시작");
                 Campaign.Disasters.Ended += e => Debug.Log($"[Disaster] {e.Name} 끝 ({e.EndHour}시간째)");
             }
-            Clock.ResetForNewSettlement();
-            Clock.SetPaused(false);
             IsReady = true;
             Initialized?.Invoke();
         }

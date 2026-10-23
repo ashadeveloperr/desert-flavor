@@ -1,8 +1,9 @@
 # 이어서 작업하기 (다른 PC·새 Claude 세션용 인계)
 
-마지막 정리: 2026-10-23 · 마지막 커밋 `f88fbad` (origin = 개인 포크 `ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`, main)
+마지막 정리: 2026-10-23 · 최신 커밋은 `git log -1`로 확인 (origin = 개인 포크 `ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`, main)
 
-새 Claude 세션은 이전 대화를 기억하지 못한다. 이 문서 + `CLAUDE.md` + `Docs/implementation_notes.md`(결정 기록) + `Docs/work_items_2026-10-23.md`(진행 중 작업 목록)를 읽으면 이어 갈 수 있다.
+새 Claude 세션은 이전 대화를 기억하지 못한다. 이 문서 + `CLAUDE.md` + `Docs/implementation_notes.md`(결정 기록) + `Docs/work_items_2026-10-23.md`(진행 중 작업 목록)
++ **`Docs/roadmap_2026-10-23.md`(초기 기획 완성까지 남은 작업과 순서)**를 읽으면 이어 갈 수 있다.
 새 세션을 시작할 때 이렇게 말하면 된다: **"Docs/handoff.md를 읽고 이어서 작업하자."**
 
 ---
@@ -56,6 +57,10 @@
 | 장비 9종·가치 숙성·재해·병원 | `Assets/Data/Config/economy_balance_v0.8_config.json` (`equipment`, `auctionSeed`, `disasters`, `buildingLevels.hospital`) |
 
 ## 4. 다음에 할 일 (우선순위)
+
+> **전체 순서는 `Docs/roadmap_2026-10-23.md`가 기준이다**(2026-10-23 정리: 1단계 기획 규칙 채우기 → 2단계 플레이 완성도 → 3단계 폴리싱).
+> 추천: 재해 구상을 기다리는 동안 **물탱크**(로드맵 1-②) → 재해 구상이 오면 다른 재해(1-①) → L3·창고 폐쇄 → 장비 강화 → 도로 범위 → 입찰자 6종 → 난이도 재측정.
+> 아래 목록은 그 전까지의 기록이다.
 
 1. **재해 밸런스 B1~B3 결정**(`Docs/work_items_2026-10-23.md` 4번 끝, 측정 `dotnet run --project Tools/SettlementSim -- epidemic 20`)
    - ~~B1 방역 장비가 거의 면역~~ → 2026-10-23 결정·구현: 방역 장비 = 저항력 상승 속도 ×1.5. 후보 비교는 `-- epidemic sweep 20`.

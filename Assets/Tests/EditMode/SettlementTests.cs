@@ -59,6 +59,7 @@ namespace DesertSettlement.Core.Tests
                     r.MaturityStartRatio = 1;
                     r.StoneMultiplierUsesQuarryCapacity = false;
                     r.StartingCash = 1000; // v0.8 원본 시작 자금(게임 값은 2026-10-23 게임성 보강으로 700)
+                    r.ConstructionHoursMultiplier = 1; // v0.8 원본 건설 시간(게임 값은 2026-10-23 흐름 조정 W2로 0.5)
                     tweak?.Invoke(r);
                 });
                 S.JobStarted += job =>

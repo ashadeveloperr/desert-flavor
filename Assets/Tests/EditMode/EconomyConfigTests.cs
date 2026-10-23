@@ -18,7 +18,8 @@ namespace DesertSettlement.Core.Tests
             EconomyConfig config = EconomyConfigLoader.Parse(ReadRealConfig());
 
             Assert.AreEqual(EconomyConfigLoader.SupportedSchema, config.Schema);
-            Assert.AreEqual(90.0, config.ConfirmedRules.GameDayRealSecondsAt1x);
+            Assert.AreEqual(180.0, config.ConfirmedRules.GameDayRealSecondsAt1x); // 2026-10-23 흐름 조정 W1(원본 90)
+            Assert.AreEqual(0.5, config.ConfirmedRules.ConstructionHoursMultiplier);
             Assert.AreEqual(2, config.ConfirmedRules.ConstructionSlots);
             Assert.AreEqual(0.5, config.ConfirmedRules.PostStartCancelStoneRefundRatio);
             Assert.AreEqual(1, config.Prototype.EconomicTickGameHours);

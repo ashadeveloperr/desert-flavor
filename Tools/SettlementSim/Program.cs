@@ -716,6 +716,7 @@ namespace SettlementSim
                 rules.StartingCash = 1000; // v0.8 원본 시작 자금(게임 값은 2026-10-23 게임성 보강으로 700)
                 rules.MaturityStartRatio = 1; // 이식본(v0.8)엔 가동 숙성·채석장 능력 규칙이 없으므로 비교 때는 끈다
                 rules.StoneMultiplierUsesQuarryCapacity = false;
+                rules.ConstructionHoursMultiplier = 1; // 원본 v0.8 건설 시간(게임 값은 2026-10-23 흐름 조정 W2로 0.5)
             }
             var s = new DesertSettlement.Core.Economy.Settlement(map, rules);
 

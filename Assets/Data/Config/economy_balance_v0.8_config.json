@@ -10,7 +10,8 @@
     "auctionRepeatsGameHours": 72,
     "constructionSlots": 2,
     "postStartCancelStoneRefundRatio": 0.5,
-    "gameDayRealSecondsAt1x": 90,
+    "gameDayRealSecondsAt1x": 180,
+    "constructionHoursMultiplier": 0.5,
     "waterNetworkGeometry": "shared_hex_edges_and_vertices",
     "waterOrder": "upstream_first_same_priority_demand_proportional"
   },

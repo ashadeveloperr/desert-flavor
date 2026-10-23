@@ -75,7 +75,7 @@ namespace DesertSettlement.Core.Progression
         /// <summary>난이도 자금 항에 더하는 '지금까지 장비 구매·강화에 쓴 돈'의 비율(2026-10-23 E5). 0이면 보유 자금만 본다.</summary>
         public double EquipmentSpendInDifficulty { get; set; }
         /// <summary>생성 맵의 유지비 배율 = 1 + 이 값 × D(2026-10-23 H1: 먼 지역일수록 운영비가 비싸짐). 0이면 끔.</summary>
-        public double UpkeepPerD { get; set; } = 0.3; // 2026-10-23 H1: 숙련 봇 기준 후반 난이도
+        public double UpkeepPerD { get; set; } = 0.5; // 2026-10-23 H1: 숙련 봇 기준 후반 난이도(0.3) → W3: 건설 ×0.5 보정으로 0.5
 
         /// <summary>반경: D &lt; FirstRadiusStepD이면 BaseRadius, 이후 RadiusStepD마다 +1, 최대 MaxRadius(HexMap 한도 7).</summary>
         public int BaseRadius { get; set; } = 3;

@@ -176,7 +176,8 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | 시설 비용·생산량·유지비·수로 용량 등 경제 수치 | `Assets/Data/Config/economy_balance_v0.8_config.json` (코드 수정 불필요) |
 | 맵 반경, 타일 크기 | 씬의 `GameSession` 인스펙터 → 맵 |
 | 시작 시각, 낮/밤 경계, 배속 목록 | `GameSession` 인스펙터 → 시간 → Time Settings |
-| 하루 길이(1배속 90초) | JSON `confirmedRules.gameDayRealSecondsAt1x` (확정값이므로 기획 변경 시에만) |
+| 하루 길이(1배속 180초, 2026-10-23 W1. 원래 90초) | JSON `confirmedRules.gameDayRealSecondsAt1x` |
+| 건설·개량·철거 시간 배율(0.5, W2) | JSON `confirmedRules.constructionHoursMultiplier` (1 = 원본 v0.8, 회귀 검증은 1로 고정) |
 | 태양 색·밝기·일출/일몰 각도 | `DayNightLighting` 인스펙터의 Gradient / Curve |
 | 디버그 표시 색, 꼭짓점·좌표 라벨 표시 | `HexMapDebugView` 인스펙터 |
 | 수로 손실률·레벨별 용량 | JSON `prototype.canalLossPerWholeEdge`, `buildingLevels.canalEdge[].capacityPerHour` |

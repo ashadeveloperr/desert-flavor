@@ -32,7 +32,7 @@ namespace DesertSettlement.Core.Timing
 
     /// <summary>
     /// 게임 전용 시계. Unity Time.timeScale을 쓰지 않고, 매 프레임 현실 경과 시간을 받아 게임 시간을 누적한다.
-    /// - 1배속 하루 = RealSecondsPerGameDay초(확정 90초), 하루 = 24게임시간
+    /// - 1배속 하루 = RealSecondsPerGameDay초(원래 확정 90초 → 2026-10-23 흐름 조정 W1로 180초, 설정 JSON), 하루 = 24게임시간
     /// - 정착지마다 <see cref="GameTimeSettings.StartHourOfDay"/>(12시)에서 시작
     /// - 정각마다 <see cref="HourPassed"/>, 자정마다 <see cref="DayStarted"/>, 낮/밤 전환 시 <see cref="PhaseChanged"/>
     /// 한 프레임에 여러 시간이 지나가도 정각 이벤트는 빠짐없이 순서대로 발생한다.

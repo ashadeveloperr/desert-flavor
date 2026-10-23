@@ -24,7 +24,7 @@
     "cashPerD": 14000,
     "dPerSettlement": 0.25,
     "equipmentSpendInDifficulty": 0,
-    "upkeepPerD": 0.3,
+    "upkeepPerD": 0.5,
     "baseRadius": 3,
     "firstRadiusStepD": 1.0,
     "radiusStepD": 1.0,

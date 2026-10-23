@@ -33,6 +33,7 @@ namespace DesertSettlement.Core.Tests
         private static (Settlement s, AuctionManager a) NewRun(Action<SettlementRules> tweak = null, int seed = 1)
         {
             SettlementRules rules = SettlementRules.FromConfig(_config);
+            rules.ConstructionHoursMultiplier = 1; // 경매 일정 시각은 원본 건설 시간 기준으로 고정(게임 값 0.5는 2026-10-23 W2)
             tweak?.Invoke(rules);
             var s = new Settlement(_maps[0].CreateMap(), rules);
             var a = new AuctionManager(s, seed);

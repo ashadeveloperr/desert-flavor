@@ -37,6 +37,8 @@ namespace DesertSettlement.Core.Economy
         public double DemolishRefundRatio { get; set; } = 0.5;
         /// <summary>철거 공사 시간 = 해당 시설 L1 건설 시간 × 이 값(올림, 최소 1). [잠정 임시값]</summary>
         public double DemolishHoursRatio { get; set; } = 0.5;
+        /// <summary>건설·개량·철거 시간 배율(설정 confirmedRules.constructionHoursMultiplier, 2026-10-23 W2). 1 = 원본 v0.8.</summary>
+        public double ConstructionHoursMultiplier { get; set; } = 1;
         // ── 장비·지역 모디파이어 효과 (캠페인이 <see cref="ApplyEffects"/>로 건다. 기본값 = 효과 없음) ──
         /// <summary>광물 생산 배율(풍부한 광맥·광업 강화).</summary>
         public double OreMultiplier { get; set; } = 1.0;
@@ -124,6 +126,7 @@ namespace DesertSettlement.Core.Economy
             {
                 ConstructionSlots = c.ConstructionSlots,
                 CancelRefundRatio = c.PostStartCancelStoneRefundRatio,
+                ConstructionHoursMultiplier = c.ConstructionHoursMultiplier > 0 ? c.ConstructionHoursMultiplier : 1,
                 StartingCash = p.StartingCash,
                 StarterStone = p.SiteStarterStone,
                 StarterFood = p.SiteStarterFood,

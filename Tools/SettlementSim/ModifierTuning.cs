@@ -121,11 +121,14 @@ namespace SettlementSim
             const int maps = 30;
             if (args.Length > 0 && args[0] == "campaign")
             {
-                // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] : 곡선 후보를 바꿔 가며 비교.
+                // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] : 곡선 후보를 바꿔 가며 비교.
                 // nodisaster = 재해 끔, vaccine = 봇이 방역 장비 우선 구매·장착. 위치와 상관없이 쓸 수 있다.
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade"), smart = args.Contains("smart");
-                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart").ToArray();
+                // upkeep=k : 생성 맵 운영비 × (1 + k × D)의 k(H1, 2026-10-23 흐름 조정 측정용).
+                string upkeepArg = args.FirstOrDefault(a => a.StartsWith("upkeep="));
+                if (upkeepArg != null) proc.Difficulty.UpkeepPerD = double.Parse(upkeepArg.Substring(7), inv);
+                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && !a.StartsWith("upkeep=")).ToArray();
                 if (args.Length > 1) proc.Difficulty.DPerSettlement = double.Parse(args[1], inv);
                 if (args.Length > 2) proc.Difficulty.CashPerD = double.Parse(args[2], inv);
                 int count = args.Length > 3 ? int.Parse(args[3], inv) : 15;

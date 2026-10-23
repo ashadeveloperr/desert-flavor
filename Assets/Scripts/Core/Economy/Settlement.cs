@@ -601,9 +601,10 @@ namespace DesertSettlement.Core.Economy
         private CommandResult Enqueue(JobType type, string kind, HexCoord tile, EdgeId? edge, int facilityId, int targetLevel)
         {
             BuildingLevel lv = Rules.Level(kind, type == JobType.Demolish ? 1 : targetLevel);
+            double m = Rules.ConstructionHoursMultiplier;
             int hours = type == JobType.Demolish
-                ? Math.Max(1, (int)Math.Ceiling((lv.Hours ?? 1) * Rules.DemolishHoursRatio))
-                : (int)(lv.Hours ?? 1);
+                ? Math.Max(1, (int)Math.Ceiling((lv.Hours ?? 1) * Rules.DemolishHoursRatio * m))
+                : Math.Max(1, (int)Math.Round((lv.Hours ?? 1) * m, MidpointRounding.AwayFromZero));
             var job = new ConstructionJob
             {
                 Id = _nextJobId++, Type = type, Kind = kind, Tile = tile, Edge = edge, FacilityId = facilityId,

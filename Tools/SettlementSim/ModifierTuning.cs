@@ -60,7 +60,7 @@ namespace SettlementSim
                     if (!ReferenceBot.PlayCampaignSettlement(c))
                     {
                         line.Append($"| #{n} {label}{(mods.Length > 0 ? "[" + mods + "]" : "")} 실패({(c.State == CampaignState.Bankrupt ? "파산" : "진행 불가")}) ");
-                        firstDeficit = firstDeficit ?? $"#{n} {label} 파산";
+                        firstDeficit = firstDeficit ?? $"#{n} {label} {(c.State == CampaignState.Bankrupt ? "파산" : "진행 불가(봇 계획 실패)")}";
                         break;
                     }
                     double profit = c.Cash - before;

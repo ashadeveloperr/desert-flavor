@@ -195,11 +195,27 @@ namespace SettlementSim
             if (plan == null) return false;
             var withPlan = new MapDefinition { Id = c.CurrentMap.Id, Radius = c.CurrentMap.Radius, Terrain = c.CurrentMap.Terrain, SampleLayout = plan };
             if (withPlan.RequestSampleLayout(c.Current).Count > 0) return false;
-            for (int h = 0; h < maxHours && !c.Auctions.IsOpen && !c.Auctions.IsFinished; h++) c.Current.AdvanceHour();
+            for (int h = 0; h < maxHours && !c.Auctions.IsOpen && !c.Auctions.IsFinished; h++) { UnblockStone(c.Current); c.Current.AdvanceHour(); }
             if (!c.Auctions.IsOpen) return false;
             var bids = c.Auctions.CurrentAuction.Bids.ToList();
             c.Auctions.Sell(bids.IndexOf(bids.OrderByDescending(b => b.Cash).First()));
             return c.State == CampaignState.Shopping;
+        }
+
+        /// <summary>
+        /// 숙련 플레이어처럼 석재를 산다(2026-10-23 로드맵 2-④): 작업 슬롯이 비었는데 대기열 맨 앞 작업이 석재 부족으로 막혀 있고,
+        /// 다음 6시간 안에 채석장 생산으로 채울 수 없으면 모자란 만큼 산다(FIFO라 맨 앞이 막히면 전부 멈춤).
+        /// 전에는 사지 않아, 채석장에 물이 안 가는 맵에서 경매장이 영영 착공되지 않고 파산했다(Docs/decision_log_auto.md O1).
+        /// </summary>
+        public static void UnblockStone(Settlement s)
+        {
+            if (s.JobsInProgress >= s.Rules.ConstructionSlots) return;
+            ConstructionJob head = s.Jobs.FirstOrDefault(j => j.State == JobState.Queued);
+            if (head == null || s.Stone + 1e-8 >= head.StoneCost) return;
+            double perHour = s.History.Count > 0 ? s.History[s.History.Count - 1].StoneProduced : 0;
+            double missing = head.StoneCost - s.Stone - perHour * 6;
+            if (missing <= 1e-8) return;
+            s.BuyStone((int)Math.Ceiling(head.StoneCost - s.Stone));
         }
 
         /// <summary>계획을 예약하고 첫 경매(또는 파산·시간 초과)까지 돌린다. disasters를 주면 캠페인처럼 재해 일정을 붙인다(seed로 결정).</summary>
@@ -231,7 +247,7 @@ namespace SettlementSim
                 return result;
             }
 
-            for (int h = 0; h < maxHours && !a.IsOpen && !a.IsFinished; h++) s.AdvanceHour();
+            for (int h = 0; h < maxHours && !a.IsOpen && !a.IsFinished; h++) { UnblockStone(s); s.AdvanceHour(); }
             result.Auctions = a;
             result.Settlement = s;
             result.Bankrupt = a.Phase == AuctionPhase.Bankrupt;

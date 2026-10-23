@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
@@ -23,30 +24,36 @@ namespace SettlementSim
             const int mapsPerD = 24;
 
             Header($"난이도 곡선 후보 — 다중 봇 첫 경매 매각 순이익 중앙값 (시작 자금 2000, D마다 {mapsPerD}장)");
+            Line("  행: 재해 없음 / +재해 = 설정의 재해 일정(맵 시드, 0~2번 무작위) / +방역 = 재해 + 방역 장비(5-1 재측정, 2026-10-23)");
             Line("  후보 | " + string.Join(" | ", TuneDs.Select(d => $"D{d:0.##}")));
+            EquipmentDefinition vaccination = config.Equipment.Single(e => e.Id == "vaccination");
             foreach (var (name, curve) in candidates)
             {
-                var cells = new List<string>();
                 var detail = new List<string>();
-                foreach (double d in TuneDs)
+                foreach (var (label, withDisasters, vaccinated) in new[] { ("", false, false), (" +재해", true, false), (" +방역", true, true) })
                 {
-                    DifficultyParams p = DifficultyParams.For(d, curve);
-                    var profits = new List<double>();
-                    int fail = 0, bankrupt = 0;
-                    for (int i = 0; i < mapsPerD; i++)
+                    var cells = new List<string>();
+                    foreach (double d in TuneDs)
                     {
-                        GeneratedMap g = ProceduralMapGenerator.Generate(p, rules, 50000 + (int)(d * 1000) + i);
-                        if (g == null) { fail++; continue; }
-                        var r = ReferenceBot.Run(config, g.Map, x => x.StartingCash = 2000, seed: g.Seed, strategy: BotStrategy.Multi);
-                        if (r.AuctionHour >= 0) profits.Add(r.FinalCash - 2000);
-                        else { profits.Add(-2000); if (r.Bankrupt) bankrupt++; } // 파산·시간 초과 = 시작 자금 전부 잃음으로 친다
+                        DifficultyParams p = DifficultyParams.For(d, curve);
+                        var profits = new List<double>();
+                        int fail = 0, bankrupt = 0;
+                        for (int i = 0; i < mapsPerD; i++)
+                        {
+                            GeneratedMap g = ProceduralMapGenerator.Generate(p, rules, 50000 + (int)(d * 1000) + i);
+                            if (g == null) { fail++; continue; }
+                            var r = ReferenceBot.Run(config, g.Map, x => { x.StartingCash = 2000; if (vaccinated) x.ApplyEffects(vaccination.Effects); },
+                                seed: g.Seed, strategy: BotStrategy.Multi, disasters: withDisasters ? config.Disasters : null);
+                            if (r.AuctionHour >= 0) profits.Add(r.FinalCash - 2000);
+                            else { profits.Add(-2000); if (r.Bankrupt) bankrupt++; } // 파산·시간 초과 = 시작 자금 전부 잃음으로 친다
+                        }
+                        profits.Sort();
+                        string med = profits.Count == 0 ? "생성불가" : $"{profits[profits.Count / 2],5:+0;-0}";
+                        cells.Add(med + (bankrupt > 0 ? $"(파{bankrupt})" : "") + (fail > 0 ? $"(실{fail})" : ""));
+                        if (label == "") detail.Add($"D{d:0.##} R{p.Radius} 우{p.WellCount} 광{p.OreCount} 장{p.ObstacleDensity:P0} 거{p.TargetWellOreDistance}");
                     }
-                    profits.Sort();
-                    string med = profits.Count == 0 ? "생성불가" : $"{profits[profits.Count / 2],5:+0;-0}";
-                    cells.Add(med + (bankrupt > 0 ? $"(파{bankrupt})" : "") + (fail > 0 ? $"(실{fail})" : ""));
-                    detail.Add($"D{d:0.##} R{p.Radius} 우{p.WellCount} 광{p.OreCount} 장{p.ObstacleDensity:P0} 거{p.TargetWellOreDistance}");
+                    Line($"  {name}{label} | " + string.Join(" | ", cells));
                 }
-                Line($"  {name} | " + string.Join(" | ", cells));
                 Line("        " + string.Join(" · ", detail));
             }
 

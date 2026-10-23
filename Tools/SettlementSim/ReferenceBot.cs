@@ -202,9 +202,9 @@ namespace SettlementSim
             return c.State == CampaignState.Shopping;
         }
 
-        /// <summary>계획을 예약하고 첫 경매(또는 파산·시간 초과)까지 돌린다.</summary>
+        /// <summary>계획을 예약하고 첫 경매(또는 파산·시간 초과)까지 돌린다. disasters를 주면 캠페인처럼 재해 일정을 붙인다(seed로 결정).</summary>
         public static Result Run(EconomyConfig config, MapDefinition def, Action<SettlementRules> tweak = null, int seed = 1, int maxHours = 600,
-            BotStrategy strategy = BotStrategy.Single)
+            BotStrategy strategy = BotStrategy.Single, DisasterSettings disasters = null)
         {
             var result = new Result();
             List<MapBuildEntry> plan = Plan(def, strategy);
@@ -222,6 +222,7 @@ namespace SettlementSim
             tweak?.Invoke(rules);
             var s = new Settlement(def.CreateMap(), rules);
             var a = new AuctionManager(s, seed);
+            if (disasters != null) DisasterManager.Attach(s, disasters, seed);
             var withPlan = new MapDefinition { Id = def.Id, Radius = def.Radius, Terrain = def.Terrain, SampleLayout = plan };
             List<string> failures = withPlan.RequestSampleLayout(s);
             if (failures.Count > 0)

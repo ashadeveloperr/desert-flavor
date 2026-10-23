@@ -23,6 +23,17 @@ for d in Assets Packages ProjectSettings; do
 done
 echo "[unity-tests] 사본 동기화 완료: $COPY"
 
+# 원본에 새로 추가한 파일의 .meta는 사본의 Unity가 만든다. 실행 뒤 원본에 없는 .meta(원본에 짝 파일이 있는 것만)를 되가져와
+# 다음 동기화(/MIR)가 지우고 GUID를 새로 만드는 일을 막는다.
+copy_back_meta() {
+  (cd "$COPY" && find Assets -name "*.meta") | while read -r meta; do
+    src="${meta%.meta}"
+    if [ ! -e "$ROOT/$meta" ] && [ -e "$ROOT/$src" ]; then
+      cp "$COPY/$meta" "$ROOT/$meta" && echo "[unity-tests] 새 .meta를 원본에 복사: $meta"
+    fi
+  done
+}
+
 status=0
 modes=$MODE; [ "$MODE" = "All" ] && modes="EditMode PlayMode"
 for m in $modes; do
@@ -46,4 +57,5 @@ for m in $modes; do
   fi
   [ $code -ne 0 ] && status=1
 done
+copy_back_meta
 exit $status

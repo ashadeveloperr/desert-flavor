@@ -13,18 +13,17 @@ namespace DesertSettlement.Runtime.UI
     /// </summary>
     public sealed class BuildBarView : IUiView
     {
-        private static readonly (string group, BuildTool[] tools)[] Groups =
+        // 버튼 하나 = 도구(선택·관리) 또는 시설 종류. 시설 버튼은 시설 목록(FacilityCatalog)의 분류·순서로 만든다(2026-10-24 CL2).
+        private sealed class ToolButton
         {
-            ("", new[] { BuildTool.Select }),
-            ("물", new[] { BuildTool.Well, BuildTool.Canal, BuildTool.WaterTank }),
-            ("생산", new[] { BuildTool.Farm, BuildTool.Quarry, BuildTool.Mine }),
-            ("기반시설", new[] { BuildTool.Warehouse, BuildTool.Hospital, BuildTool.AuctionHall }),
-            ("관리", new[] { BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose }),
-        };
+            public BuildTool Tool;
+            public string Kind;
+            public Button Button;
+        }
 
         private const int BuyStep = 10;
         private readonly GameUi _ui;
-        private readonly Dictionary<BuildTool, Button> _buttons = new Dictionary<BuildTool, Button>();
+        private readonly List<ToolButton> _buttons = new List<ToolButton>();
         private readonly Text _status;
         private readonly Button _buyFood, _buyStone;
 
@@ -38,17 +37,32 @@ namespace DesertSettlement.Runtime.UI
 
             HorizontalLayoutGroup row = Row(bar, 14, 0);
             ((RectTransform)row.transform).Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, 8), new Vector2(-20, 70));
-            foreach ((string group, BuildTool[] tools) in Groups)
+            Transform Group(string title)
             {
                 VerticalLayoutGroup col = Column(row.transform, 2);
-                Label(col.transform, group, Theme.Small, Theme.Accent);
-                HorizontalLayoutGroup buttons = Row(col.transform, 4);
-                foreach (BuildTool tool in tools)
+                Label(col.transform, title, Theme.Small, Theme.Accent);
+                return Row(col.transform, 4).transform;
+            }
+            void ToolBtn(Transform parent, BuildTool tool) =>
+                _buttons.Add(new ToolButton { Tool = tool, Button = Btn(parent, "", () => { _ui.Input.SelectTool(tool); _ui.RefreshNow(); }, 86, 46, Theme.Small) });
+
+            ToolBtn(Group(""), BuildTool.Select);
+            foreach (string group in FacilityCatalog.Groups)
+            {
+                Transform parent = Group(group);
+                foreach (FacilityType type in FacilityCatalog.InGroup(group))
                 {
-                    BuildTool t = tool;
-                    _buttons[t] = Btn(buttons.transform, "", () => { _ui.Input.Tool = t; _ui.RefreshNow(); }, 86, 46, Theme.Small);
+                    string kind = type.Kind;
+                    _buttons.Add(new ToolButton
+                    {
+                        Tool = type.OnEdge ? BuildTool.Canal : BuildTool.Build,
+                        Kind = kind,
+                        Button = Btn(parent, "", () => { _ui.Input.SelectBuild(kind); _ui.RefreshNow(); }, 86, 46, Theme.Small),
+                    });
                 }
             }
+            Transform manage = Group("관리");
+            foreach (BuildTool tool in new[] { BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose }) ToolBtn(manage, tool);
 
             VerticalLayoutGroup buy = Column(row.transform, 2);
             Label(buy.transform, "구매·예시", Theme.Small, Theme.Accent);
@@ -64,16 +78,16 @@ namespace DesertSettlement.Runtime.UI
         {
             Settlement s = _ui.Session.Settlement;
             if (s == null) return;
-            foreach (KeyValuePair<BuildTool, Button> kv in _buttons)
+            foreach (ToolButton b in _buttons)
             {
-                string kind = BuildInputController.KindOf(kv.Key);
-                string label = BuildInputController.Label(kv.Key);
+                string kind = b.Kind;
+                string label = kind != null ? FacilityCatalog.NameOf(kind) : BuildInputController.ToolName(b.Tool);
                 BuildingLevel lv = kind != null ? s.Rules.Config.GetLevel(kind, 1) : null;
                 int free = kind != null ? s.FreeBuildsRemaining(kind) : 0;
                 if (free > 0) label += "\n" + Paint($"무료 {free}", Theme.Good);
-                else if (lv != null) label += "\n" + Paint($"석 {lv.Stone:0} · {lv.Hours:0}h", Theme.Muted);
-                kv.Value.SetText(label);
-                kv.Value.SetOn(_ui.Input.Tool == kv.Key);
+                else if (lv != null) label += "\n" + Paint($"석 {lv.Stone:0} · {s.Rules.JobHours(lv.Hours)}h", Theme.Muted);
+                b.Button.SetText(label);
+                b.Button.SetOn(_ui.Input.Tool == b.Tool && _ui.Input.CurrentKind == kind);
             }
             _buyFood.SetText($"식량 +{BuyStep}\n{Paint(s.NextPrice(true).ToString("0.0") + "/개", Theme.Muted)}");
             _buyStone.SetText($"석재 +{BuyStep}\n{Paint(s.NextPrice(false).ToString("0.0") + "/개", Theme.Muted)}");

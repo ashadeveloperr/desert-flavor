@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Hex;
 using DesertSettlement.Core.Water;
@@ -39,6 +40,14 @@ namespace DesertSettlement.Core.Economy
         public double DemolishHoursRatio { get; set; } = 0.5;
         /// <summary>건설·개량·철거 시간 배율(설정 confirmedRules.constructionHoursMultiplier, 2026-10-23 FL2). 1 = 원본 v0.8.</summary>
         public double ConstructionHoursMultiplier { get; set; } = 1;
+
+        /// <summary>
+        /// 실제 공사 시간(시): 레벨표 시간 × <see cref="ConstructionHoursMultiplier"/>(반올림, 최소 1). 철거는 × <see cref="DemolishHoursRatio"/>(올림).
+        /// 작업 큐와 화면(도구 막대·툴팁)이 같은 값을 쓰도록 한곳에 둔다(2026-10-24: 화면이 배율 전 시간을 보여 주던 문제).
+        /// </summary>
+        public int JobHours(double? tableHours, bool demolish = false) => demolish
+            ? Math.Max(1, (int)Math.Ceiling((tableHours ?? 1) * DemolishHoursRatio * ConstructionHoursMultiplier))
+            : Math.Max(1, (int)Math.Round((tableHours ?? 1) * ConstructionHoursMultiplier, MidpointRounding.AwayFromZero));
         // ── 장비·지역 모디파이어 효과 (캠페인이 <see cref="ApplyEffects"/>로 건다. 기본값 = 효과 없음) ──
         /// <summary>광물 생산 배율(풍부한 광맥·광업 강화).</summary>
         public double OreMultiplier { get; set; } = 1.0;
@@ -88,20 +97,11 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 시설 종류별로 지을 수 있는 지형. [확정 2026-10-22]
-        /// 우물=수원, 광산=광맥, 채석장=암반, 농장·창고·경매장=사막, 장애물=불가. 수로·수문은 변에 짓으므로 지형 무관.
+        /// 시설 종류별로 지을 수 있는 지형. [확정 2026-10-22] 우물=수원, 광산=광맥, 채석장=암반, 농장·창고·경매장·병원·물탱크=사막, 장애물=불가.
+        /// 수로는 변에 짓으므로 지형 무관. 값은 <see cref="FacilityCatalog"/>에서 만든다(2026-10-24 CL1). 장비·실험으로 바꿀 수 있게 사전으로 둔다.
         /// </summary>
-        public Dictionary<string, TerrainType[]> AllowedTerrain { get; } = new Dictionary<string, TerrainType[]>
-        {
-            [BuildingKinds.Well] = new[] { TerrainType.WaterSource },
-            [BuildingKinds.Mine] = new[] { TerrainType.OreVein },
-            [BuildingKinds.Quarry] = new[] { TerrainType.Bedrock },
-            [BuildingKinds.Farm] = new[] { TerrainType.Desert },
-            [BuildingKinds.Warehouse] = new[] { TerrainType.Desert },
-            [BuildingKinds.AuctionHall] = new[] { TerrainType.Desert },
-            [BuildingKinds.Hospital] = new[] { TerrainType.Desert },
-            [BuildingKinds.WaterTank] = new[] { TerrainType.Desert },
-        };
+        public Dictionary<string, TerrainType[]> AllowedTerrain { get; } =
+            FacilityCatalog.All.Where(t => !t.OnEdge).ToDictionary(t => t.Kind, t => t.Terrain.ToArray());
 
         /// <summary>지을 수 없는 시설. 2026-10-23 로드맵 1-② 물탱크를 열어 지금은 비어 있다(전에는 물탱크, W7).</summary>
         public HashSet<string> DisabledKinds { get; } = new HashSet<string>();

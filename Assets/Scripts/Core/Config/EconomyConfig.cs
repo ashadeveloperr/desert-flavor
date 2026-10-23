@@ -324,22 +324,5 @@ namespace DesertSettlement.Core.Config
         public int HospitalRadius { get; set; } = 1;
     }
 
-    public static class BuildingKinds
-    {
-        public const string Well = "well";
-        public const string Farm = "farm";
-        public const string Quarry = "quarry";
-        public const string Mine = "mine";
-        public const string AuctionHall = "auctionHall";
-        public const string Warehouse = "warehouse";
-        /// <summary>병원(2026-10-23): 인근 1칸 건물의 전염병 피해를 절반으로.</summary>
-        public const string Hospital = "hospital";
-        public const string WaterTank = "waterTank";
-        public const string CanalEdge = "canalEdge";
-
-        public static readonly string[] All =
-        {
-            Well, Farm, Quarry, Mine, AuctionHall, Warehouse, Hospital, WaterTank, CanalEdge,
-        };
-    }
+    // BuildingKinds(시설 종류 이름)는 2026-10-24 Core/Economy/FacilityCatalog.cs로 옮겼다(시설 정의를 한곳에).
 }

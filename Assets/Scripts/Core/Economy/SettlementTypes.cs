@@ -42,7 +42,7 @@ namespace DesertSettlement.Core.Economy
         InProgress,
     }
 
-    /// <summary>정착지 위의 시설 하나. 타일 시설은 <see cref="Tile"/>, 수로·수문은 <see cref="Edge"/>에 놓인다.</summary>
+    /// <summary>정착지 위의 시설 하나. 타일 시설은 <see cref="Tile"/>, 수로는 <see cref="Edge"/>에 놓인다.</summary>
     public sealed class Facility
     {
         public int Id { get; internal set; }

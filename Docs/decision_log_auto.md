@@ -377,3 +377,15 @@
 
 참고: `funboost`의 숙련 봇은 장비를 사지 않아서, 그 표의 '처음 적자 D'는 위 난이도 기준(장비 구매 포함)보다 이르다(비교용으로만).
 
+## 코드 정리 (2026-10-24 — 검토 개선 5~7, 사용자: "진행해 줘", 동작 변화 없음)
+
+| # | 정한 것 | 구분 | 이유 | 바꾸려면 |
+|---|---|---|---|---|
+| CL1 | **시설 종류 목록 `Core/Economy/FacilityCatalog`**: 이름·도구 막대 분류·지을 수 있는 지형·기본 색을 한 줄씩. 지형 규칙(`SettlementRules.AllowedTerrain`), 한국어 이름(`FacilityInfo.KindName`), 시설 색이 이 목록을 읽는다. `BuildingKinds`도 같은 파일로 옮김(네임스페이스는 그대로) | [자동] | 새 시설 추가가 약 8파일 12곳 → **JSON + 목록 한 줄**(모양은 선택). JSON이 아니라 C# 목록인 이유: 지형 종류(enum)와 분류를 컴파일러가 검사하고, 목록·JSON 불일치는 `FacilityCatalogTests`가 잡음 | — | `FacilityCatalog.cs` |
+| CL2 | 도구는 **'건설 도구 + 시설 종류'**로: `BuildTool`은 선택·건설·수로·개량·철거·폐쇄 6개, 건설할 시설은 `BuildInputController.BuildKind`. 도구 막대(새 화면·예전 화면)는 목록의 분류·순서로 버튼을 만든다 | [자동] | 시설마다 enum 값과 switch 세 개(KindOf·Label·버튼 배열)를 고쳐야 했음 | — | `BuildInputController`, `BuildBarView`, `SettlementHud` |
+| CL3 | 시설 색: 기본은 목록, 인스펙터 `SettlementView.facilityColors`로 종류별 덮어쓰기. 예전 8개 색 필드는 없앰(값은 목록으로 그대로 옮김) | [자동] | 새 시설마다 색 필드·switch 추가가 필요했음 | — | `SettlementView` |
+| CL4 | **예전 화면 의존 끊기**: 재해 효과 문구를 `SettlementHud` → `FacilityInfo.TimedDisasterText`로 옮기고, '투입 석재·환급' 문구를 `FacilityInfo.InvestedText`로 합침. 이제 정식 UI는 예전 화면 코드를 쓰지 않는다 | [자동] | 예전 화면을 지울 수 있게. **삭제는 하지 않음**(F1 전환을 쓰는지 사용자 결정) | — | `Runtime/View/FacilityInfo.cs` |
+| CL5 | `Settlement.cs`(664줄)를 목적별 partial로: 상태·조회·도우미 `Settlement.cs`(203), 명령 처리 `.Actions.cs`(203), 경제 틱·작업 큐 `.Tick.cs`(226), 물 계산 `.Water.cs`(82). 수문 흔적 `HasGate·GateOpen·TrySetGate·TrySetGateOpen` → **`IsBlocked`·`TrySetBlocked`** | [자동] | 찾기 쉽게. 수문은 폐지됐는데 이름이 남아 헷갈렸음 | — | `Core/Economy`, `Core/Canal/CanalGraph.cs` |
+| CL6 | Runtime 하위 폴더: `View/`(맵 표시·시설 모양·색·조명·물길·문구), `Legacy/`(예전 IMGUI 화면 F1), `Tools/`(맵 스케치·디버그 보기). 루트에는 세션·입력·카메라·기록. 파일은 .meta와 함께 옮겨 씬 연결(GUID) 유지 | [자동] | 17개 파일이 한 폴더에 섞여 있었음 | — | `Assets/Scripts/Runtime/` |
+| CL7 | 정리하다 찾은 **버그**: 도구 막대·툴팁의 건설 시간이 건설 배율(×0.5) 전 값이었음 → `SettlementRules.JobHours`로 작업 큐와 같은 값 | [자동] | 화면 10h, 실제 5h | — | `SettlementRules.JobHours` |
+

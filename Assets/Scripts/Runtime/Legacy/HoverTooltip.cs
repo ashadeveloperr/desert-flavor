@@ -8,7 +8,7 @@ namespace DesertSettlement.Runtime
 {
     /// <summary>
     /// 마우스가 타일·시설 위에 있으면 커서 옆에 정보 팝업을 띄우고, 벗어나면 숨긴다(임시 IMGUI).
-    /// 무엇을 가리키는지는 <see cref="BuildInputController"/>가 계산한다(변 가까이면 수로·수문).
+    /// 무엇을 가리키는지는 <see cref="BuildInputController"/>가 계산한다(변 가까이면 수로).
     /// 내용 문구는 <see cref="FacilityInfo"/>에 있다.
     /// </summary>
     [RequireComponent(typeof(GameSession), typeof(BuildInputController), typeof(SettlementView))]
@@ -85,7 +85,7 @@ namespace DesertSettlement.Runtime
             }
             if (_input.Tool != BuildTool.Select && !string.IsNullOrEmpty(_input.HoverMessage))
             {
-                lines.Add($"✕ {BuildInputController.Label(_input.Tool)} 불가: {_input.HoverMessage}");
+                lines.Add($"✕ {_input.ToolLabel} 불가: {_input.HoverMessage}");
             }
             return lines;
         }

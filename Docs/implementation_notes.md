@@ -203,10 +203,12 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | 모디파이어·장비 수치 측정 | `dotnet run --project Tools/SettlementSim -- mods 1.0`(D별 약점 하나씩·대응 회복률), `-- mods campaign`(Core Campaign 봇 캠페인) |
 | 경매 입찰자·시세 무작위 시드 | `GameSession` 인스펙터 → Campaign Seed |
 | 지형·시설·수로 색, 수로 폭·반짝임, 머리 위 글자 | `SettlementView` 인스펙터 |
-| 시설 모양(부품 위치·크기·재료색·레벨 부품·비계) | `Runtime/FacilityModels.cs` |
+| **새 시설 종류 추가** | ① JSON `buildingLevels`에 레벨표 ② `Core/Economy/FacilityCatalog.cs`에 한 줄(이름·분류·지형·색) ③ (선택) 모양 `Runtime/View/FacilityModels.cs`(없으면 상자) ④ 특별한 효과면 그 규칙 코드. 목록과 JSON이 어긋나면 `FacilityCatalogTests`가 실패 |
+| 시설 이름·도구 막대 분류·지을 수 있는 지형·기본 색 | `Core/Economy/FacilityCatalog.cs` (색만 바꾸려면 `SettlementView` 인스펙터 `facilityColors`로 덮어쓰기) |
+| 시설 모양(부품 위치·크기·재료색·레벨 부품·비계) | `Runtime/View/FacilityModels.cs` |
 | 사막이 푸르러지는 색·속도, 시든 작물 색 | `SettlementView` 인스펙터(`oasis`·`greeningRate`·`witheredCrop`) |
-| 팝업·HUD에 나오는 문구, 시설·지형 한국어 이름 | `Runtime/FacilityInfo.cs` |
-| 팝업 위치·폭·뜨는 지연 | `GameSession` 오브젝트의 `HoverTooltip` 인스펙터 |
+| 팝업·HUD에 나오는 문구, 지형 한국어 이름, 재해 효과 문구 | `Runtime/View/FacilityInfo.cs` (시설 이름은 `FacilityCatalog`) |
+| 팝업 위치·폭·뜨는 지연 | 정식 UI는 `Runtime/UI/TooltipView.cs`, 예전 화면은 `GameSession` 오브젝트의 `HoverTooltip` 인스펙터 |
 | 카메라 속도·각도·줌 범위·회전 각 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
 | 도구 목록·조작 방식 | `Runtime/BuildInputController.cs`(`BuildTool`, `Apply`), 버튼 배치는 정식 UI `Runtime/UI/BuildBarView.cs`(예전 화면 F1은 `SettlementHud.cs`) |
 | UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme`(색, `Big`·`Title`·`Body`·`Small` 글자 크기) |
@@ -216,6 +218,7 @@ Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다
 | 최고 기록(도달 정착지·최대 자금·누적 매각) | `Runtime/RecordBook.cs`, 파일 `Application.persistentDataPath/records.json`(지우면 초기화) |
 | 자금 0 예측 경고(몇 시간 안이면 알릴지) | `Runtime/UI/AlertsView.cs`의 `CashRunsOutIn` |
 | 바꾼 화면을 에디터 없이 보기 | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png` |
+| 실제 공사 시간 계산(레벨표 × 건설 배율, 철거 비율) | `SettlementRules.JobHours` (작업 큐와 화면이 같은 값을 씀) |
 | 철거 환급·철거 시간·광물 배율 | `Core/Economy/SettlementRules.cs`의 `DemolishRefundRatio`, `DemolishHoursRatio`, `OreMultiplier` |
 | 지형별 건설 가능 시설, MVP 금지 시설, 폐쇄 불가 시설 | `SettlementRules`의 `AllowedTerrain`, `DisabledKinds`, `CannotClose` |
 | 경제 틱 순서·생산 공식 | `Core/Economy/Settlement.cs`의 `AdvanceHour` — 바꾸면 `Tools/SettlementSim`의 v0.8 교차 검증이 깨지므로 의도된 변경인지 확인 |

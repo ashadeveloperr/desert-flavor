@@ -24,11 +24,12 @@ namespace DesertSettlement.Runtime
         private Rect _left, _right;
         private Vector2 _queueScroll;
 
-        private static readonly BuildTool[] Tools =
-        {
-            BuildTool.Select, BuildTool.Well, BuildTool.Farm, BuildTool.Quarry, BuildTool.Mine, BuildTool.AuctionHall,
-            BuildTool.Warehouse, BuildTool.Hospital, BuildTool.WaterTank, BuildTool.Canal, BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose,
-        };
+        // (도구, 시설 종류). 시설은 시설 목록(FacilityCatalog) 순서(2026-10-24 CL2).
+        private static readonly (BuildTool tool, string kind)[] Tools =
+            new[] { (BuildTool.Select, (string)null) }
+                .Concat(FacilityCatalog.All.Select(t => (t.OnEdge ? BuildTool.Canal : BuildTool.Build, t.Kind)))
+                .Concat(new[] { (BuildTool.Upgrade, (string)null), (BuildTool.Demolish, (string)null), (BuildTool.ToggleClose, (string)null) })
+                .ToArray();
 
         private void Awake()
         {
@@ -104,7 +105,7 @@ namespace DesertSettlement.Runtime
                 if (e.State == DisasterState.Warned)
                     GUILayout.Label($"⚠ {e.Name} 예고 — {e.StartHour - s.CurrentHour}시간 뒤({e.StartHour}시간째) 시작");
                 else if (e.State == DisasterState.Active && e.DurationHours > 0)
-                    GUILayout.Label($"⚠ {e.Name} 진행 중 — {e.PlannedEndHour - s.CurrentHour}시간 남음 · {TimedEffectText(s, e)}");
+                    GUILayout.Label($"⚠ {e.Name} 진행 중 — {e.PlannedEndHour - s.CurrentHour}시간 남음 · {FacilityInfo.TimedDisasterText(s, e)}");
             }
             EpidemicState ep = d.Epidemic;
             if (ep.Active)
@@ -117,23 +118,6 @@ namespace DesertSettlement.Runtime
             }
         }
 
-        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영). 2026-10-23 D1~D6.</summary>
-        internal static string TimedEffectText(Settlement s, DisasterEvent e)
-        {
-            DisasterSettings c = s.Disasters.Settings;
-            SettlementRules r = s.Rules;
-            switch (e.TypeId)
-            {
-                case DisasterManager.Sandstorm:
-                    return $"수로 손실 ×{s.Disasters.CanalLossFactor:0.##}, 공사 속도 {s.Disasters.ConstructionSpeed:P0}";
-                case DisasterManager.Locusts:
-                    return $"농장 생산 {1 - (1 - c.Locusts.FarmProduction) * r.LocustDamageMultiplier:P0} (시작 때 식량 재고 −{c.Locusts.FoodStockLoss * r.LocustDamageMultiplier:P0})";
-                case DisasterManager.Blight:
-                    return $"농장 생산 {1 - (1 - c.Blight.FarmProduction) * r.BlightDamageMultiplier:P0}";
-                default:
-                    return "";
-            }
-        }
 
         private void DrawTools(Settlement s)
         {
@@ -144,17 +128,16 @@ namespace DesertSettlement.Runtime
                 GUILayout.BeginHorizontal();
                 for (int k = i; k < Mathf.Min(i + 3, Tools.Length); k++)
                 {
-                    BuildTool tool = Tools[k];
-                    string kind = BuildInputController.KindOf(tool);
-                    string label = BuildInputController.Label(tool);
+                    (BuildTool tool, string kind) = Tools[k];
+                    string label = kind != null ? FacilityCatalog.NameOf(kind) : BuildInputController.ToolName(tool);
                     BuildingLevel lv = kind != null ? s.Rules.Config.GetLevel(kind, 1) : null;
                     int free = kind != null ? s.FreeBuildsRemaining(kind) : 0;
                     if (free > 0) label += $"\n무료 완공 {free}";
-                    else if (lv != null) label += $"\n석{lv.Stone:0}·{lv.Hours:0}h";
-                    bool selected = _input.Tool == tool;
+                    else if (lv != null) label += $"\n석{lv.Stone:0}·{s.Rules.JobHours(lv.Hours)}h";
+                    bool selected = _input.Tool == tool && _input.CurrentKind == kind;
                     if (GUILayout.Toggle(selected, label, GUI.skin.button, GUILayout.Height(lv != null ? 38 : 24)) && !selected)
                     {
-                        _input.Tool = tool;
+                        if (kind != null) _input.SelectBuild(kind); else _input.SelectTool(tool);
                     }
                 }
                 GUILayout.EndHorizontal();
@@ -184,7 +167,7 @@ namespace DesertSettlement.Runtime
 
             GUILayout.Label($"선택 #{f.Id}");
             foreach (string line in FacilityInfo.Describe(s, f, _view.JobProgress(s, f))) GUILayout.Label(line);
-            GUILayout.Label($"투입 석재 {f.StoneInvested:0} (철거 시 {f.StoneInvested * s.Rules.DemolishRefundRatio:0} 환급)");
+            GUILayout.Label(FacilityInfo.InvestedText(s, f));
 
             GUILayout.BeginHorizontal();
             if (Button("개량", s.CanUpgrade(f.Id))) s.RequestUpgrade(f.Id);

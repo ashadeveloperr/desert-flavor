@@ -170,16 +170,15 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void ClosedGate_ReroutesToOtherCanal()
+        public void BlockedCanal_ReroutesToOtherCanal()
         {
             CanalGraph g = Canals(BranchA.Concat(BranchB).ToArray());
             EdgeId gated = BranchA[1];
-            Assert.IsTrue(g.TrySetGate(gated, true));
-            Assert.IsTrue(g.TrySetGateOpen(gated, false));
+            Assert.IsTrue(g.TrySetBlocked(gated, true));
             WaterAllocation closed = Solve(g, new[] { Well(140) }, new[] { Use("farm", 2, 0, 30) });
 
             Assert.AreEqual(1.0, closed.RateOf("farm"), Tol, "가지 A가 막히면 가지 B로");
-            Assert.IsFalse(closed.EdgeLoads.ContainsKey(gated), "닫힌 수문 변에는 물이 흐르지 않는다");
+            Assert.IsFalse(closed.EdgeLoads.ContainsKey(gated), "막힌 수로 변에는 물이 흐르지 않는다");
             Assert.IsTrue(closed.EdgeLoads.ContainsKey(BranchB[1]));
         }
 

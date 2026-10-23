@@ -75,7 +75,7 @@ namespace DesertSettlement.Core.Progression
         public string Kind { get; set; }
         public int Q { get; set; }
         public int R { get; set; }
-        /// <summary>수로·수문만: 타일 (Q,R)의 변 방향(East, SouthEast, ...).</summary>
+        /// <summary>수로만: 타일 (Q,R)의 변 방향(East, SouthEast, ...).</summary>
         public string Side { get; set; }
     }
 }

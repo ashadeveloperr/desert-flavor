@@ -82,7 +82,7 @@ namespace DesertSettlement.Runtime
                     Vector3 b = VertexWorld(segment.Edge.VertexB, layout);
                     DrawThickLine(a, b, size * 0.06f, canalColor);
 
-                    if (segment.HasGate && !segment.GateOpen)
+                    if (segment.IsBlocked)
                     {
                         Gizmos.color = closedCanalColor;
                         Gizmos.DrawCube((a + b) * 0.5f, Vector3.one * size * 0.18f);

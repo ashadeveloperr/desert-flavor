@@ -58,27 +58,25 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void PathLengths_ClosedGateBlocksFlow_OpenGatePasses()
+        public void PathLengths_BlockedCanalStopsFlow_UnblockedPasses()
         {
             InstallClockwiseHalf();
-            Assert.IsTrue(_graph.TrySetGate(Edge(HexDirection.East), true));
-            Assert.IsTrue(_graph.TrySetGateOpen(Edge(HexDirection.East), false));
+            Assert.IsTrue(_graph.TrySetBlocked(Edge(HexDirection.East), true));
 
             Dictionary<VertexId, int> closed = _graph.ComputePathLengths(new[] { Corner(HexCorner.North) });
             Assert.IsTrue(closed.ContainsKey(Corner(HexCorner.NorthEast)));
-            Assert.IsFalse(closed.ContainsKey(Corner(HexCorner.SouthEast)), "닫힌 수문 너머는 도달 불가");
+            Assert.IsFalse(closed.ContainsKey(Corner(HexCorner.SouthEast)), "막힌 수로 너머는 도달 불가");
 
-            _graph.TrySetGateOpen(Edge(HexDirection.East), true);
+            _graph.TrySetBlocked(Edge(HexDirection.East), false);
             Dictionary<VertexId, int> open = _graph.ComputePathLengths(new[] { Corner(HexCorner.North) });
             Assert.AreEqual(2, open[Corner(HexCorner.SouthEast)]);
         }
 
         [Test]
-        public void Gate_CannotOpenOrCloseWithoutGate()
+        public void Blocked_RequiresCanal()
         {
             InstallClockwiseHalf();
-            Assert.IsFalse(_graph.TrySetGateOpen(Edge(HexDirection.East), false));
-            Assert.IsFalse(_graph.TrySetGate(Edge(HexDirection.West), true), "수로 없는 변에는 수문을 달 수 없다");
+            Assert.IsFalse(_graph.TrySetBlocked(Edge(HexDirection.West), true), "수로 없는 변은 막을 수 없다");
         }
 
         [Test]
@@ -137,12 +135,11 @@ namespace DesertSettlement.Core.Tests
             int count = 0;
             _graph.Changed += () => count++;
             _graph.TryInstall(Edge(HexDirection.East));
-            _graph.TrySetGate(Edge(HexDirection.East), true);
-            _graph.TrySetGateOpen(Edge(HexDirection.East), false);
+            _graph.TrySetBlocked(Edge(HexDirection.East), true);
             _graph.TrySetLevel(Edge(HexDirection.East), 2);
             _graph.Remove(Edge(HexDirection.East));
             _graph.TryInstall(EdgeId.Of(new HexCoord(9, 9), HexDirection.East)); // 실패 → 이벤트 없음
-            Assert.AreEqual(5, count);
+            Assert.AreEqual(4, count, "설치·막기·레벨·제거");
         }
     }
 }

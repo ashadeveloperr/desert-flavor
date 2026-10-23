@@ -13,22 +13,8 @@ namespace DesertSettlement.Runtime
     /// </summary>
     public static class FacilityInfo
     {
-        public static string KindName(string kind)
-        {
-            switch (kind)
-            {
-                case BuildingKinds.Well: return "우물";
-                case BuildingKinds.Farm: return "농장";
-                case BuildingKinds.Quarry: return "채석장";
-                case BuildingKinds.Mine: return "광산";
-                case BuildingKinds.AuctionHall: return "경매장";
-                case BuildingKinds.Warehouse: return "창고";
-                case BuildingKinds.Hospital: return "병원";
-                case BuildingKinds.CanalEdge: return "수로";
-                case BuildingKinds.WaterTank: return "물탱크";
-                default: return kind;
-            }
-        }
+        /// <summary>시설 한국어 이름(시설 목록 <see cref="FacilityCatalog"/>에서, 2026-10-24 CL1).</summary>
+        public static string KindName(string kind) => FacilityCatalog.NameOf(kind);
 
         public static string TerrainName(TerrainType t)
         {
@@ -75,7 +61,27 @@ namespace DesertSettlement.Runtime
         }
 
         /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과 한 줄(두 화면 공통).</summary>
-        public static string TimedDisasterText(Settlement s, DisasterEvent e) => SettlementHud.TimedEffectText(s, e);
+        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영). 2026-10-23 D1~D6. 2026-10-24 예전 화면(SettlementHud)에서 옮김(CL4).</summary>
+        public static string TimedDisasterText(Settlement s, DisasterEvent e)
+        {
+            DisasterSettings c = s.Disasters.Settings;
+            SettlementRules r = s.Rules;
+            switch (e.TypeId)
+            {
+                case DisasterManager.Sandstorm:
+                    return $"수로 손실 ×{s.Disasters.CanalLossFactor:0.##}, 공사 속도 {s.Disasters.ConstructionSpeed:P0}";
+                case DisasterManager.Locusts:
+                    return $"농장 생산 {1 - (1 - c.Locusts.FarmProduction) * r.LocustDamageMultiplier:P0} (시작 때 식량 재고 −{c.Locusts.FoodStockLoss * r.LocustDamageMultiplier:P0})";
+                case DisasterManager.Blight:
+                    return $"농장 생산 {1 - (1 - c.Blight.FarmProduction) * r.BlightDamageMultiplier:P0}";
+                default:
+                    return "";
+            }
+        }
+
+        /// <summary>투입 석재와 철거 환급(정보창·예전 화면 공통).</summary>
+        public static string InvestedText(Settlement s, Facility f) =>
+            $"투입 석재 {f.StoneInvested:0} (철거 시 {f.StoneInvested * s.Rules.DemolishRefundRatio:0} 환급)";
 
         public static string ShortageText(WaterShortageReason reason)
         {

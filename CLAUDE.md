@@ -30,7 +30,7 @@ Assets/
   Data/Config/procedural_map_config.json        # 절차 맵 난이도 곡선·생성 규칙 수치 (TextAsset)
   Scripts/
     Core/     # DesertSettlement.Core — 순수 C# 규칙 (noEngineReferences). Hex/ Canal/ Timing/ Config/
-    Runtime/  # DesertSettlement.Runtime — MonoBehaviour (GameSession, 디버그 뷰, 낮/밤 조명, HUD)
+    Runtime/  # DesertSettlement.Runtime — MonoBehaviour. 루트 = GameSession·입력·카메라·기록, UI/ = 정식 UI, View/ = 맵 표시(시설 모양·색·조명·물길), Legacy/ = 예전 IMGUI 화면(F1), Tools/ = 맵 스케치·디버그 보기
     Editor/   # DesertSettlement.EditorTools — 에디터 메뉴
   Tests/EditMode/                 # DesertSettlement.Core.Tests (NUnit)
 Packages/                         # manifest.json, packages-lock.json
@@ -53,7 +53,8 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
   변 입구 용량·우물 생산량 제약. 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
 - **`Core/Timing/GameClock`:** 1배속 하루 180초(설정 JSON, 2026-10-23 흐름 조정. 건설·개량·철거 시간은 `constructionHoursMultiplier` 0.5), 정착지마다 1일차 12:00 시작, 낮 05:00~밤 20:00, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`(조명 `DayNightLighting`도 이 값을 따름).
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
-- **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄(수로 폐쇄 = 물길 차단)·구매), 물탱크는 `Settlement.WaterTanks.cs`,
+- **시설 종류 목록 `Core/Economy/FacilityCatalog`(2026-10-24):** 이름·도구 막대 분류·지을 수 있는 지형·기본 색. **새 시설 = JSON `buildingLevels` + 이 목록 한 줄**(모양은 선택, `Runtime/View/FacilityModels`).
+- **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄(수로 폐쇄 = 물길 차단)·구매), 파일은 목적별 partial(명령 처리 `Settlement.Actions.cs`, 명령 기록 `.Commands.cs`, 경제 틱·작업 큐 `.Tick.cs`, 물 계산 `.Water.cs`, 물탱크 `.WaterTanks.cs`),
   `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
   `OutputOf(facility)`로 시간당 생산·소비 예상치. 경매 가치는 가동 숙성(막 지은 생산 시설 70% → 48h 100%)과 석재 배율의 채석장 능력을 반영(2026-10-23, v0.8 회귀 비교 때는 끔). 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
   첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
@@ -73,7 +74,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **저장·불러오기(`Core/Progression/SaveGame`):** 시드 + 성공한 플레이어 명령 기록을 저장하고, 같은 시드로 다시 실행해 복원(F5/F9). **새 플레이어 명령을 추가하면 `Settlement.Commands.cs`(기록)와 `SaveGame.Apply`(재실행)에 함께 넣는다.** 확인 `dotnet run --project Tools/SettlementSim -- savecheck`.
 - **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), **정식 UI `Runtime/UI/`(uGUI, `GameUi`가 뿌리, F1로 예전 IMGUI `SettlementHud`·`AuctionPanel`·`GameClockHud`와 전환)**,
   `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.
-- **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기, 생성 맵 미리보기).
+- **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/Tools/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기, 생성 맵 미리보기).
   사용자가 절차 생성 규칙을 설명할 예시 맵을 그리는 용도. 저장 파일은 `Assets/Data/MapSketches/*.json`(캠페인 맵과 같은 `MapDefinition` 형식, `MapLoader.ToJson`).
   예시를 받으면 JSON을 읽어 정확한 좌표·지형을 확인한다.
 - 씬 재구성: `Unity.exe -batchmode -nographics -quit -projectPath $Proj -executeMethod DesertSettlement.EditorTools.DebugSessionMenu.SetupSampleScene`

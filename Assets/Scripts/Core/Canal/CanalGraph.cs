@@ -5,8 +5,8 @@ using DesertSettlement.Core.Hex;
 namespace DesertSettlement.Core.Canal
 {
     /// <summary>
-    /// 변 위에 설치된 수로 한 구간. '수문'(HasGate·GateOpen)은 이 변을 막는 2단계(개방/차단) 표시다.
-    /// 2026-10-23 플레이어용 수문 시설은 폐지됐고, 지금은 <b>닫힌 수로</b>를 막힌 변으로 표현하는 데 쓴다(Settlement.SolveWater).
+    /// 변 위에 설치된 수로 한 구간. <see cref="IsBlocked"/>는 물이 지나가지 못하는 변(닫힌 수로, Settlement.Water.cs).
+    /// (2026-10-23 수문 폐지 뒤 남아 있던 HasGate·GateOpen 두 단계를 2026-10-24 IsBlocked 하나로 줄임, CL5.)
     /// 용량·손실·개량 비용 같은 수치는 여기 두지 않고 설정(<c>buildingLevels.canalEdge</c>)에서 레벨로 찾는다.
     /// </summary>
     public sealed class CanalSegment
@@ -14,11 +14,11 @@ namespace DesertSettlement.Core.Canal
         public EdgeId Edge { get; }
         /// <summary>수로 레벨(1부터). 설정의 canalEdge 레벨 배열 인덱스 = Level - 1.</summary>
         public int Level { get; internal set; } = 1;
-        public bool HasGate { get; internal set; }
-        public bool GateOpen { get; internal set; } = true;
+        /// <summary>막힌 변(닫힌 수로). 물이 지나가지 못한다.</summary>
+        public bool IsBlocked { get; internal set; }
 
-        /// <summary>물이 지나갈 수 있는지. 수문이 없거나 열려 있으면 true.</summary>
-        public bool IsPassable => !HasGate || GateOpen;
+        /// <summary>물이 지나갈 수 있는지(막히지 않았으면 true).</summary>
+        public bool IsPassable => !IsBlocked;
 
         internal CanalSegment(EdgeId edge)
         {
@@ -39,7 +39,7 @@ namespace DesertSettlement.Core.Canal
         public IEnumerable<CanalSegment> Segments => _segments.Values;
         public int SegmentCount => _segments.Count;
 
-        /// <summary>수로 설치·제거·수문 변경 등 구조가 바뀔 때마다 발생. 물 배분 재계산 트리거로 쓴다.</summary>
+        /// <summary>수로 설치·제거·막힘 변경 등 구조가 바뀔 때마다 발생. 물 배분 재계산 트리거로 쓴다.</summary>
         public event Action Changed;
 
         public CanalGraph(HexTopology topology)
@@ -78,21 +78,11 @@ namespace DesertSettlement.Core.Canal
             return true;
         }
 
-        /// <summary>수로가 있는 변에 수문을 달거나 뗀다. 새로 단 수문은 열린 상태.</summary>
-        public bool TrySetGate(EdgeId edge, bool hasGate)
+        /// <summary>수로가 있는 변을 막거나 연다(닫힌 수로). 수로가 없는 변이면 false.</summary>
+        public bool TrySetBlocked(EdgeId edge, bool blocked)
         {
             if (!_segments.TryGetValue(edge, out CanalSegment segment)) return false;
-            segment.HasGate = hasGate;
-            segment.GateOpen = true;
-            Changed?.Invoke();
-            return true;
-        }
-
-        /// <summary>수문 개방/차단. 수문이 없는 변이면 false.</summary>
-        public bool TrySetGateOpen(EdgeId edge, bool open)
-        {
-            if (!_segments.TryGetValue(edge, out CanalSegment segment) || !segment.HasGate) return false;
-            segment.GateOpen = open;
+            segment.IsBlocked = blocked;
             Changed?.Invoke();
             return true;
         }
@@ -108,7 +98,7 @@ namespace DesertSettlement.Core.Canal
 
         /// <summary>
         /// 시작 꼭짓점들에서 통과 가능한 수로만 따라갔을 때 각 꼭짓점까지의 최단 경로 길이(변 개수).
-        /// 닫힌 수문은 지나가지 않는다. 결과에 없는 꼭짓점은 도달 불가.
+        /// 막힌 수로는 지나가지 않는다. 결과에 없는 꼭짓점은 도달 불가.
         /// </summary>
         public Dictionary<VertexId, int> ComputePathLengths(IEnumerable<VertexId> sources)
         {
@@ -140,7 +130,7 @@ namespace DesertSettlement.Core.Canal
         }
 
         /// <summary>
-        /// 설치된 수로끼리 이어진 덩어리별 변 목록(수문 상태 무시, 물리적 연결 기준).
+        /// 설치된 수로끼리 이어진 덩어리별 변 목록(막힘 상태 무시, 물리적 연결 기준).
         /// </summary>
         public List<List<EdgeId>> ConnectedComponents()
         {
@@ -172,7 +162,7 @@ namespace DesertSettlement.Core.Canal
         }
 
         /// <summary>
-        /// 설치된 수로 안에 순환(고리)이 있는지. 수문 상태와 무관하게 물리적 구조로 판단한다.
+        /// 설치된 수로 안에 순환(고리)이 있는지. 막힘 상태와 무관하게 물리적 구조로 판단한다.
         /// MVP에서 순환을 금지할지는 미정이므로, 여기서는 감지만 하고 막지 않는다.
         /// </summary>
         public bool ContainsCycle()

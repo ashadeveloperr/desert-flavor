@@ -27,7 +27,7 @@
    dotnet run --project Tools/SettlementSim
    bash Tools/unity-tests.sh All
    ```
-   시뮬레이터 마지막 줄 '모든 검증 통과', 테스트는 EditMode 155 · PlayMode 5 통과가 기준(2026-10-23 마감, 화면 캡처 `ScreenCaptureTests`는 [Explicit]이라 따로 실행).
+   시뮬레이터 마지막 줄 '모든 검증 통과', 테스트는 EditMode 158 · PlayMode 5 통과가 기준(2026-10-24, 화면 캡처 `ScreenCaptureTests`는 [Explicit]이라 따로 실행).
    `unity-tests.sh` 첫 실행은 테스트 사본(`.unity-testcopy/`) 임포트로 몇 분 걸린다.
 
 ## 2. 작업 방식 (사용자 선호 — 회사 PC의 Claude 메모리에만 있던 내용)

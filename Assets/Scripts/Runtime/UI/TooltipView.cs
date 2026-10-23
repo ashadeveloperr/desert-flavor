@@ -93,17 +93,17 @@ namespace DesertSettlement.Runtime.UI
             if (input.HoverTile.HasValue && (f == null || !f.Edge.HasValue) && session.Map.TryGetTile(input.HoverTile.Value, out HexTile tile))
                 lines.Add(Paint($"타일 {input.HoverTile.Value} · {FacilityInfo.TerrainName(tile.Terrain)}", Theme.Muted));
 
-            string kind = BuildInputController.KindOf(input.Tool);
+            string kind = input.CurrentKind;
             if (input.Tool != BuildTool.Select)
             {
                 if (!string.IsNullOrEmpty(input.HoverMessage))
-                    lines.Add(Paint($"✕ {BuildInputController.Label(input.Tool)} 불가: {input.HoverMessage}", Theme.Danger));
+                    lines.Add(Paint($"✕ {input.ToolLabel} 불가: {input.HoverMessage}", Theme.Danger));
                 else if (kind != null)
                 {
                     BuildingLevel lv = s.Rules.Config.GetLevel(kind, 1);
                     int free = s.FreeBuildsRemaining(kind);
-                    string cost = free > 0 ? "무료 완공" : lv != null ? $"석재 {lv.Stone:0} · {lv.Hours:0}시간 · 유지비 {lv.Upkeep:0.00}/h" : "";
-                    lines.Add(Paint($"✓ {BuildInputController.Label(input.Tool)} 건설 가능  {cost}", Theme.Good));
+                    string cost = free > 0 ? "무료 완공" : lv != null ? $"석재 {lv.Stone:0} · {s.Rules.JobHours(lv.Hours)}시간 · 유지비 {lv.Upkeep:0.00}/h" : "";
+                    lines.Add(Paint($"✓ {input.ToolLabel} 건설 가능  {cost}", Theme.Good));
                 }
             }
             return string.Join("\n", lines);

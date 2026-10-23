@@ -7,18 +7,14 @@ using UnityEngine.InputSystem;
 
 namespace DesertSettlement.Runtime
 {
-    /// <summary>도구 패널에서 고르는 작업 모드.</summary>
+    /// <summary>
+    /// 도구 패널에서 고르는 작업 모드. 시설 건설은 <see cref="Build"/> 하나이고 어떤 시설인지는
+    /// <see cref="BuildInputController.BuildKind"/>(시설 목록 <see cref="FacilityCatalog"/>, 2026-10-24 CL2). 수로(변에 짓기)는 따로.
+    /// </summary>
     public enum BuildTool
     {
         Select,
-        Well,
-        Farm,
-        Quarry,
-        Mine,
-        AuctionHall,
-        Warehouse,
-        Hospital,
-        WaterTank,
+        Build,
         Canal,
         Upgrade,
         Demolish,
@@ -47,7 +43,30 @@ namespace DesertSettlement.Runtime
         private GameObject _edgeHighlight;
         private EdgeId? _lastDragEdge;
 
-        public BuildTool Tool { get; set; } = BuildTool.Select;
+        public BuildTool Tool { get; private set; } = BuildTool.Select;
+        /// <summary><see cref="BuildTool.Build"/>일 때 지을 시설 종류.</summary>
+        public string BuildKind { get; private set; }
+
+        /// <summary>시설 건설 도구 고르기(변에 짓는 수로는 수로 도구가 된다).</summary>
+        public void SelectBuild(string kind)
+        {
+            FacilityType type = FacilityCatalog.Get(kind);
+            Tool = type != null && type.OnEdge ? BuildTool.Canal : BuildTool.Build;
+            BuildKind = kind;
+        }
+
+        /// <summary>건설이 아닌 도구 고르기(선택·개량·철거·폐쇄).</summary>
+        public void SelectTool(BuildTool tool)
+        {
+            Tool = tool;
+            BuildKind = tool == BuildTool.Canal ? BuildingKinds.CanalEdge : null;
+        }
+
+        /// <summary>지금 도구가 지을 시설 종류(건설·수로 도구가 아니면 null).</summary>
+        public string CurrentKind => Tool == BuildTool.Build ? BuildKind : Tool == BuildTool.Canal ? BuildingKinds.CanalEdge : null;
+
+        /// <summary>지금 도구 이름(건설 도구면 시설 이름).</summary>
+        public string ToolLabel => CurrentKind != null ? FacilityCatalog.NameOf(CurrentKind) : ToolName(Tool);
         public HexCoord? HoverTile { get; private set; }
         public EdgeId? HoverEdge { get; private set; }
         /// <summary>지금 가리키는 시설(변 가까이면 수로, 아니면 타일 시설). 없거나 HUD 위면 null.</summary>
@@ -70,7 +89,7 @@ namespace DesertSettlement.Runtime
             _session.Initialized += () =>
             {
                 SelectedFacilityId = -1;
-                Tool = BuildTool.Select;
+                SelectTool(BuildTool.Select);
                 LastResult = null;
             };
         }
@@ -83,37 +102,13 @@ namespace DesertSettlement.Runtime
             _edgeHighlight.SetActive(false);
         }
 
-        public static string KindOf(BuildTool tool)
-        {
-            switch (tool)
-            {
-                case BuildTool.Well: return BuildingKinds.Well;
-                case BuildTool.Farm: return BuildingKinds.Farm;
-                case BuildTool.Quarry: return BuildingKinds.Quarry;
-                case BuildTool.Mine: return BuildingKinds.Mine;
-                case BuildTool.AuctionHall: return BuildingKinds.AuctionHall;
-                case BuildTool.Warehouse: return BuildingKinds.Warehouse;
-                case BuildTool.Hospital: return BuildingKinds.Hospital;
-                case BuildTool.WaterTank: return BuildingKinds.WaterTank;
-                case BuildTool.Canal: return BuildingKinds.CanalEdge;
-                default: return null;
-            }
-        }
-
-        public static string Label(BuildTool tool)
+        /// <summary>건설이 아닌 도구의 이름.</summary>
+        public static string ToolName(BuildTool tool)
         {
             switch (tool)
             {
                 case BuildTool.Select: return "선택";
-                case BuildTool.Well: return "우물";
-                case BuildTool.Farm: return "농장";
-                case BuildTool.Quarry: return "채석장";
-                case BuildTool.Mine: return "광산";
-                case BuildTool.AuctionHall: return "경매장";
-                case BuildTool.Warehouse: return "창고";
-                case BuildTool.Hospital: return "병원";
-                case BuildTool.WaterTank: return "물탱크";
-                case BuildTool.Canal: return "수로";
+                case BuildTool.Canal: return FacilityCatalog.NameOf(BuildingKinds.CanalEdge);
                 case BuildTool.Upgrade: return "개량";
                 case BuildTool.Demolish: return "철거";
                 case BuildTool.ToggleClose: return "폐쇄/개폐";
@@ -140,8 +135,8 @@ namespace DesertSettlement.Runtime
             Camera cam = Camera.main;
             if (mouse == null || cam == null) return;
 
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) Tool = BuildTool.Select;
-            if (mouse.rightButton.wasPressedThisFrame) Tool = BuildTool.Select;
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) SelectTool(BuildTool.Select);
+            if (mouse.rightButton.wasPressedThisFrame) SelectTool(BuildTool.Select);
 
             Vector2 pointer = mouse.position.ReadValue();
             bool overHud = HudInputBlocker.IsOverHud(pointer);
@@ -246,7 +241,7 @@ namespace DesertSettlement.Runtime
                         ? CommandResult.Ok()
                         : CommandResult.Fail("운영 중이거나 폐쇄된 시설만 바꿀 수 있습니다.");
                 default:
-                    return HoverTile.HasValue ? s.CanBuild(KindOf(Tool), HoverTile.Value) : CommandResult.Fail("맵 밖입니다.");
+                    return HoverTile.HasValue ? s.CanBuild(BuildKind, HoverTile.Value) : CommandResult.Fail("맵 밖입니다.");
             }
         }
 
@@ -280,10 +275,10 @@ namespace DesertSettlement.Runtime
                     break;
                 default:
                     if (!HoverTile.HasValue) return;
-                    r = s.RequestBuild(KindOf(Tool), HoverTile.Value);
+                    r = s.RequestBuild(BuildKind, HoverTile.Value);
                     break;
             }
-            LastResult = r.Success ? $"{Label(Tool)}: 예약/적용됨" : $"{Label(Tool)}: {r.Message}";
+            LastResult = r.Success ? $"{ToolLabel}: 예약/적용됨" : $"{ToolLabel}: {r.Message}";
         }
     }
 }

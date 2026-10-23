@@ -15,11 +15,19 @@ namespace DesertSettlement.Runtime
     /// - 시설: 기본 도형을 조합한 종류별 모양(<see cref="FacilityModels"/>). 레벨마다 부품이 붙고 조금 높아짐,
     ///   공사 중이면 비계 안에서 진행률만큼 자라고 회색, 폐쇄는 어둡게. 농장 작물은 완공 뒤 자라고 물이 모자라면 시든다(SG1~SG3)
     /// - 수로: 변 위의 막대. 물이 많이 흐를수록 진한 파랑(부하/용량)이고 반짝임이 흘러간다, 공사 중은 회색
-    /// - 수문: 변 중간의 상자. 열림 초록 / 닫힘 빨강
+    /// - 닫힌 수로: 빨강(2026-10-23 수문 폐지 뒤 수로 닫기가 물길 차단)
     /// - 대기 중 건설 예약: 바닥의 얇은 표시
     /// - 머리 위 글자: 공사 진행률, 물 부족 이유(설정에서 끌 수 있음)
     /// 색·크기는 인스펙터에서 바꾼다.
     /// </summary>
+    /// <summary>인스펙터에서 시설 색을 덮어쓰는 한 줄(종류 이름 = 설정 JSON buildingLevels 키).</summary>
+    [System.Serializable]
+    public sealed class KindColorOverride
+    {
+        public string kind;
+        public Color color = Color.white;
+    }
+
     [RequireComponent(typeof(GameSession))]
     public sealed class SettlementView : MonoBehaviour
     {
@@ -33,14 +41,8 @@ namespace DesertSettlement.Runtime
         [SerializeField] private float tileGap = 0.96f;
 
         [Header("시설 색")]
-        [SerializeField] private Color well = new Color(0.2f, 0.45f, 0.95f);
-        [SerializeField] private Color farm = new Color(0.35f, 0.75f, 0.3f);
-        [SerializeField] private Color quarry = new Color(0.75f, 0.72f, 0.68f);
-        [SerializeField] private Color mine = new Color(0.45f, 0.3f, 0.25f);
-        [SerializeField] private Color auctionHall = new Color(0.95f, 0.75f, 0.2f);
-        [SerializeField] private Color hospital = new Color(0.95f, 0.95f, 0.95f);
-        [SerializeField] private Color waterTank = new Color(0.45f, 0.75f, 0.95f);
-        [SerializeField] private Color warehouse = new Color(0.7f, 0.5f, 0.3f);
+        [Tooltip("시설 기본 색은 시설 목록(Core/Economy/FacilityCatalog.cs)에 있다. 여기 넣은 종류만 덮어쓴다(2026-10-24 CL3)")]
+        [SerializeField] private List<KindColorOverride> facilityColors = new List<KindColorOverride>();
         [SerializeField] private Color constructing = new Color(0.6f, 0.6f, 0.6f);
         [SerializeField] private Color demolishing = new Color(0.85f, 0.35f, 0.3f);
         [Range(0f, 1f)]
@@ -314,20 +316,13 @@ namespace DesertSettlement.Runtime
             }
         }
 
+        /// <summary>시설 색: 인스펙터 덮어쓰기 → 시설 목록 기본 색 → (목록에 없으면) 자홍색.</summary>
         private Color KindColor(string kind)
         {
-            switch (kind)
-            {
-                case BuildingKinds.Well: return well;
-                case BuildingKinds.Farm: return farm;
-                case BuildingKinds.Quarry: return quarry;
-                case BuildingKinds.Mine: return mine;
-                case BuildingKinds.AuctionHall: return auctionHall;
-                case BuildingKinds.Warehouse: return warehouse;
-                case BuildingKinds.Hospital: return hospital;
-                case BuildingKinds.WaterTank: return waterTank;
-                default: return Color.magenta;
-            }
+            foreach (KindColorOverride o in facilityColors)
+                if (o.kind == kind) return o.color;
+            FacilityType type = FacilityCatalog.Get(kind);
+            return type != null ? new Color(type.Color.R, type.Color.G, type.Color.B) : Color.magenta;
         }
 
         /// <summary>진행 중 작업의 진행률(0~1). 시계의 시간 안 소수점까지 반영해 부드럽게 움직인다.</summary>

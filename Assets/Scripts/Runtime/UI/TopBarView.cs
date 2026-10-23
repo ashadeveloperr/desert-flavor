@@ -95,7 +95,9 @@ namespace DesertSettlement.Runtime.UI
             string traits = string.Join("   ", c.CurrentModifiers.Select(m =>
                 Paint((m.Kind == RegionModifierKind.Weakness ? "약점 " : "강점 ") + m.Name, m.Kind == RegionModifierKind.Weakness ? Theme.Warn : Theme.Good)));
             string gear = c.Loadout.Count == 0 ? "장비 없음" : "장비 " + string.Join(", ", c.Shop.Where(e => c.IsEquipped(e.Id)).Select(e => e.Name));
-            _traits.text = (traits.Length > 0 ? traits + "\n" : "") + gear;
+            // 운영비 배율(장비·약점·난이도 H1 포함): 먼 지역일수록 비싸진다.
+            string upkeep = s.Rules.UpkeepMultiplier > 1.005 ? "   " + Paint($"운영비 ×{s.Rules.UpkeepMultiplier:0.00}", Theme.Warn) : "";
+            _traits.text = (traits.Length > 0 ? traits + "\n" : "") + gear + upkeep;
 
             GameClock clock = session.Clock;
             int hour = (int)clock.HourOfDay;

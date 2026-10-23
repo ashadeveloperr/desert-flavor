@@ -109,6 +109,9 @@ namespace DesertSettlement.Core.Progression
             rules.StarterFood += _pendingFoodBonus;
             foreach (EquipmentDefinition e in Shop.Where(x => _loadout.Contains(x.Id))) rules.ApplyEffects(EffectsOf(e));
             foreach (RegionModifierDefinition m in CurrentModifiers) rules.ApplyEffects(m.Effects);
+            // 난이도 비례 유지비(후보, 기본 0): 생성 맵에서 D가 높을수록 운영비가 비싸진다.
+            if (CurrentGenerated != null && _procedural != null && _procedural.Difficulty.UpkeepPerD > 0)
+                rules.UpkeepMultiplier *= 1 + _procedural.Difficulty.UpkeepPerD * CurrentGenerated.Params.D;
             foreach (KeyValuePair<string, int> kv in _pendingFreeBuilds) rules.FreeBuilds[kv.Key] = kv.Value;
             _pendingFoodBonus = 0;
             _pendingFreeBuilds.Clear();

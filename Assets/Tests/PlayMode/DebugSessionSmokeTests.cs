@@ -60,6 +60,7 @@ namespace DesertSettlement.PlayMode.Tests
 
             Assert.IsTrue(session.IsReady);
             Assert.AreEqual(12, (int)session.Clock.HourOfDay);
+            Assert.IsTrue(session.Clock.IsPaused, "첫 정착지도 일시정지로 시작(C2)");
             Assert.AreEqual("map_01_oasis_basin", session.Campaign.CurrentMap.Id);
             Transform tiles = session.transform.Find("Tiles");
             Assert.IsNotNull(tiles);
@@ -131,6 +132,7 @@ namespace DesertSettlement.PlayMode.Tests
                 if (n == 1)
                 {
                     Assert.IsTrue(session.BuyEquipment("wellPump").Success);
+                    session.Clock.SelectSpeed(2); // 4배속이었어도
                     session.GoToNextSettlement();
                     yield return null;
                     yield return null;
@@ -138,7 +140,8 @@ namespace DesertSettlement.PlayMode.Tests
                     Assert.AreEqual(1.1, session.Settlement.Rules.WellSupplyMultiplier, 1e-9);
                     Assert.AreEqual(session.Map.TileCount, session.transform.Find("Tiles").childCount, "새 맵으로 다시 그림");
                     Assert.AreEqual(0, session.transform.Find("Facilities").childCount, "이전 정착지 시설 표시 제거");
-                    Assert.IsFalse(session.Clock.IsPaused);
+                    Assert.IsTrue(session.Clock.IsPaused, "새 정착지는 일시정지로 시작(C2)");
+                    Assert.AreEqual(0, session.Clock.SpeedIndex, "새 정착지는 1배속(C2)");
                     Assert.AreEqual(12, (int)session.Clock.HourOfDay, "새 정착지도 정오에 시작");
                 }
             }

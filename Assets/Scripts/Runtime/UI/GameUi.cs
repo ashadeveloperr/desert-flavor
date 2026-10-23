@@ -30,6 +30,7 @@ namespace DesertSettlement.Runtime.UI
         private readonly List<IUiView> _views = new List<IUiView>();
         private float _nextRefresh;
         private TooltipView _tooltip;
+        private TopBarView _topBar;
 
         public GameSession Session => _session;
         public BuildInputController Input { get; private set; }
@@ -43,7 +44,7 @@ namespace DesertSettlement.Runtime.UI
             BuildCanvas();
             EnsureEventSystem();
             Transform root = _canvas.transform;
-            _views.Add(new TopBarView(this, root));
+            _views.Add(_topBar = new TopBarView(this, root));
             _views.Add(new BuildBarView(this, root));
             _views.Add(new AlertsView(this, root));
             _views.Add(new InspectorView(this, root));
@@ -80,7 +81,11 @@ namespace DesertSettlement.Runtime.UI
             if (k != null && k.f1Key.wasPressedThisFrame) HudMode.Legacy = !HudMode.Legacy;
             bool show = _session.IsReady && !HudMode.Legacy;
             if (_canvas.gameObject.activeSelf != show) _canvas.gameObject.SetActive(show);
-            if (show) _tooltip.Follow(); // 툴팁은 매 프레임 커서를 따라간다
+            if (show)
+            {
+                _tooltip.Follow(); // 툴팁은 매 프레임 커서를 따라간다
+                _topBar?.TickClock(); // 시계는 1분 단위로 보이게 매 프레임 확인(C1)
+            }
             if (!show || Time.unscaledTime < _nextRefresh) return;
             _nextRefresh = Time.unscaledTime + refreshSeconds;
             foreach (IUiView v in _views) v.Refresh();

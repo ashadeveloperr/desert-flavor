@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Progression;
@@ -19,6 +20,7 @@ namespace DesertSettlement.Runtime.UI
         private readonly Button _pause, _save, _load;
         private readonly Button[] _speeds = new Button[3];
         private float _messageUntil;
+        private long _shownMinute = -1;
 
         public TopBarView(GameUi ui, Transform canvas)
         {
@@ -73,7 +75,31 @@ namespace DesertSettlement.Runtime.UI
             _messageUntil = Time.unscaledTime + 4f;
         }
 
-        public void Reset() => Refresh();
+        /// <summary>새 정착지: 일시정지로 시작한다는 안내(2026-10-23 플레이 피드백 C2).</summary>
+        public void Reset()
+        {
+            _shownMinute = -1;
+            Refresh();
+            if (_ui.Session.Clock != null && _ui.Session.Clock.IsPaused) Show("일시정지 상태로 시작합니다 — 맵을 살펴본 뒤 ` 키나 배속 버튼으로 시작하세요");
+        }
+
+        /// <summary>
+        /// 시계 글자는 매 프레임 확인하고 게임 시간 1분이 바뀔 때마다 다시 쓴다(C1). 0.2초 갱신에 묶으면 1배속에서도 1~2분씩 건너뛴다.
+        /// 4배속(1초 = 게임 32분)은 화면 프레임보다 빨라 몇 분씩 넘어갈 수 있다.
+        /// </summary>
+        public void TickClock()
+        {
+            GameClock clock = _ui.Session.Clock;
+            if (clock == null) return;
+            int minuteOfDay = Math.Min(24 * 60 - 1, (int)Math.Floor(clock.HourOfDay * 60.0));
+            long minute = (clock.Day - 1) * 24L * 60L + minuteOfDay;
+            bool day = clock.IsDaytime;
+            if (minute == _shownMinute) return;
+            _shownMinute = minute;
+            int hour = minuteOfDay / 60;
+            int m = minuteOfDay % 60;
+            _clock.text = $"{clock.Day}일차 {hour:00}:{m:00} {(day ? "낮" : Paint("밤", Theme.Water))}";
+        }
 
         public void Refresh()
         {
@@ -100,9 +126,7 @@ namespace DesertSettlement.Runtime.UI
             _traits.text = (traits.Length > 0 ? traits + "\n" : "") + gear + upkeep;
 
             GameClock clock = session.Clock;
-            int hour = (int)clock.HourOfDay;
-            int minute = (int)((clock.HourOfDay - hour) * 60.0);
-            _clock.text = $"{clock.Day}일차 {hour:00}:{minute:00} {(clock.IsDaytime ? "낮" : Paint("밤", Theme.Water))}";
+            TickClock();
             _pause.SetText(clock.IsPaused ? "재개 `" : "일시정지 `");
             _pause.SetOn(clock.IsPaused);
             for (int i = 0; i < _speeds.Length; i++)

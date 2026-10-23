@@ -203,7 +203,9 @@ namespace DesertSettlement.Runtime
         {
             if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement(offerIndex);
             Clock.ResetForNewSettlement();
-            Clock.SetPaused(false);
+            // 새 정착지는 일시정지·1배속으로 시작한다(2026-10-23 플레이 피드백 C2: 4배속 그대로 시작하면 맵을 보기도 전에 시간이 흐름).
+            Clock.SetSpeedIndex(timeSettings.DefaultSpeedIndex);
+            Clock.SetPaused(true);
             HookSettlement();
         }
 

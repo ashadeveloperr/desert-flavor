@@ -134,9 +134,9 @@ namespace DesertSettlement.Core.Tests
             Settlement s = sc.S;
 
             Assert.AreEqual(37, s.AuctionHallCompletedHour, "경매장 완공 37h");
-            // 133h = 원본 v0.8 스크립트의 첫 경매 시각(경매장 37h + 96h). 게임의 경매 간격은 72h로 바뀌었지만(2026-10-23),
+            // 133h = 원본 v0.8 스크립트의 첫 경매 시각(경매장 37h + 96h). 게임의 경매 간격은 72h(2026-10-23) → 48h(2026-10-26)로 바뀌었지만,
             // 이 회귀는 v0.8 이식본과 같은 133h 시점의 경제 상태를 비교한다.
-            Assert.AreEqual(72, _config.ConfirmedRules.AuctionRepeatsGameHours, "경매 간격 72h(첫 경매 = 완공 + 72h = 109h)");
+            Assert.AreEqual(48, _config.ConfirmedRules.AuctionRepeatsGameHours, "경매 간격 48h(2026-10-26 AU1, 첫 경매 = 완공 + 48h = 85h)");
             Assert.AreEqual(540.05, sc.CashBefore(133), 0.01, "첫 경매 직전 현금");
             Assert.AreEqual(0.7885, s.WaterRateOf(sc.F("mine")), 1e-4, "광산 물 가동률");
             Assert.AreEqual(91.5, s.Food, 0.01);
@@ -170,7 +170,7 @@ namespace DesertSettlement.Core.Tests
             sc.Do(20, s => Assert.AreEqual(5, s.BuyStone(5)));
             sc.Run(128);
             Assert.AreEqual(32, sc.S.AuctionHallCompletedHour);
-            Assert.AreEqual(32 + 72, sc.S.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, "첫 경매가 4시간 빨라짐");
+            Assert.AreEqual(32 + 48, sc.S.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, "첫 경매가 4시간 빨라짐");
         }
 
         // ───────────── 건설 규칙 ─────────────

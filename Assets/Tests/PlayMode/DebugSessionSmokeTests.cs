@@ -101,10 +101,10 @@ namespace DesertSettlement.PlayMode.Tests
                 "물이 흐르는 수로 옆 사막이 푸르게 바뀐다(SG4): 지형 색이 아닌 타일이 있어야 한다");
 
             FastForwardToAuction(session);
-            Assert.IsTrue(session.Auctions.IsOpen, "93h 정기 경매(경매장 21h + 72h)");
-            Assert.AreEqual(93, s.CurrentHour);
+            Assert.IsTrue(session.Auctions.IsOpen, "69h 정기 경매(경매장 21h + 48h, 2026-10-26 AU1)");
+            Assert.AreEqual(69, s.CurrentHour);
             session.Clock.AdvanceGameHours(10);
-            Assert.AreEqual(93, s.CurrentHour, "경매 중에는 정산하지 않는다");
+            Assert.AreEqual(69, s.CurrentHour, "경매 중에는 정산하지 않는다");
 
             // 몇 프레임 실시간으로 돌려도 에러가 없어야 한다(경매 패널·HUD·입력·카메라·조명).
             for (int i = 0; i < 10; i++) yield return null;

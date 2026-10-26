@@ -65,7 +65,7 @@ namespace DesertSettlement.Core.Economy
         public double TotalFoodShortage { get; private set; }
         public long? FirstShortageHour { get; private set; }
         public long? FirstInsolvencyHour { get; private set; }
-        /// <summary>첫 경매장 완공 시각. 경매 일정(완공 + auctionRepeatsGameHours, 72시간)의 기준.</summary>
+        /// <summary>첫 경매장 완공 시각. 경매 일정(완공 + auctionRepeatsGameHours, 48시간)의 기준.</summary>
         public long? AuctionHallCompletedHour { get; private set; }
 
         public event Action<Facility> FacilityCompleted;

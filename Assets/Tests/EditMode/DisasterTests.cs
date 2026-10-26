@@ -47,7 +47,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Config_HasEpidemicHospitalAndVaccination()
         {
-            Assert.AreEqual(48, _config.Disasters.GraceHours);
+            Assert.AreEqual(36, _config.Disasters.GraceHours, "2026-10-26 AU2: 경매 주기 48h에 맞춰 48 → 36");
             Assert.AreEqual(6, _config.Disasters.WarningHours);
             Assert.IsTrue(_config.Disasters.Types.Any(t => t.Id == "epidemic"));
             Assert.AreEqual(0.5, _config.Disasters.Epidemic.HospitalDamageFactor, 1e-12);
@@ -68,8 +68,9 @@ namespace DesertSettlement.Core.Tests
                 Assert.LessOrEqual(a.Events.Count, 2, "정착지마다 0~2번");
                 foreach (DisasterEvent e in a.Events)
                 {
-                    Assert.GreaterOrEqual(e.StartHour, 48, "첫 48시간은 재해 없음");
-                    Assert.Less(e.StartHour, 48 + _config.Disasters.ScheduleWindowHours);
+                    int grace = _config.Disasters.GraceHours;
+                    Assert.GreaterOrEqual(e.StartHour, grace, "유예 시간 동안은 재해 없음");
+                    Assert.Less(e.StartHour, grace + _config.Disasters.ScheduleWindowHours);
                     Assert.AreEqual(e.StartHour - 6, e.WarningHour, "6시간 전 예고");
                 }
             }
@@ -108,11 +109,12 @@ namespace DesertSettlement.Core.Tests
                     Assert.AreEqual(d.Epidemic.Damage, r.EpidemicDamage, 0.06, "피해 = S × (1 − R)");
                 }
             }
-            Assert.AreEqual("warn 42", log[0], "48h − 6h에 예고");
-            Assert.AreEqual("start 48", log[1]);
+            int grace = _config.Disasters.GraceHours;
+            Assert.AreEqual($"warn {grace - 6}", log[0], "유예 − 6h에 예고");
+            Assert.AreEqual($"start {grace}", log[1]);
             Assert.IsTrue(log.Any(x => x.StartsWith("end")), "언젠가 끝난다(저항력이 심각도를 넘음)");
             long end = d.Events[0].EndHour;
-            Assert.That(end - 48, Is.InRange(36, 72), "2~3일 안에 끝난다(EP1 목표, 설정 수치 약 50h)");
+            Assert.That(end - grace, Is.InRange(36, 72), "2~3일 안에 끝난다(EP1 목표, 설정 수치 약 50h)");
             Assert.Greater(peakSeverity, _config.Disasters.Epidemic.InitialSeverity, "심각도가 오르다가");
             Assert.IsFalse(d.Epidemic.Active);
             Assert.Greater(d.Epidemic.Resistance, 0.2, "저항력이 남아 있다");
@@ -137,7 +139,7 @@ namespace DesertSettlement.Core.Tests
                 double before = d.Epidemic.Severity;
                 s.AdvanceHour();
                 if (!d.Epidemic.Active) { if (peakHour >= 0) break; continue; }
-                long sinceStart = s.CurrentHour - 48;
+                long sinceStart = s.CurrentHour - _config.Disasters.GraceHours;
                 if (d.Epidemic.Damage > peakDamage) { peakDamage = d.Epidemic.Damage; peakHour = sinceStart; }
                 peakSeverity = Math.Max(peakSeverity, d.Epidemic.Severity);
                 if (d.Epidemic.Severity > before) rose = true;

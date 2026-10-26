@@ -145,7 +145,7 @@ namespace DesertSettlement.Core.Tests
 
             s.AdvanceHours(38);
             Assert.AreEqual(36, s.AuctionHallCompletedHour, "명령 순간 착공(2026-10-26 JQ2)이라 원본 37h보다 1시간 이름");
-            Assert.AreEqual(36 + 72, a.NextAuctionHour, "완공 + 72h");
+            Assert.AreEqual(36 + 48, a.NextAuctionHour, "완공 + 48h(2026-10-26 AU1, 이전 72h)");
             Assert.AreEqual(1, announcements, "경매장 완공 직후 예고");
             Assert.That(a.AnnouncedBidders.Count, Is.InRange(1, 2));
             Assert.AreEqual(AuctionPhase.Scheduled, a.Phase);
@@ -162,8 +162,8 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Regular, e.Kind);
-            Assert.AreEqual(108, e.Hour);
-            Assert.AreEqual(108, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
+            Assert.AreEqual(84, e.Hour);
+            Assert.AreEqual(84, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
             CollectionAssert.AreEqual(announced, e.Bids.Select(b => b.Bidder.Id).ToList(), "예고된 입찰자가 온다");
             AuctionSettings cfg = _config.Auction;
             Assert.That(e.Market, Is.InRange(cfg.MarketCenter * (1 - cfg.MarketSwing), cfg.MarketCenter * (1 + cfg.MarketSwing)));
@@ -177,18 +177,18 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Hold_SchedulesNextAuctionAndAnnouncesAgain()
         {
-            // 보류 뒤 72h를 버티도록 이전 시작 자금 700(게임 값 500은 2026-10-24 FB1: 샘플 배치는 143h에 자금이 바닥나 긴급 매각).
+            // 보류 뒤 48h를 버티도록 이전 시작 자금 700(게임 값 500은 2026-10-24 FB1: 샘플 배치는 143h에 자금이 바닥나 긴급 매각).
             (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 700);
             RunUntilEvent(s, a);
             int announcements = 0;
             a.BiddersAnnounced += _ => announcements++;
 
             a.Hold();
-            Assert.AreEqual(108 + 72, a.NextAuctionHour);
+            Assert.AreEqual(84 + 48, a.NextAuctionHour);
             Assert.AreEqual(1, announcements, "보류 직후 다음 경매 예고");
             RunUntilEvent(s, a);
             Assert.IsTrue(a.IsOpen);
-            Assert.AreEqual(180, a.CurrentAuction.Hour);
+            Assert.AreEqual(132, a.CurrentAuction.Hour);
         }
 
         [Test]
@@ -205,13 +205,13 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void CashHittingZeroWithAuctionHall_OpensEmergencyAuctionWithPenalty()
         {
-            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매(108h, 2026-10-26 전 109h)까지 버텨서 낮춤
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매까지 버텨서 낮춤(지금 정기 경매 84h, 2026-10-26 AU1)
             RunUntilEvent(s, a);
 
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Emergency, e.Kind);
-            Assert.Less(e.Hour, 108, "정기 경매 전에 자금이 바닥남");
+            Assert.Less(e.Hour, 84, "정기 경매(84h) 전에 자금이 바닥남");
             Assert.LessOrEqual(s.Cash, 0);
             Assert.AreEqual(0.2, e.Penalty, 1e-9);
             foreach (AuctionBid bid in e.Bids) Assert.AreEqual(bid.Valuation.Value * e.Market * 0.8, bid.TotalOffer, 1e-6);
@@ -220,7 +220,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void DecliningEmergencySale_BankruptsAfter24NegativeHours()
         {
-            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매(108h, 2026-10-26 전 109h)까지 버텨서 낮춤
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매까지 버텨서 낮춤(지금 정기 경매 84h, 2026-10-26 AU1)
             string reason = null;
             a.Bankrupted += r => reason = r;
             for (int guard = 0; guard < 20 && !a.IsFinished; guard++)
@@ -255,7 +255,7 @@ namespace DesertSettlement.Core.Tests
         public void CashHittingZeroWithAuctionHallButNoMine_IsImmediateBankruptcy()
         {
             SettlementRules rules = SettlementRules.FromConfig(_config);
-            rules.StartingCash = 150;
+            rules.StartingCash = 60; // 정기 경매(84h, 2026-10-26 AU1) 전에 자금이 바닥나게(이전 150)
             var s = new Settlement(_maps[0].CreateMap(), rules);
             var a = new AuctionManager(s, 1);
             s.RequestBuild(BuildingKinds.Well, new HexCoord(0, 0));
@@ -275,7 +275,10 @@ namespace DesertSettlement.Core.Tests
         public void EquipmentUpgrade_ScalesEffect_CostsMore_AndCarriesToNextSettlement()
         {
             // 2026-10-23 로드맵 1-④ 장비 강화(Docs/decision_log_auto.md E1~E5).
-            var campaign = new Campaign(_config, _maps, seed: 7);
+            // 강화 비용(800)까지 살 수 있게 시작 자금을 넉넉히(2026-10-26 AU1: 경매 48h라 첫 매각 대금이 줄어 기본 500으로는 모자람).
+            EconomyConfig config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json")));
+            config.Prototype.StartingCash = 1000;
+            var campaign = new Campaign(config, _maps, seed: 7);
             Settlement first = campaign.StartNextSettlement();
             Assert.IsEmpty(campaign.CurrentMap.RequestSampleLayout(first));
             first.BuyStone(5);
@@ -287,14 +290,14 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(campaign.BuyEquipment("wellPump").Success);
             Assert.AreEqual(1, campaign.EquipmentLevel("wellPump"));
             Assert.AreEqual(400 * 2.0, campaign.UpgradeCost("wellPump").Value, 1e-9, "Lv1 → Lv2 = 가격 × 2.0");
-            Assume.That(campaign.Cash, Is.GreaterThanOrEqualTo(800));
+            Assert.That(campaign.Cash, Is.GreaterThanOrEqualTo(800), "강화 비용을 낼 수 있어야 이 테스트가 뜻이 있음");
             Assert.IsTrue(campaign.UpgradeEquipment("wellPump").Success);
             Assert.AreEqual(2, campaign.EquipmentLevel("wellPump"));
             Assert.AreEqual(400 * 3.0, campaign.UpgradeCost("wellPump").Value, 1e-9, "Lv2 → Lv3 = 가격 × 3.0");
 
-            EquipmentDefinition crew = _config.Equipment.Single(e => e.Id == "extraCrew");
+            EquipmentDefinition crew = config.Equipment.Single(e => e.Id == "extraCrew");
             Assert.AreEqual(1, campaign.MaxEquipmentLevel(crew), "정수 효과(추가 작업반)는 강화 없음");
-            Assert.AreEqual(3, campaign.MaxEquipmentLevel(_config.Equipment.Single(e => e.Id == "wellPump")));
+            Assert.AreEqual(3, campaign.MaxEquipmentLevel(config.Equipment.Single(e => e.Id == "wellPump")));
 
             Settlement second = campaign.StartNextSettlement();
             Assert.AreEqual(1 + 0.1 * 1.3, second.Rules.WellSupplyMultiplier, 1e-9, "Lv2 효과 = 기본 +10%의 1.3배");

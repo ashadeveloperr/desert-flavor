@@ -254,10 +254,11 @@ namespace DesertSettlement.Core.Config
     /// </summary>
     public sealed class DisasterSettings
     {
-        public int GraceHours { get; set; } = 48;
+        /// <summary>정착지 시작 뒤 재해가 없는 시간. 2026-10-26 AU2: 48 → 36(경매 주기 48h에 맞춰 재해를 겪는 정착지 비율 유지).</summary>
+        public int GraceHours { get; set; } = 36;
         public int WarningHours { get; set; } = 6;
         /// <summary>유예가 끝난 뒤 이 시간 안에서 시작 시각을 고른다(첫 경매 무렵까지).</summary>
-        public int ScheduleWindowHours { get; set; } = 72;
+        public int ScheduleWindowHours { get; set; } = 48;
         /// <summary>정착지 하나의 재해 횟수 확률. [0]=0번, [1]=1번, [2]=2번 ….</summary>
         /// (기본값을 리스트로 두면 JSON 읽을 때 덧붙여지므로 null로 두고, 없으면 <see cref="EffectiveCountWeights"/>가 0.15·0.55·0.30을 쓴다.)
         public List<double> CountWeights { get; set; }

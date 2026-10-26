@@ -71,11 +71,10 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(0.5, d.ConstructionSpeed, 1e-12);
 
             // 폭풍 중 착공한 작업은 늦게 끝난다.
-            int job = s.RequestBuild(BuildingKinds.Warehouse, new HexCoord(-1, 0)).JobId;
-            s.AdvanceHour();
-            long plain = s.GetJob(job).StartedHour + s.GetJob(job).Hours;
+            ConstructionJob job = s.GetJob(s.RequestBuild(BuildingKinds.Warehouse, new HexCoord(-1, 0)).JobId);
+            long plain = job.DeadlineHour; // 명령 순간 착공(JQ2). 폭풍이 없으면 이 시각에 완공
             s.AdvanceHours(4);
-            Assert.Greater(s.GetJob(job).DeadlineHour, plain, "공사 속도 −50%");
+            Assert.Greater(job.DeadlineHour, plain, "공사 속도 −50%");
 
             for (int i = 0; i < 30 && d.IsActive(DisasterManager.Sandstorm); i++) s.AdvanceHour();
             Assert.AreEqual(DisasterState.Ended, e.State);

@@ -60,6 +60,7 @@ namespace DesertSettlement.Core.Tests
                     r.StoneMultiplierUsesQuarryCapacity = false;
                     r.StartingCash = 1000; // v0.8 원본 시작 자금(게임 값은 2026-10-23 게임성 보강으로 700)
                     r.ConstructionHoursMultiplier = 1; // v0.8 원본 건설 시간(게임 값은 2026-10-23 흐름 조정 W2로 0.5)
+                    r.StartJobsOnCommand = false; // v0.8 원본은 다음 정각에 착공(게임 값은 2026-10-26 JQ2로 명령 순간)
                     tweak?.Invoke(r);
                 });
                 S.JobStarted += job =>
@@ -280,6 +281,39 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void Command_StartsJobImmediately_CountingTheCurrentHour()
+        {
+            // 2026-10-26 JQ2(이슈 #8): 명령 순간 석재를 내고 착공, 진행 중인 시간을 첫 1시간으로 센다.
+            Settlement s = NewSettlement();
+            Assert.IsTrue(s.Rules.StartJobsOnCommand, "게임 설정은 명령 순간 착공");
+            s.AdvanceHours(3);
+            long h = s.CurrentHour;
+            int farm = s.RequestBuild(BuildingKinds.Farm, FarmTile).JobId;
+            ConstructionJob job = s.GetJob(farm);
+            Assert.AreEqual(JobState.InProgress, job.State, "정각을 기다리지 않음");
+            Assert.AreEqual(75.0 - job.StoneCost, s.Stone, 1e-9, "석재도 바로 냄");
+            Assert.AreEqual(h, job.StartedHour);
+            Assert.AreEqual(h + job.Hours - 1, job.DeadlineHour, "이번 시간이 첫 1시간");
+
+            Facility f = s.FacilityAt(FarmTile);
+            s.AdvanceHours(job.Hours - 1);
+            Assert.AreEqual(FacilityState.Constructing, f.State);
+            s.AdvanceHour();
+            Assert.AreEqual(FacilityState.Operating, f.State, "명령한 시간 + 공사 시간 정각에 완공(예전보다 한 시간 이름)");
+        }
+
+        [Test]
+        public void Command_WaitsForTheHour_WhenStartJobsOnCommandIsOff()
+        {
+            Settlement s = NewSettlement(r => r.StartJobsOnCommand = false);
+            int farm = s.RequestBuild(BuildingKinds.Farm, FarmTile).JobId;
+            Assert.AreEqual(JobState.Queued, s.GetJob(farm).State, "원본 v0.8: 다음 정각에 착공");
+            s.AdvanceHour();
+            Assert.AreEqual(JobState.InProgress, s.GetJob(farm).State);
+            Assert.AreEqual(s.GetJob(farm).StartedHour + s.GetJob(farm).Hours, s.GetJob(farm).DeadlineHour);
+        }
+
+        [Test]
         public void TwoSlotsOnly()
         {
             Settlement s = NewSettlement();
@@ -295,7 +329,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Cancel_QueuedIsFree_InProgressRefundsHalfStone()
         {
-            Settlement s = NewSettlement();
+            Settlement s = NewSettlement(r => r.StartJobsOnCommand = false); // '대기 중' 취소를 보려고 다음 정각 착공으로
             int farm = s.RequestBuild(BuildingKinds.Farm, FarmTile).JobId;
             Assert.IsTrue(s.CancelJob(farm).Success);
             Assert.AreEqual(75.0, s.Stone);

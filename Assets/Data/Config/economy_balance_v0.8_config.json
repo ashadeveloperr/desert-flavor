@@ -12,6 +12,7 @@
     "postStartCancelStoneRefundRatio": 0.5,
     "gameDayRealSecondsAt1x": 180,
     "constructionHoursMultiplier": 0.5,
+    "startJobsOnCommand": true,
     "waterNetworkGeometry": "shared_hex_edges_and_vertices",
     "waterOrder": "upstream_first_same_priority_demand_proportional"
   },

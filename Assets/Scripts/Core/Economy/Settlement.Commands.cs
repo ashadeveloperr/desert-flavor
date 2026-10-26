@@ -20,6 +20,9 @@ namespace DesertSettlement.Core.Economy
             {
                 c.Hour = CurrentHour;
                 CommandRecorded?.Invoke(c);
+                // 2026-10-26 JQ2(이슈 #8): 명령 순간 착공. 새 작업뿐 아니라 취소(슬롯)·순서 변경·석재 구매로 시작할 수 있게 된 작업도.
+                // 저장 불러오기는 같은 명령을 같은 시각에 다시 부르므로 결과가 같다.
+                if (Rules.StartJobsOnCommand) StartJobs(CurrentHour, onCommand: true);
             }
             return r;
         }

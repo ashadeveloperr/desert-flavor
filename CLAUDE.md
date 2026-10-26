@@ -56,7 +56,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
 - **시설 종류 목록 `Core/Economy/FacilityCatalog`(2026-10-24):** 이름·도구 막대 분류·지을 수 있는 지형·기본 색. **새 시설 = JSON `buildingLevels` + 이 목록 한 줄**(모양은 선택, `Runtime/View/FacilityModels`).
 - **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄(수로 폐쇄 = 물길 차단)·구매), 파일은 목적별 partial(명령 처리 `Settlement.Actions.cs`, 명령 기록 `.Commands.cs`, 경제 틱·작업 큐 `.Tick.cs`, 물 계산 `.Water.cs`, 물탱크 `.WaterTanks.cs`),
-  `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
+  `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯, 철거는 막힌 작업을 건너뜀). 명령은 순간 착공하고 진행 중인 시간을 첫 1시간으로 센다(2026-10-26 JQ2, 설정 `startJobsOnCommand`, v0.8 회귀 비교는 끔). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
   `OutputOf(facility)`로 시간당 생산·소비 예상치. 경매 가치는 가동 숙성(막 지은 생산 시설 70% → 48h 100%)과 석재 배율의 채석장 능력을 반영(2026-10-23, v0.8 회귀 비교 때는 끔). 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
   첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
   무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.

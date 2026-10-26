@@ -58,6 +58,11 @@ namespace DesertSettlement.Core.Config
         /// 1이면 원본 v0.8. 하루 길이(GameDayRealSecondsAt1x)를 늘리면서 같이 줄여 '여유 있게 많이 짓는' 흐름을 만든다.
         /// </summary>
         public double ConstructionHoursMultiplier { get; set; } = 1;
+        /// <summary>
+        /// 명령 순간 착공(2026-10-26 JQ2, 이슈 #8). true면 건설·개량·철거 명령(또는 슬롯·석재가 생기는 명령) 직후 바로 착공하고,
+        /// 진행 중인 이 시간을 첫 1시간으로 센다(명령부터 완공까지 표시 시간 이하). false = 다음 정각에 착공(원본 v0.8).
+        /// </summary>
+        public bool StartJobsOnCommand { get; set; }
         public string WaterNetworkGeometry { get; set; }
         public string WaterOrder { get; set; }
     }

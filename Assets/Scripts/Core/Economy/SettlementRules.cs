@@ -40,6 +40,8 @@ namespace DesertSettlement.Core.Economy
         public double DemolishHoursRatio { get; set; } = 0.5;
         /// <summary>건설·개량·철거 시간 배율(설정 confirmedRules.constructionHoursMultiplier, 2026-10-23 FL2). 1 = 원본 v0.8.</summary>
         public double ConstructionHoursMultiplier { get; set; } = 1;
+        /// <summary>명령 순간 착공(설정 confirmedRules.startJobsOnCommand, 2026-10-26 JQ2). false = 다음 정각에 착공(원본 v0.8, 회귀 비교용).</summary>
+        public bool StartJobsOnCommand { get; set; }
 
         /// <summary>
         /// 실제 공사 시간(시): 레벨표 시간 × <see cref="ConstructionHoursMultiplier"/>(반올림, 최소 1). 철거는 × <see cref="DemolishHoursRatio"/>(올림).
@@ -127,6 +129,7 @@ namespace DesertSettlement.Core.Economy
                 ConstructionSlots = c.ConstructionSlots,
                 CancelRefundRatio = c.PostStartCancelStoneRefundRatio,
                 ConstructionHoursMultiplier = c.ConstructionHoursMultiplier > 0 ? c.ConstructionHoursMultiplier : 1,
+                StartJobsOnCommand = c.StartJobsOnCommand,
                 StartingCash = p.StartingCash,
                 StarterStone = p.SiteStarterStone,
                 StarterFood = p.SiteStarterFood,

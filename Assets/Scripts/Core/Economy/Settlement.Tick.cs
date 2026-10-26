@@ -150,7 +150,12 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
-        private void StartJobs(long h)
+        /// <summary>
+        /// 대기 작업을 슬롯·석재가 되는 만큼 착공한다. 정각 정산(h = 지금 정산하는 시간)과 명령 직후(onCommand, h = 진행 중인 시간)에 부른다.
+        /// 명령 직후 착공은 진행 중인 이 시간을 첫 1시간으로 세서 완공 정산이 한 시간 이르다(JQ2): 12:30에 5시간 작업 → 17:00 완공.
+        /// 정각 착공은 정산하는 시간이 이미 지나간 시간이라 그다음 정각부터 센다(예전과 같음).
+        /// </summary>
+        private void StartJobs(long h, bool onCommand = false)
         {
             int running = JobsInProgress;
             bool blocked = false;
@@ -169,7 +174,7 @@ namespace DesertSettlement.Core.Economy
                 Stone -= job.StoneCost;
                 job.State = JobState.InProgress;
                 job.StartedHour = h;
-                job.DeadlineHour = h + job.Hours;
+                job.DeadlineHour = h + job.Hours - (onCommand ? 1 : 0);
                 switch (job.Type)
                 {
                     case JobType.Build:

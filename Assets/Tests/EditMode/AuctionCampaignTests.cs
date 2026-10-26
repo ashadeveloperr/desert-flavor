@@ -144,8 +144,8 @@ namespace DesertSettlement.Core.Tests
             a.BiddersAnnounced += _ => announcements++;
 
             s.AdvanceHours(38);
-            Assert.AreEqual(37, s.AuctionHallCompletedHour);
-            Assert.AreEqual(37 + 72, a.NextAuctionHour, "완공 + 72h");
+            Assert.AreEqual(36, s.AuctionHallCompletedHour, "명령 순간 착공(2026-10-26 JQ2)이라 원본 37h보다 1시간 이름");
+            Assert.AreEqual(36 + 72, a.NextAuctionHour, "완공 + 72h");
             Assert.AreEqual(1, announcements, "경매장 완공 직후 예고");
             Assert.That(a.AnnouncedBidders.Count, Is.InRange(1, 2));
             Assert.AreEqual(AuctionPhase.Scheduled, a.Phase);
@@ -162,8 +162,8 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Regular, e.Kind);
-            Assert.AreEqual(109, e.Hour);
-            Assert.AreEqual(109, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
+            Assert.AreEqual(108, e.Hour);
+            Assert.AreEqual(108, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
             CollectionAssert.AreEqual(announced, e.Bids.Select(b => b.Bidder.Id).ToList(), "예고된 입찰자가 온다");
             AuctionSettings cfg = _config.Auction;
             Assert.That(e.Market, Is.InRange(cfg.MarketCenter * (1 - cfg.MarketSwing), cfg.MarketCenter * (1 + cfg.MarketSwing)));
@@ -184,11 +184,11 @@ namespace DesertSettlement.Core.Tests
             a.BiddersAnnounced += _ => announcements++;
 
             a.Hold();
-            Assert.AreEqual(109 + 72, a.NextAuctionHour);
+            Assert.AreEqual(108 + 72, a.NextAuctionHour);
             Assert.AreEqual(1, announcements, "보류 직후 다음 경매 예고");
             RunUntilEvent(s, a);
             Assert.IsTrue(a.IsOpen);
-            Assert.AreEqual(181, a.CurrentAuction.Hour);
+            Assert.AreEqual(180, a.CurrentAuction.Hour);
         }
 
         [Test]
@@ -205,13 +205,13 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void CashHittingZeroWithAuctionHall_OpensEmergencyAuctionWithPenalty()
         {
-            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매(109h)까지 버텨서 낮춤
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매(108h, 2026-10-26 전 109h)까지 버텨서 낮춤
             RunUntilEvent(s, a);
 
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Emergency, e.Kind);
-            Assert.Less(e.Hour, 109, "정기 경매 전에 자금이 바닥남");
+            Assert.Less(e.Hour, 108, "정기 경매 전에 자금이 바닥남");
             Assert.LessOrEqual(s.Cash, 0);
             Assert.AreEqual(0.2, e.Penalty, 1e-9);
             foreach (AuctionBid bid in e.Bids) Assert.AreEqual(bid.Valuation.Value * e.Market * 0.8, bid.TotalOffer, 1e-6);
@@ -220,7 +220,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void DecliningEmergencySale_BankruptsAfter24NegativeHours()
         {
-            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매(109h)까지 버텨서 낮춤
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매(108h, 2026-10-26 전 109h)까지 버텨서 낮춤
             string reason = null;
             a.Bankrupted += r => reason = r;
             for (int guard = 0; guard < 20 && !a.IsFinished; guard++)

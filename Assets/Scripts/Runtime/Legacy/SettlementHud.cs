@@ -110,7 +110,7 @@ namespace DesertSettlement.Runtime
             EpidemicState ep = d.Epidemic;
             if (ep.Active)
             {
-                GUILayout.Label($"☣ 전염병 진행 중 — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 시설 효율 −{ep.Damage:P0} (병원 인근 −{ep.Damage * d.Settings.Epidemic.HospitalDamageFactor:P0})");
+                GUILayout.Label($"☣ 전염병 {(ep.Weakening ? "약해지는 중 ↓" : "확산 중 ↑")} — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 시설 효율 −{ep.Damage:P0} (병원 인근 −{ep.Damage * d.Settings.Epidemic.HospitalDamageFactor:P0})");
             }
             else if (ep.Resistance > s.Rules.EpidemicResistanceFloor + 0.005)
             {

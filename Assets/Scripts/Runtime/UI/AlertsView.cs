@@ -121,7 +121,9 @@ namespace DesertSettlement.Runtime.UI
                         list.Add(($"⚠ {e.Name} — {e.PlannedEndHour - s.CurrentHour}시간 남음 · {FacilityInfo.TimedDisasterText(s, e)}", Theme.Danger));
                 }
                 EpidemicState ep = d.Epidemic;
-                if (ep.Active) list.Add(($"☣ 전염병 — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 −{ep.Damage:P0}", Theme.Danger));
+                if (ep.Active)
+                    list.Add(($"☣ 전염병 {(ep.Weakening ? "↓ 약해지는 중" : "↑ 확산 중")} — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 −{ep.Damage:P0}",
+                        ep.Weakening ? Theme.Warn : Theme.Danger));
             }
             return list;
         }

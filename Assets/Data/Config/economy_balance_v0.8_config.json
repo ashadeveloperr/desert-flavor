@@ -211,8 +211,8 @@
       "id": "vaccination",
       "name": "방역 장비",
       "price": 500,
-      "description": "전염병 중 저항력이 오르는 속도 ×1.5(면역이 아니라 더 빨리 회복). 전염병에 대응",
-      "effects": { "epidemicResistanceGrowthMultiplier": 1.5 }
+      "description": "전염병 중 저항력이 오르는 속도 ×1.3(면역이 아니라 더 빨리 회복). 전염병에 대응",
+      "effects": { "epidemicResistanceGrowthMultiplier": 1.3 }
     },
     {
       "id": "insectNet",
@@ -247,9 +247,10 @@
     "locusts": { "minHours": 4, "maxHours": 12, "farmProduction": 0.0, "foodStockLoss": 0.15 },
     "blight": { "minHours": 48, "maxHours": 96, "farmProduction": 0.5 },
     "epidemic": {
-      "initialSeverity": 0.35,
-      "severityRisePerHour": 0.01,
+      "initialSeverity": 0.10,
+      "severityRisePerHour": 0.015,
       "severityFallPerHour": 0.03,
+      "severityFallResistanceRatio": 0.7,
       "resistanceBasePerHour": 0.002,
       "resistancePerDamage": 0.04,
       "resistanceDecayPerHour": 0.005,

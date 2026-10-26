@@ -56,15 +56,15 @@ namespace SettlementSim
             => RunEpidemic(config, config.Disasters.Epidemic, def, epidemic, vaccinated, hospital, 0, out _);
 
         // 재해 밸런스 B1~B3 후보 비교: dotnet run --project Tools/SettlementSim -- epidemic sweep [맵 수]
-        // 1) 동역학 표(맵 없음): 후보 수치별 지속·최대 피해·누적 피해(피해 × 시간), 방역 장비(R0 30%)·규칙 후보(저항 상승 ×1.5, R ≥ S 유지 시간) 포함.
+        // 1) 동역학 표(맵 없음): 후보 수치별 지속·최대 피해·누적 피해(피해 × 시간), 방역 장비(R0 30%)·규칙 후보(설정의 저항 상승 배율, R ≥ S 유지 시간) 포함.
         // 2) 맵 측정: 후보 수치별 순이익 손해(재해 없음 대비), 방역 장비·병원 효과, 전염병 시작 시각(48h 고정 / 평가 창 겹침).
         private sealed class EpidemicCandidate
         {
             public string Name;
-            public double S0, Rise, Fall = 0.01, RBase = 0.002, RDmg = 0.06;
+            public double S0, Rise, Fall = 0.01, RBase = 0.002, RDmg = 0.06, Ratio = 1; // Ratio: R ≥ Ratio × S이면 감소(1 = 예전 규칙)
             public EpidemicSettings ToSettings(EpidemicSettings src) => new EpidemicSettings
             {
-                InitialSeverity = S0, SeverityRisePerHour = Rise, SeverityFallPerHour = Fall,
+                InitialSeverity = S0, SeverityRisePerHour = Rise, SeverityFallPerHour = Fall, SeverityFallResistanceRatio = Ratio,
                 ResistanceBasePerHour = RBase, ResistancePerDamage = RDmg,
                 ResistanceDecayPerHour = src.ResistanceDecayPerHour, HospitalDamageFactor = src.HospitalDamageFactor, HospitalRadius = src.HospitalRadius,
             };
@@ -82,6 +82,10 @@ namespace SettlementSim
             new EpidemicCandidate { Name = "B3 결정(35%·0.04·0.03)", S0 = 0.35, Rise = 0.01, RDmg = 0.04, Fall = 0.03 },
             new EpidemicCandidate { Name = "S0 50% 감소↑", S0 = 0.50, Rise = 0.01, Fall = 0.03 },
             new EpidemicCandidate { Name = "S0 40% 감소↑↑", S0 = 0.40, Rise = 0.01, RDmg = 0.03, Fall = 0.04 },
+            // 2026-10-26 이슈 #1(EP1): 목표 = 피해 정점 24~36h·약 35%·2~3일. 감소 조건을 R ≥ 0.7 × S로(후보 ③), 낮게 시작해 빨리 오름.
+            new EpidemicCandidate { Name = "EP1 결정(10%·1.5%p·R≥0.7S)", S0 = 0.10, Rise = 0.015, RDmg = 0.04, Fall = 0.03, Ratio = 0.7 },
+            new EpidemicCandidate { Name = "EP1 비율 0.6", S0 = 0.10, Rise = 0.015, RDmg = 0.04, Fall = 0.03, Ratio = 0.6 },
+            new EpidemicCandidate { Name = "EP1 비율 0.8", S0 = 0.10, Rise = 0.015, RDmg = 0.05, Fall = 0.03, Ratio = 0.8 },
         };
 
         // Core DisasterManager.EndHour와 같은 식. growth = 저항 상승 배율(방역 장비 후보 b), hold = R ≥ S가 몇 시간 이어져야 S가 줄기 시작하는지(후보 c).
@@ -95,7 +99,7 @@ namespace SettlementSim
                 peak = Math.Max(peak, dmg);
                 area += dmg;
                 r = Math.Min(1, r + (c.RBase + c.RDmg * dmg) * growth);
-                streak = r >= s ? streak + 1 : 0;
+                streak = r >= c.Ratio * s ? streak + 1 : 0;
                 s = streak > hold ? Math.Max(0, s - c.Fall) : Math.Min(1, s + c.Rise);
                 if (s <= 1e-9) return (h, peak, area);
             }
@@ -108,14 +112,15 @@ namespace SettlementSim
             var proc = LoadProceduralConfig();
             int maps = args.Length > 0 ? int.Parse(args[0]) : 20;
             EpidemicSettings src = config.Disasters.Epidemic;
+            double vac = config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicResistanceGrowthMultiplier;
 
             Header("전염병 동역학(맵 없음) — 지속(h) / 최대 피해 / 누적 피해(피해×h, 생산 시설 1곳의 '잃은 가동 시간')");
-            // '방역 R0 30%'는 B1 결정(2026-10-23) 전 방역 장비, '저항 상승 ×1.5'가 지금 방역 장비. 맵 측정의 +방역은 설정의 방역 장비를 쓴다.
-            Line($"  {"후보",-16} | {"장비 없음",-20} | {"옛 방역 R0 30%",-20} | {"방역 = 저항 상승 ×1.5",-20} | {"R≥S 12h 유지 후 감소",-20}");
+            // '방역 R0 30%'는 B1 결정(2026-10-23) 전 방역 장비, '방역 = 저항 상승 ×k'가 지금 방역 장비(설정 값, EP1 ×1.3). 맵 측정의 +방역도 설정의 방역 장비를 쓴다.
+            Line($"  {"후보",-16} | {"장비 없음",-20} | {"옛 방역 R0 30%",-20} | {$"방역 = 저항 상승 ×{vac:0.##}",-20} | {"R≥S 12h 유지 후 감소",-20}");
             foreach (EpidemicCandidate c in EpidemicCandidates)
             {
                 string F((int hours, double peak, double area) x) => $"{x.hours,3}h {x.peak,4:P0} {x.area,5:0.0}h";
-                Line($"  {c.Name,-16} | {F(EpidemicDynamics(c, 0)),-20} | {F(EpidemicDynamics(c, 0.3)),-20} | {F(EpidemicDynamics(c, 0, 1.5)),-20} | {F(EpidemicDynamics(c, 0, 1, 12))} / 방역 {F(EpidemicDynamics(c, 0.3, 1, 12))}");
+                Line($"  {c.Name,-16} | {F(EpidemicDynamics(c, 0)),-20} | {F(EpidemicDynamics(c, 0.3)),-20} | {F(EpidemicDynamics(c, 0, vac)),-20} | {F(EpidemicDynamics(c, 0, 1, 12))} / 방역 {F(EpidemicDynamics(c, 0.3, 1, 12))}");
             }
 
             foreach (double d in new[] { 0.5, 1.0 })
@@ -168,7 +173,7 @@ namespace SettlementSim
                     lv.FoodUse = hv.food;
                     EpidemicSettings cur = new EpidemicCandidate
                     {
-                        S0 = src.InitialSeverity, Rise = src.SeverityRisePerHour, Fall = src.SeverityFallPerHour, RBase = src.ResistanceBasePerHour, RDmg = src.ResistancePerDamage,
+                        S0 = src.InitialSeverity, Rise = src.SeverityRisePerHour, Fall = src.SeverityFallPerHour, RBase = src.ResistanceBasePerHour, RDmg = src.ResistancePerDamage, Ratio = src.SeverityFallResistanceRatio,
                     }.ToSettings(src);
                     EpidemicSettings strong = EpidemicCandidates.Single(c => c.Name.StartsWith("S0 40%")).ToSettings(src);
                     cur.HospitalRadius = strong.HospitalRadius = hv.radius;

@@ -52,7 +52,8 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(_config.Disasters.Types.Any(t => t.Id == "epidemic"));
             Assert.AreEqual(0.5, _config.Disasters.Epidemic.HospitalDamageFactor, 1e-12);
             Assert.AreEqual(20, _config.GetLevel(BuildingKinds.Hospital, 1).Stone);
-            Assert.AreEqual(1.5, _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicResistanceGrowthMultiplier, 1e-12);
+            Assert.AreEqual(0.7, _config.Disasters.Epidemic.SeverityFallResistanceRatio, 1e-12);
+            Assert.AreEqual(1.3, _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicResistanceGrowthMultiplier, 1e-12);
             CollectionAssert.Contains(SettlementRules.FromConfig(_config).AllowedTerrain[BuildingKinds.Hospital], TerrainType.Desert);
         }
 
@@ -111,7 +112,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual("start 48", log[1]);
             Assert.IsTrue(log.Any(x => x.StartsWith("end")), "언젠가 끝난다(저항력이 심각도를 넘음)");
             long end = d.Events[0].EndHour;
-            Assert.That(end - 48, Is.InRange(24, 144), "대략 1~6일 지속(B3 결정 수치 약 128h, 잠정)");
+            Assert.That(end - 48, Is.InRange(36, 72), "2~3일 안에 끝난다(EP1 목표, 설정 수치 약 50h)");
             Assert.Greater(peakSeverity, _config.Disasters.Epidemic.InitialSeverity, "심각도가 오르다가");
             Assert.IsFalse(d.Epidemic.Active);
             Assert.Greater(d.Epidemic.Resistance, 0.2, "저항력이 남아 있다");
@@ -119,6 +120,35 @@ namespace DesertSettlement.Core.Tests
             double r0 = d.Epidemic.Resistance;
             for (int h = 0; h < 10; h++) s.AdvanceHour();
             Assert.Less(d.Epidemic.Resistance, r0, "끝난 뒤 저항력은 천천히 준다");
+        }
+
+        [Test]
+        public void Epidemic_PeaksThenWeakens_WithoutSticking()
+        {
+            // 이슈 #1(EP1): 예전 규칙(R ≥ S)은 심각도가 100%에 붙어 '끝없이 오른다'로 보였다.
+            // 목표 곡선: 피해 정점 24~36h·30~40%, 심각도도 정점 뒤 줄어들고(↓ 표시), 100%에 닿지 않는다.
+            Settlement s = NewSettlement();
+            DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
+            double peakDamage = 0, peakSeverity = 0;
+            long peakHour = -1, weakeningFrom = -1;
+            bool rose = false;
+            for (int h = 0; h < 200; h++)
+            {
+                double before = d.Epidemic.Severity;
+                s.AdvanceHour();
+                if (!d.Epidemic.Active) { if (peakHour >= 0) break; continue; }
+                long sinceStart = s.CurrentHour - 48;
+                if (d.Epidemic.Damage > peakDamage) { peakDamage = d.Epidemic.Damage; peakHour = sinceStart; }
+                peakSeverity = Math.Max(peakSeverity, d.Epidemic.Severity);
+                if (d.Epidemic.Severity > before) rose = true;
+                if (d.Epidemic.Weakening && weakeningFrom < 0) weakeningFrom = sinceStart;
+                if (weakeningFrom >= 0) Assert.IsTrue(d.Epidemic.Weakening, "한 번 약해지기 시작하면 끝까지 약해진다");
+            }
+            Assert.IsTrue(rose, "처음에는 퍼진다(↑)");
+            Assert.That(peakHour, Is.InRange(24, 36), "피해 정점 시각");
+            Assert.That(peakDamage, Is.InRange(0.30, 0.40), "최대 피해");
+            Assert.Less(peakSeverity, 0.9, "심각도가 100%에 붙지 않는다");
+            Assert.That(weakeningFrom, Is.InRange(24, 40), "정점 무렵부터 '약해지는 중'");
         }
 
         [Test]

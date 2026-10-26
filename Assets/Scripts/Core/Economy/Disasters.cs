@@ -43,6 +43,8 @@ namespace DesertSettlement.Core.Economy
         public double Resistance { get; internal set; }
         /// <summary>이번 시간 생산 시설 효율 감소 = S × (1 − R). 병원 인근은 이 값 × HospitalDamageFactor.</summary>
         public double Damage => Active ? Severity * (1 - Resistance) : 0;
+        /// <summary>심각도가 줄어드는 중인지(정점을 지남). 마지막 시간 갱신 기준, 화면의 '약해지는 중' 표시용.</summary>
+        public bool Weakening { get; internal set; }
     }
 
     /// <summary>
@@ -50,7 +52,7 @@ namespace DesertSettlement.Core.Economy
     /// - 일정: 정착지 시작 시각 + GraceHours(48h) 뒤 ScheduleWindowHours 안에서, CountWeights 확률로 0~2번(겹칠 수 있음). 같은 시드 = 같은 일정.
     /// - 예고: 시작 WarningHours(6h) 전에 Warned 이벤트.
     /// - 전염병: 시작하면 심각도 InitialSeverity. 매시간 피해 = S × (1 − R)만큼 생산 시설(농장·채석장·광산) 효율을 낮추고(병원 인근 1칸은 절반),
-    ///   R은 피해에 비례해 오르며(방역 장비는 이 속도 ×1.5), R ≥ S이면 S가 줄어 0이 되면 끝난다.
+    ///   R은 피해에 비례해 오르며(방역 장비는 이 속도 ×1.3), R ≥ 비율(0.7) × S이면 S가 줄어 0이 되면 끝난다(2026-10-26 EP1: 정점 약 31h·35%, 약 50h).
     ///   끝난 뒤 R은 천천히 줄되 시작 저항력 효과(InitialEpidemicResistance)가 있으면 그 아래로는 안 내려간다.
     ///   전염병 중 새 전염병이 시작되면 같은 전염병으로 이어진다(심각도는 큰 쪽).
     /// - 모래폭풍·메뚜기떼·탄저병(2026-10-23 D1~D7): 시드로 정한 길이 동안 효과(수로 손실·공사 속도, 농장 생산·식량 재고, 농장 생산). 장비가 피해를 줄인다.
@@ -191,6 +193,7 @@ namespace DesertSettlement.Core.Economy
                     return;
                 }
                 Epidemic.Active = true;
+                Epidemic.Weakening = false;
                 Epidemic.Severity = _settings.Epidemic.InitialSeverity;
                 _currentEpidemic = e;
             }
@@ -248,7 +251,8 @@ namespace DesertSettlement.Core.Economy
                 double damage = Epidemic.Damage;
                 double growth = (p.ResistanceBasePerHour + p.ResistancePerDamage * damage) * _settlement.Rules.EpidemicResistanceGrowthMultiplier;
                 Epidemic.Resistance = Math.Min(1, Epidemic.Resistance + growth);
-                Epidemic.Severity = Epidemic.Resistance >= Epidemic.Severity
+                Epidemic.Weakening = Epidemic.Resistance >= p.SeverityFallResistanceRatio * Epidemic.Severity;
+                Epidemic.Severity = Epidemic.Weakening
                     ? Math.Max(0, Epidemic.Severity - p.SeverityFallPerHour)
                     : Math.Min(1, Epidemic.Severity + p.SeverityRisePerHour);
                 if (Epidemic.Severity <= 1e-9)

@@ -307,12 +307,17 @@ namespace DesertSettlement.Core.Config
     /// </summary>
     public sealed class EpidemicSettings
     {
-        /// <summary>시작할 때 심각도. 2026-10-23 B3 결정: 0.35(처음 0.05는 너무 약함).</summary>
-        public double InitialSeverity { get; set; } = 0.35;
-        /// <summary>R &lt; S일 때 시간당 심각도 상승. B3 결정 수치로 약 128시간 지속·최대 피해 38%(방역 장비 49시간).</summary>
-        public double SeverityRisePerHour { get; set; } = 0.01;
-        /// <summary>R ≥ S일 때 시간당 심각도 감소. B3 결정: 0.03(정점 뒤 빨리 회복).</summary>
+        /// <summary>시작할 때 심각도. 2026-10-26 EP1(이슈 #1): 0.10(피해가 낮게 시작해 하루쯤 뒤 정점).</summary>
+        public double InitialSeverity { get; set; } = 0.10;
+        /// <summary>R &lt; 비율 × S일 때 시간당 심각도 상승. EP1: 0.015 → 정점 31h·최대 피해 35%·50h에 끝(방역 장비 ×1.3이면 20h·29%·34h).</summary>
+        public double SeverityRisePerHour { get; set; } = 0.015;
+        /// <summary>R ≥ 비율 × S일 때 시간당 심각도 감소. B3 결정: 0.03(정점 뒤 빨리 회복).</summary>
         public double SeverityFallPerHour { get; set; } = 0.03;
+        /// <summary>
+        /// 심각도가 줄기 시작하는 저항력 비율: R ≥ 이 값 × S이면 감소. EP1: 0.7.
+        /// 1이면 예전 규칙(R ≥ S)인데, 그러면 R이 S를 따라잡지 못해 심각도가 100%에 붙었다(2차 플레이테스트).
+        /// </summary>
+        public double SeverityFallResistanceRatio { get; set; } = 0.7;
         /// <summary>전염병 중 시간당 저항력 상승 = 기본값 + 이 값 × 현재 피해. B3 결정: 0.04(처음 0.06).</summary>
         public double ResistanceBasePerHour { get; set; } = 0.002;
         public double ResistancePerDamage { get; set; } = 0.04;

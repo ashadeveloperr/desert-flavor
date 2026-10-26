@@ -142,9 +142,19 @@ namespace DesertSettlement.Runtime.UI
             f.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         }
 
+        /// <summary>
+        /// 자식을 모두 지운다. Destroy는 프레임 끝에 지우므로 먼저 끄고 부모에서 떼어 낸다(2026-10-26 TX2): 그러지 않으면 같은 프레임에
+        /// 새 내용을 만들고 크기를 잴 때(가운데 창 FitWindow) 지울 예정인 옛 내용까지 레이아웃·childCount에 들어가 창 크기가 틀렸다.
+        /// </summary>
         public static void Clear(Transform t)
         {
-            for (int i = t.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(t.GetChild(i).gameObject);
+            for (int i = t.childCount - 1; i >= 0; i--)
+            {
+                GameObject child = t.GetChild(i).gameObject;
+                child.SetActive(false);
+                child.transform.SetParent(null, false);
+                UnityEngine.Object.Destroy(child);
+            }
         }
 
         public static string Hex(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c);

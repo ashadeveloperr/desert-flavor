@@ -60,6 +60,9 @@ namespace DesertSettlement.Runtime.UI
             _canvas = go.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             _canvas.sortingOrder = 10;
+            // 2026-10-26 TX1(이슈 #4): 글자·패널을 픽셀 격자에 맞춘다. 끄면 배율(1920×1080 기준 → 실제 화면)·가운데 정렬 때문에
+            // 글자가 반 픽셀에 걸려 쌍선형 필터로 번진다.
+            _canvas.pixelPerfect = true;
             var scaler = go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);

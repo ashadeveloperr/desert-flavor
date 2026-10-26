@@ -82,7 +82,10 @@ namespace DesertSettlement.Core.Water
         /// <summary>우물 방출 꼭짓점 → 취수 꼭짓점까지 반쪽 변 개수(변 하나 = 2).</summary>
         public readonly int Distance;
         public readonly double Delivered;
-        /// <summary>이 경로가 지난 수로 변(우물 쪽부터, 2026-10-23 물길 표시용). 물탱크 방출 경로도 같다.</summary>
+        /// <summary>
+        /// 이 경로가 지난 수로 변(우물 쪽부터, 2026-10-23 물길 표시용). 물탱크 방출 경로도 같다.
+        /// 거리 0(우물과 공유한 꼭짓점에서 바로 취수)이면 그 꼭짓점을 물망에 이어 준 수로 하나(2026-10-26 WD1, 표시용).
+        /// </summary>
         public readonly IReadOnlyList<EdgeId> Edges;
 
         public WaterIntakeFlow(VertexId intakeVertex, string sourceId, int distance, double delivered, IReadOnlyList<EdgeId> edges = null)
@@ -122,10 +125,16 @@ namespace DesertSettlement.Core.Water
         internal readonly Dictionary<string, WaterConsumerResult> _consumers = new Dictionary<string, WaterConsumerResult>();
         internal readonly Dictionary<EdgeId, double> _edgeLoads = new Dictionary<EdgeId, double>();
         internal readonly Dictionary<string, double> _sourceReleased = new Dictionary<string, double>();
+        internal readonly Dictionary<EdgeId, double> _directIntakeLoads = new Dictionary<EdgeId, double>();
 
         public IReadOnlyDictionary<string, WaterConsumerResult> Consumers => _consumers;
         /// <summary>수로 변별 진입 유량 합(용량과 같은 기준). 물이 흐르지 않는 변은 없다.</summary>
         public IReadOnlyDictionary<EdgeId, double> EdgeLoads => _edgeLoads;
+        /// <summary>
+        /// 우물과 공유한 꼭짓점에서 바로 취수한 양(거리 0)을, 그 꼭짓점을 물망에 이어 준 수로별로 합한 값(2026-10-26 WD1).
+        /// 물이 변에 들어가기 전에 나가므로 수로 용량은 쓰지 않는다(표시·수로 색 전용). 그 수로를 없애면 이 취수도 끊긴다.
+        /// </summary>
+        public IReadOnlyDictionary<EdgeId, double> DirectIntakeLoads => _directIntakeLoads;
         /// <summary>우물별 실제 방출량.</summary>
         public IReadOnlyDictionary<string, double> SourceReleased => _sourceReleased;
 

@@ -100,6 +100,7 @@ namespace DesertSettlement.Core.Economy
             }
             // 충전에 쓴 우물 방출·수로 흐름도 기록(우물 툴팁·수로 색). 탱크는 시설 결과 목록에 넣지 않는다.
             foreach (KeyValuePair<EdgeId, double> kv in charge.EdgeLoads) AddTo(water._edgeLoads, kv.Key, kv.Value);
+            foreach (KeyValuePair<EdgeId, double> kv in charge.DirectIntakeLoads) AddTo(water._directIntakeLoads, kv.Key, kv.Value);
             foreach (KeyValuePair<string, double> kv in charge.SourceReleased) AddTo(water._sourceReleased, kv.Key, kv.Value);
             water.TotalReleased += charge.TotalReleased;
         }
@@ -124,6 +125,7 @@ namespace DesertSettlement.Core.Economy
                 AddTo(water._edgeLoads, kv.Key, kv.Value);
                 AddTo(used, kv.Key, kv.Value);
             }
+            foreach (KeyValuePair<EdgeId, double> kv in pass.DirectIntakeLoads) AddTo(water._directIntakeLoads, kv.Key, kv.Value); // 용량은 안 씀(WD1)
             foreach (KeyValuePair<string, double> kv in pass.SourceReleased) AddTo(water._sourceReleased, kv.Key, kv.Value);
             water.TotalReleased += pass.TotalReleased;
             water.TotalDelivered += pass.TotalDelivered;

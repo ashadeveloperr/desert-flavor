@@ -18,6 +18,15 @@ namespace DesertSettlement.Core.Water
         public static List<WaterIntakeFlow> SentBy(WaterAllocation water, string sourceId) =>
             water == null ? new List<WaterIntakeFlow>() : water.Consumers.Values.SelectMany(r => r.Intakes).Where(f => f.SourceId == sourceId).ToList();
 
+        /// <summary>sourceId에서 나간 물을 받은 시설과 그 경로(가까운 순, 같은 거리면 시설 id 순). 2026-10-26 WD2 정보창용.</summary>
+        public static List<(string ConsumerId, WaterIntakeFlow Flow)> DeliveriesFrom(WaterAllocation water, string sourceId) =>
+            water == null
+                ? new List<(string, WaterIntakeFlow)>()
+                : water.Consumers.Values
+                    .SelectMany(r => r.Intakes.Where(f => f.SourceId == sourceId).Select(f => (r.Id, f)))
+                    .OrderBy(x => x.f.Distance).ThenBy(x => x.Id, System.StringComparer.Ordinal)
+                    .Select(x => (x.Id, x.f)).ToList();
+
         /// <summary>경로들이 지난 수로 변(중복 없이).</summary>
         public static HashSet<EdgeId> EdgesOf(IEnumerable<WaterIntakeFlow> flows) => new HashSet<EdgeId>(flows.SelectMany(f => f.Edges));
 

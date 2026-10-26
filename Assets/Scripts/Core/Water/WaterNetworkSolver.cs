@@ -71,6 +71,7 @@ namespace DesertSettlement.Core.Water
             public List<KeyValuePair<EdgeId, double>> EdgeFactors = new List<KeyValuePair<EdgeId, double>>(); // 전달 1당 변 진입량
             public double Bottleneck;
             public double Delivered;
+            public EdgeId? DirectEdge;                 // 거리 0일 때 취수 꼭짓점을 물망에 이어 준 수로(표시용, 용량 안 씀)
         }
 
         public static WaterAllocation Solve(CanalGraph canals, IReadOnlyList<WaterSource> sources,
@@ -130,7 +131,9 @@ namespace DesertSettlement.Core.Water
                     for (int s = 0; s < orderedSources.Count; s++)
                     {
                         if (!trees[s].ContainsKey(intake)) continue;
-                        candidates.Add(BuildRoute(c, s, intake, keys[intake], trees[s], halfGain, capacity));
+                        Route route = BuildRoute(c, s, intake, keys[intake], trees[s], halfGain, capacity);
+                        if (route.Length == 0) route.DirectEdge = DirectEdgeOf(adjacency[intake], orderedSources[s].Tile, consumers[c].Tile, keys);
+                        candidates.Add(route);
                     }
                 }
                 candidates.Sort((x, y) =>
@@ -189,8 +192,14 @@ namespace DesertSettlement.Core.Water
                 foreach (Route r in routesByConsumer[c])
                 {
                     if (r.Delivered <= AmountEpsilon) continue;
-                    result._intakes.Add(new WaterIntakeFlow(r.IntakeVertex, orderedSources[r.Source].Id, r.Length, r.Delivered,
-                        r.EdgeFactors.Select(ef => ef.Key).Distinct().ToList()));
+                    List<EdgeId> edges = r.EdgeFactors.Select(ef => ef.Key).Distinct().ToList();
+                    if (r.DirectEdge is EdgeId direct)
+                    {
+                        edges.Add(direct);
+                        allocation._directIntakeLoads.TryGetValue(direct, out double d);
+                        allocation._directIntakeLoads[direct] = d + r.Delivered;
+                    }
+                    result._intakes.Add(new WaterIntakeFlow(r.IntakeVertex, orderedSources[r.Source].Id, r.Length, r.Delivered, edges));
                 }
 
                 if (consumers[c].DemandPerHour - delivered[c] <= AmountEpsilon) result.Shortage = WaterShortageReason.None;
@@ -253,6 +262,21 @@ namespace DesertSettlement.Core.Water
                 }
             }
             return tree;
+        }
+
+        /// <summary>
+        /// 거리 0 취수(우물과 시설이 꼭짓점을 공유)에서 그 꼭짓점을 물망에 넣어 준 수로 하나를 고른다(WD1, 표시용).
+        /// 우물과 시설 사이 경계 변에 수로가 있으면 그 변, 없으면 꼭짓점에 닿은 수로 중 이름순 첫 번째.
+        /// </summary>
+        private static EdgeId DirectEdgeOf(List<Arc> intakeArcs, HexCoord sourceTile, HexCoord consumerTile, Dictionary<Node, string> keys)
+        {
+            List<Arc> ordered = intakeArcs.OrderBy(a => keys[a.To], StringComparer.Ordinal).ToList();
+            foreach (Arc a in ordered)
+            {
+                EdgeId e = a.Edge;
+                if ((e.TileA == sourceTile && e.TileB == consumerTile) || (e.TileA == consumerTile && e.TileB == sourceTile)) return e;
+            }
+            return ordered[0].Edge;
         }
 
         private static Route BuildRoute(int consumer, int source, Node intake, string intakeKey,

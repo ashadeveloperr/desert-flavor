@@ -51,7 +51,7 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Core/Canal/CanalGraph`:** 변 위 수로 설치·제거·레벨·막힌 변(닫힌 수로 표현, 2026-10-23 수문 폐지), 꼭짓점 간 경로 길이(변 개수, 막힌 변 차단), 연결 요소, 순환 감지.
 - **`Core/Water/WaterNetworkSolver`:** 확정 규칙 W1~W6(`Docs/implementation_notes.md`)의 물 배분. 우물 타일 꼭짓점 방출 → 우물별 최단 경로 트리
   → 시설은 타일 꼭짓점 중 수로가 닿은 점에서 여러 경로·여러 우물로 취수 → 반쪽 변 거리 오름차순(상류 우선)·동순위 수요 비례 progressive filling,
-  변 입구 용량·우물 생산량 제약. 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
+  변 입구 용량·우물 생산량 제약. 우물과 꼭짓점을 공유한 시설의 거리 0 취수는 용량을 쓰지 않고 `DirectIntakeLoads`(이어 준 수로별, 표시용)로 따로 집계(2026-10-26 WD1). 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
 - **`Core/Timing/GameClock`:** 1배속 하루 180초(설정 JSON, 2026-10-23 흐름 조정. 건설·개량·철거 시간은 `constructionHoursMultiplier` 0.5), 정착지마다 1일차 12:00 시작, 낮 05:00~밤 20:00, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`(조명 `DayNightLighting`도 이 값을 따름).
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
 - **시설 종류 목록 `Core/Economy/FacilityCatalog`(2026-10-24):** 이름·도구 막대 분류·지을 수 있는 지형·기본 색. **새 시설 = JSON `buildingLevels` + 이 목록 한 줄**(모양은 선택, `Runtime/View/FacilityModels`).

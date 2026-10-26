@@ -65,6 +65,44 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(4, a.Consumers["mine"].PriorityDistance);
             Assert.AreEqual(WaterShortageReason.SourceSupply, a.Consumers["mine"].Shortage);
             Assert.AreEqual(100.0, a.TotalReleased, Tol);
+
+            // WD1(이슈 #2): 농장의 거리 0 취수는 그 꼭짓점을 이어 준 첫 수로에 '직접 취수'로 따로 잡히고, 용량(흐름)에는 안 들어간다.
+            Assert.AreEqual(30.0, a.DirectIntakeLoads[SerialA[0]], Tol);
+            Assert.AreEqual(1, a.DirectIntakeLoads.Count);
+            CollectionAssert.AreEqual(new[] { SerialA[0] }, a.Consumers["farm"].Intakes.Single().Edges, "물길 띠도 그 수로에");
+            Assert.AreEqual(70.0, a.EdgeLoads[SerialA[0]], 1e-6, "첫 수로 흐름 = 방출 100 − 농장 직접 30(농장 몫까지 넣으면 용량 100 초과)");
+        }
+
+        [Test]
+        public void AdjacentWellAndFarm_BorderCanal_ShowsDirectIntake()
+        {
+            // 이슈 #2 재현: 우물 (0,0)과 농장 (1,-1)이 붙어 있고 둘 사이 경계 변에만 수로. 물은 변을 지나지 않아 흐름 0이었다.
+            EdgeId border = HexTopology.EdgesOf(HexCoord.Zero).Single(e => e.TileB == new HexCoord(1, -1) || e.TileA == new HexCoord(1, -1));
+            WaterAllocation a = Solve(Canals(border), new[] { Well(100) }, new[] { Use("farm", 1, -1, 30) });
+
+            Assert.AreEqual(1.0, a.RateOf("farm"), Tol);
+            Assert.AreEqual(0, a.Consumers["farm"].PriorityDistance);
+            Assert.IsFalse(a.EdgeLoads.ContainsKey(border), "변을 지나지 않으므로 용량 기준 흐름은 0 그대로");
+            Assert.AreEqual(30.0, a.DirectIntakeLoads[border], Tol, "이어 준 수로에 직접 취수량");
+            CollectionAssert.AreEqual(new[] { border }, a.Consumers["farm"].Intakes.Single().Edges);
+
+            var sent = WaterRoutes.DeliveriesFrom(a, "well");
+            Assert.AreEqual(1, sent.Count);
+            Assert.AreEqual("farm", sent[0].ConsumerId);
+            Assert.AreEqual(0, sent[0].Flow.Distance);
+
+            WaterAllocation none = Solve(Canals(), new[] { Well(100) }, new[] { Use("farm", 1, -1, 30) });
+            Assert.AreEqual(0.0, none.RateOf("farm"), Tol, "수로가 없으면 끊김(규칙 W2 그대로)");
+        }
+
+        [Test]
+        public void DeliveriesFrom_ListsEveryRoute_NearestFirst()
+        {
+            WaterAllocation a = Solve(Canals(SerialA), new[] { Well(100) },
+                new[] { Use("mine", 2, 0, 50), Use("quarry", 2, -1, 25), Use("farm", 1, -1, 30) });
+            var sent = WaterRoutes.DeliveriesFrom(a, "well");
+            CollectionAssert.AreEqual(new[] { "farm", "quarry", "mine" }, sent.Select(x => x.ConsumerId).ToArray());
+            Assert.AreEqual(a.TotalDelivered, sent.Sum(x => x.Flow.Delivered), Tol);
         }
 
         [Test]

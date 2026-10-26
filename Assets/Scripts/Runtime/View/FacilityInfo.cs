@@ -131,6 +131,27 @@ namespace DesertSettlement.Runtime
             return o.FarmBelowOwnUpkeep ? $"식량 생산 {o.ProducedPerHour:0.00} < 소비 {o.FoodUsePerHour:0.00} (이 농장만으로 적자)" : null;
         }
 
+        /// <summary>
+        /// 공급원(우물·물탱크)의 물이 간 길을 경로마다 한 줄로(2026-10-26 WD2, 이슈 #2: 예전에는 '물길 n개' 개수만).
+        /// 가까운 경로부터 최대 MaxRouteLines줄, 나머지는 '외 n개'. 물탱크 충전은 시설 목록에 없어 빠진다.
+        /// </summary>
+        private static void AddSentRoutes(List<string> lines, Settlement s, WaterAllocation water, string sourceId, string label)
+        {
+            var routes = WaterRoutes.DeliveriesFrom(water, sourceId);
+            if (routes.Count == 0) { lines.Add($"  {label}의 물길 없음 (물을 받는 시설 없음)"); return; }
+            lines.Add($"  {label}의 물길 {routes.Count}개 · 합계 {routes.Sum(x => x.Flow.Delivered):0.0}/h (맵에 하늘색 띠)");
+            foreach (var (consumerId, flow) in routes.Take(MaxRouteLines))
+            {
+                Facility to = int.TryParse(consumerId, out int id) ? s.GetFacility(id) : null;
+                string name = to != null ? $"{KindName(to.Kind)} #{to.Id}" : consumerId;
+                string how = flow.Distance == 0 ? "옆 꼭짓점에서 바로" : $"수로 {flow.Distance / 2.0:0.#}칸";
+                lines.Add($"    → {name}: {how} → {flow.Delivered:0.0}/h");
+            }
+            if (routes.Count > MaxRouteLines) lines.Add($"    … 외 {routes.Count - MaxRouteLines}개");
+        }
+
+        private const int MaxRouteLines = 6;
+
         /// <summary>시설 상세(여러 줄). progress는 공사 진행률(0~1).</summary>
         public static List<string> Describe(Settlement s, Facility f, float progress)
         {
@@ -155,21 +176,25 @@ namespace DesertSettlement.Runtime
                 if (w.Shortage != WaterShortageReason.None) lines.Add("물 부족 이유: " + ShortageText(w.Shortage) + (w.Shortage == WaterShortageReason.CanalCapacity ? " (맵에 빨간 띠)" : ""));
                 // 물길(2026-10-23): 어느 공급원에서 수로 몇 칸을 지나 얼마 받았는지. 맵에는 하늘색 띠로 표시된다.
                 foreach (WaterIntakeFlow flow in w.Intakes)
-                    lines.Add($"  물길: {SourceName(s, flow.SourceId)}에서 수로 {flow.Distance / 2.0:0.#}칸 → {flow.Delivered:0.0}/h");
+                    lines.Add(flow.Distance == 0
+                        ? $"  물길: {SourceName(s, flow.SourceId)} 옆 꼭짓점에서 바로 → {flow.Delivered:0.0}/h (이어 주는 수로 1개, 하늘색 띠)"
+                        : $"  물길: {SourceName(s, flow.SourceId)}에서 수로 {flow.Distance / 2.0:0.#}칸 → {flow.Delivered:0.0}/h");
             }
             if (lv.WaterSupply.HasValue && water != null && water.SourceReleased.TryGetValue(f.Id.ToString(), out double released))
             {
                 double supply = (lv.WaterSupply ?? 0) * s.Rules.WellSupplyMultiplier;
                 string bonus = s.Rules.WellSupplyMultiplier > 1.0001 ? $", 장비 ×{s.Rules.WellSupplyMultiplier:0.00}" : "";
                 lines.Add($"방출: {released:0.0} / {supply:0} (식량 계수 영향 없음{bonus})");
-                int served = WaterRoutes.SentBy(water, f.Id.ToString()).Count;
-                lines.Add($"  이 우물의 물길 {served}개 (맵에 하늘색 띠)");
+                AddSentRoutes(lines, s, water, f.Id.ToString(), "이 우물");
             }
             if (f.Kind == BuildingKinds.CanalEdge)
             {
-                double load = 0;
+                double load = 0, direct = 0;
                 if (water != null) water.EdgeLoads.TryGetValue(f.Edge.Value, out load);
+                if (water != null) water.DirectIntakeLoads.TryGetValue(f.Edge.Value, out direct);
                 lines.Add($"흐름: {load:0.0} / 용량 {lv.CapacityPerHour:0}");
+                // WD1(2026-10-26): 우물 옆 시설이 공유 꼭짓점에서 바로 받는 물은 변을 지나지 않아 흐름에 안 잡히지만, 이 수로가 그 꼭짓점을 이어 준다.
+                if (direct > 1e-6) lines.Add($"  + 우물 옆 직접 취수 {direct:0.0}/h (이 수로가 꼭짓점을 이어 줌, 용량은 안 씀 — 없애면 끊김)");
             }
             if (f.Kind == BuildingKinds.CanalEdge && f.State == FacilityState.Closed) lines.Add("닫힌 수로: 이 변으로 물이 지나가지 않음 (폐쇄 해제로 다시 열기)");
             if (f.Kind == BuildingKinds.Warehouse) lines.Add($"저장 한도 +식량 {lv.FoodStorageBonus:0} / +석재 {lv.StoneStorageBonus:0}");
@@ -184,6 +209,7 @@ namespace DesertSettlement.Runtime
                     default: lines.Add("지난 시간: 대기 (가득 참·남는 물 없음·하류 부족 없음)"); break;
                 }
                 lines.Add("하류 = 우물에서 오는 물길이 이 탱크를 지나는 시설. 상류 수로를 닫아도 하류로 방출");
+                if (f.TankMode == WaterTankMode.Discharging && water != null) AddSentRoutes(lines, s, water, "tank" + f.Id, "방출");
             }
 
             FacilityOutput o = s.OutputOf(f);

@@ -157,7 +157,8 @@ namespace DesertSettlement.Runtime
             foreach (Facility f in s.Facilities)
             {
                 if (f.Kind != BuildingKinds.CanalEdge || f.State != FacilityState.Operating) continue;
-                if (!s.LastWater.EdgeLoads.TryGetValue(f.Edge.Value, out double load) || load <= 1e-6) continue;
+                double load = ShownLoad(s.LastWater, f.Edge.Value);
+                if (load <= 1e-6) continue;
                 wet[f.Edge.Value] = Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f))));
             }
 
@@ -248,6 +249,10 @@ namespace DesertSettlement.Runtime
             return bar;
         }
 
+        /// <summary>수로 색에 쓰는 흐름 = 변을 지난 물 + 이 수로가 이어 준 우물 옆 직접 취수(WD1, 용량은 안 씀).</summary>
+        private static double ShownLoad(WaterAllocation water, EdgeId edge) =>
+            (water.EdgeLoads.TryGetValue(edge, out double load) ? load : 0) + (water.DirectIntakeLoads.TryGetValue(edge, out double direct) ? direct : 0);
+
         private void UpdateFacilityObject(Settlement s, Facility f, GameObject go)
         {
             float progress = JobProgress(s, f);
@@ -255,8 +260,8 @@ namespace DesertSettlement.Runtime
             if (f.Kind == BuildingKinds.CanalEdge)
             {
                 Color c = canalDryColor;
-                if (f.State == FacilityState.Operating && s.LastWater != null &&
-                    s.LastWater.EdgeLoads.TryGetValue(f.Edge.Value, out double load) && load > 1e-6)
+                double load = f.State == FacilityState.Operating && s.LastWater != null ? ShownLoad(s.LastWater, f.Edge.Value) : 0;
+                if (load > 1e-6)
                 {
                     float fill = Mathf.Clamp01((float)(load / Math.Max(1e-6, CanalCapacity(s, f))));
                     c = Color.Lerp(canalDryColor, canalFull, fill);

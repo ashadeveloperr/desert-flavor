@@ -125,9 +125,15 @@ namespace DesertSettlement.Core.Config
     public sealed class AuctionSettings
     {
         public string Status { get; set; }
-        /// <summary>경매 한 번에 오는 입찰자 수 범위(입찰자 목록에서 무작위, 중복 없음).</summary>
+        /// <summary>
+        /// 경매 한 번에 오는 입찰자 수 범위(입찰자 목록에서 무작위 순서, 중복 없음).
+        /// 2026-10-26 AH1부터 실제 인원 = <see cref="AttendeesWithOneAuctionHall"/> + (가동 중인 경매장 수 − 1)을 이 범위로 제한한 값
+        /// (경매장 1·2·3개 = 2·3·4명, 이전 FB2는 무작위 2~3명).
+        /// </summary>
         public int AttendeesMin { get; set; } = 1;
-        public int AttendeesMax { get; set; } = 2;
+        public int AttendeesMax { get; set; } = 4;
+        /// <summary>경매장 1개일 때 입찰자 수(2026-10-26 AH1). 경매장을 하나 더 지을 때마다 +1명.</summary>
+        public int AttendeesWithOneAuctionHall { get; set; } = 2;
         /// <summary>당일 시세 = MarketCenter × (1 ± MarketSwing 균등 무작위). 경매 당일 공개.</summary>
         public double MarketCenter { get; set; } = 1.0;
         public double MarketSwing { get; set; }

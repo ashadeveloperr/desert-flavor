@@ -121,7 +121,7 @@ namespace SettlementSim
             const int maps = 30;
             if (args.Length > 0 && args[0] == "campaign")
             {
-                // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] [attendees=a-b] [upkeepmin=x] [cash=x] : 곡선 후보를 바꿔 가며 비교.
+                // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] [attendees=a-b] [upkeepmin=x] [cash=x] [halls=k] : 곡선 후보를 바꿔 가며 비교.
                 // nodisaster = 재해 끔, vaccine = 봇이 방역 장비 우선 구매·장착. 위치와 상관없이 쓸 수 있다.
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade"), smart = args.Contains("smart");
@@ -138,6 +138,9 @@ namespace SettlementSim
                 }
                 string minArg = args.FirstOrDefault(a => a.StartsWith("upkeepmin="));
                 if (minArg != null) proc.Difficulty.UpkeepMinD = double.Parse(minArg.Substring(10), inv);
+                // halls=k : 봇이 경매장을 모두 k개 짓는다(2026-10-26 AH1 입찰자 수가 경매장 수에 따라 늘어나는 규칙 측정용, 기본 1).
+                string hallsArg = args.FirstOrDefault(a => a.StartsWith("halls="));
+                if (hallsArg != null) ReferenceBot.ExtraAuctionHalls = Math.Max(0, int.Parse(hallsArg.Substring(6), inv) - 1);
                 string cashArg = args.FirstOrDefault(a => a.StartsWith("cash="));
                 if (cashArg != null) config.Prototype.StartingCash = double.Parse(cashArg.Substring(5), inv);
                 args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && !a.Contains("=")).ToArray();

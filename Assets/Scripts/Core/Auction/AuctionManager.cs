@@ -63,6 +63,9 @@ namespace DesertSettlement.Core.Auction
     /// <summary>
     /// 정착지 하나의 경매 진행(4단계 확정 규칙).
     /// - 첫 경매장 완공 → 첫 경매 = 완공 + auctionRepeatsGameHours(2026-10-26 AU1: 48시간, 2026-10-23 72, 원래 96), 이후 같은 간격마다. 완공 직후와 보류 직후에 다음 경매 참가 입찰자 예고.
+    /// - 입찰자 수 = 경매장 1개일 때 attendeesWithOneAuctionHall(2명) + 가동 중인 경매장이 하나 늘 때마다 1명(2026-10-26 AH1, attendeesMin~attendeesMax = 1~4로 제한).
+    ///   예고 때 입찰자 순서를 섞어 두고 앞에서부터
+    ///   경매장 수만큼 온다: 경매장을 더 지으면 다음 사람이 추가되고, 철거·폐쇄하면 뒤에서부터 빠지며, 다시 열면 같은 사람이 돌아온다.
     /// - 경매 당일 시세(±10%) 공개, 입찰자별 가치·조건(현금 비율, 다음 정착지 식량)으로 입찰.
     /// - 자금 0 이하: 경매장과 광산(공사 중 포함)이 모두 있으면 긴급 매각 경매(−20%), 하나라도 없으면 즉시 파산.
     ///   긴급 매각을 보류하고 자금 &lt; 0이 24시간 이어지면 파산. 자금이 다시 0보다 커지면 해제.
@@ -73,13 +76,31 @@ namespace DesertSettlement.Core.Auction
         private readonly Settlement _settlement;
         private readonly AuctionSettings _settings;
         private readonly Random _rng;
-        private readonly List<BidderProfile> _announced = new List<BidderProfile>();
+        /// <summary>예고 때 섞은 입찰자 순서(전체). 앞에서부터 <see cref="AttendeeCount"/>명이 온다.</summary>
+        private readonly List<BidderProfile> _order = new List<BidderProfile>();
         private bool _emergencyDeclined;
 
         public AuctionPhase Phase { get; private set; } = AuctionPhase.NoAuctionHall;
         public long? NextAuctionHour { get; private set; }
-        /// <summary>다음 정기 경매에 올 입찰자(예고).</summary>
-        public IReadOnlyList<BidderProfile> AnnouncedBidders => _announced;
+        /// <summary>다음 정기 경매에 올 입찰자(예고). 가동 중인 경매장 수에 따라 바로 늘고 준다(AH1).</summary>
+        public IReadOnlyList<BidderProfile> AnnouncedBidders => _order.Take(AttendeeCount).ToList();
+
+        /// <summary>가동 중인 경매장 수.</summary>
+        public int OperatingAuctionHalls => _settlement.OperatingOf(BuildingKinds.AuctionHall).Count();
+
+        /// <summary>
+        /// 경매에 오는 입찰자 수 = attendeesWithOneAuctionHall + (가동 중인 경매장 수 − 1)을 attendeesMin~attendeesMax(설정, 1~4)로 제한한 값
+        /// (2026-10-26 AH1: 경매장 1·2·3개 = 2·3·4명). 경매장을 모두 닫았어도 예정된 경매에는 최소 attendeesMin명이 온다.
+        /// </summary>
+        public int AttendeeCount
+        {
+            get
+            {
+                int max = Math.Min(_settings.AttendeesMax, _settings.Bidders.Count);
+                int min = Math.Min(_settings.AttendeesMin, max);
+                return Math.Max(min, Math.Min(max, _settings.AttendeesWithOneAuctionHall + OperatingAuctionHalls - 1));
+            }
+        }
         public AuctionEvent CurrentAuction { get; private set; }
         /// <summary>자금이 음수가 된 시각(파산 카운트다운 시작). 아니면 null.</summary>
         public long? NegativeCashSinceHour { get; private set; }
@@ -116,7 +137,13 @@ namespace DesertSettlement.Core.Auction
 
         private void OnFacilityCompleted(Facility f)
         {
-            if (f.Kind != BuildingKinds.AuctionHall || NextAuctionHour.HasValue || IsFinished) return;
+            if (f.Kind != BuildingKinds.AuctionHall || IsFinished) return;
+            if (NextAuctionHour.HasValue)
+            {
+                // 두 번째 경매장부터: 예고에 한 명 추가(일정은 첫 경매장 기준 그대로, AH1).
+                BiddersAnnounced?.Invoke(AnnouncedBidders);
+                return;
+            }
             NextAuctionHour = _settlement.AuctionHallCompletedHour + _settlement.Rules.Config.ConfirmedRules.AuctionRepeatsGameHours;
             if (Phase == AuctionPhase.NoAuctionHall) Phase = AuctionPhase.Scheduled;
             Announce();
@@ -155,13 +182,13 @@ namespace DesertSettlement.Core.Auction
 
             if (NextAuctionHour.HasValue && now >= NextAuctionHour.Value)
             {
-                Open(AuctionKind.Regular, now, _announced.ToList());
+                Open(AuctionKind.Regular, now, AnnouncedBidders.ToList());
                 return;
             }
             if (cash <= 0 && !_emergencyDeclined)
             {
-                List<BidderProfile> bidders = _announced.Count > 0 ? _announced.ToList() : RollBidders();
-                Open(AuctionKind.Emergency, now, bidders);
+                if (_order.Count == 0) Shuffle();
+                Open(AuctionKind.Emergency, now, AnnouncedBidders.ToList());
             }
         }
 
@@ -229,24 +256,20 @@ namespace DesertSettlement.Core.Auction
 
         private void Announce()
         {
-            _announced.Clear();
-            _announced.AddRange(RollBidders());
-            BiddersAnnounced?.Invoke(_announced);
+            Shuffle();
+            BiddersAnnounced?.Invoke(AnnouncedBidders);
         }
 
-        private List<BidderProfile> RollBidders()
+        /// <summary>입찰자 순서를 새로 섞는다(결정적 Fisher–Yates). 예고(첫 경매장 완공·보류) 때만.</summary>
+        private void Shuffle()
         {
-            List<BidderProfile> pool = _settings.Bidders.ToList();
-            int max = Math.Min(_settings.AttendeesMax, pool.Count);
-            int min = Math.Min(_settings.AttendeesMin, max);
-            int count = _rng.Next(min, max + 1);
-            // 결정적 셔플(Fisher–Yates).
-            for (int i = pool.Count - 1; i > 0; i--)
+            _order.Clear();
+            _order.AddRange(_settings.Bidders);
+            for (int i = _order.Count - 1; i > 0; i--)
             {
                 int j = _rng.Next(i + 1);
-                (pool[i], pool[j]) = (pool[j], pool[i]);
+                (_order[i], _order[j]) = (_order[j], _order[i]);
             }
-            return pool.Take(count).ToList();
         }
 
         private void GoBankrupt(string reason)

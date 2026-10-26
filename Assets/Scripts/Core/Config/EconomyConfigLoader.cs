@@ -96,6 +96,7 @@ namespace DesertSettlement.Core.Config
             {
                 if (auction.Bidders == null || auction.Bidders.Count == 0) problems.Add("auction.bidders가 비어 있습니다.");
                 if (auction.AttendeesMin < 1 || auction.AttendeesMax < auction.AttendeesMin) problems.Add("auction.attendeesMin/Max 범위가 잘못됐습니다.");
+                if (auction.AttendeesWithOneAuctionHall < 1) problems.Add("auction.attendeesWithOneAuctionHall은 1 이상이어야 합니다.");
                 if (auction.MarketSwing < 0 || auction.MarketSwing >= 1) problems.Add("auction.marketSwing은 0 이상 1 미만이어야 합니다.");
                 if (auction.EmergencyPenalty < 0 || auction.EmergencyPenalty >= 1) problems.Add("auction.emergencyPenalty는 0 이상 1 미만이어야 합니다.");
                 if (auction.BankruptcyGraceHours < 1) problems.Add("auction.bankruptcyGraceHours는 1 이상이어야 합니다.");

@@ -162,6 +162,7 @@ namespace SettlementSim
             AddCanals(best.Value.path);
             plan.Add(Build(BuildingKinds.Mine, ore));
             plan.Add(Build(BuildingKinds.AuctionHall, hall.Value));
+            used.Add(hall.Value);
             // 확장 묶음은 경매장 뒤: 첫 경매 시각(경매장 완공 + 경매 간격 72h)을 늦추지 않고, 그 사이에 짓는다.
             foreach (var x in expansions)
             {
@@ -174,6 +175,16 @@ namespace SettlementSim
                 AddCanals(x.path);
                 plan.Add(Build(BuildingKinds.Mine, x.ore));
             }
+            // 2026-10-26 AH1: 경매장이 하나 늘 때마다 입찰자 +1. 추가 경매장은 확장 묶음 뒤(초반 석재를 먼저 생산 시설에), 우물에서 가까운 빈 사막에.
+            for (int i = 0; i < ExtraAuctionHalls; i++)
+            {
+                HexCoord? more = map.Tiles.Where(t => t.Terrain == TerrainType.Desert && !used.Contains(t.Coord)) // 확장 묶음의 우물·농장·광맥도 used에 들어 있다
+                    .OrderBy(t => t.Coord.DistanceTo(well)).ThenBy(t => t.Coord.Q).ThenBy(t => t.Coord.R)
+                    .Select(t => (HexCoord?)t.Coord).FirstOrDefault();
+                if (more == null) break;
+                used.Add(more.Value);
+                plan.Add(Build(BuildingKinds.AuctionHall, more.Value));
+            }
             return plan;
         }
 
@@ -182,6 +193,9 @@ namespace SettlementSim
             foreach (HexDirection d in Enum.GetValues(typeof(HexDirection))) if (from.Neighbor(d) == to) return d;
             throw new ArgumentException("이웃 타일이 아닙니다.");
         }
+
+        /// <summary>첫 경매장 말고 더 짓는 경매장 수(측정용, 2026-10-26 AH1: 경매장이 하나 늘 때마다 입찰자 +1). `-- mods campaign … halls=k`.</summary>
+        public static int ExtraAuctionHalls;
 
         private static MapBuildEntry Build(string kind, HexCoord c) => new MapBuildEntry { Kind = kind, Q = c.Q, R = c.R };
 

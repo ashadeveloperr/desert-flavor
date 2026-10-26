@@ -93,7 +93,13 @@ namespace DesertSettlement.Runtime.UI
                 long left = auctions.NextAuctionHour.Value - s.CurrentHour;
                 list.Add(($"경매까지 {left}시간 ({auctions.NextAuctionHour}시간째)", Theme.Text));
                 if (auctions.AnnouncedBidders.Count > 0)
-                    list.Add(("  예고 입찰자: " + string.Join(", ", auctions.AnnouncedBidders.Select(b => b.Name)), Theme.Muted));
+                {
+                    // 2026-10-26 AH1: 입찰자 수 = 경매장 1개일 때 2명 + 경매장이 하나 늘 때마다 1명(최대 attendeesMax).
+                    int max = Mathf.Min(s.Rules.Config.Auction.AttendeesMax, s.Rules.Config.Auction.Bidders.Count);
+                    string more = auctions.AttendeeCount < max ? " · 경매장을 더 지으면 +1명" : "";
+                    list.Add(($"  예고 입찰자 {auctions.AttendeeCount}명(경매장 {auctions.OperatingAuctionHalls}개{more}): " +
+                              string.Join(", ", auctions.AnnouncedBidders.Select(b => b.Name)), Theme.Muted));
+                }
                 if (auctions.Holds > 0) list.Add(($"  보류 {auctions.Holds}번 — 시세 ×{auctions.HoldFactor:0.00}", Theme.Warn));
             }
             else

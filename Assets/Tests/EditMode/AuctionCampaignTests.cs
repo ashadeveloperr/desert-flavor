@@ -147,7 +147,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(36, s.AuctionHallCompletedHour, "명령 순간 착공(2026-10-26 JQ2)이라 원본 37h보다 1시간 이름");
             Assert.AreEqual(36 + 48, a.NextAuctionHour, "완공 + 48h(2026-10-26 AU1, 이전 72h)");
             Assert.AreEqual(1, announcements, "경매장 완공 직후 예고");
-            Assert.That(a.AnnouncedBidders.Count, Is.InRange(1, 2));
+            Assert.AreEqual(2, a.AnnouncedBidders.Count, "경매장 1개 = 입찰자 2명(2026-10-26 AH1)");
             Assert.AreEqual(AuctionPhase.Scheduled, a.Phase);
         }
 
@@ -189,6 +189,41 @@ namespace DesertSettlement.Core.Tests
             RunUntilEvent(s, a);
             Assert.IsTrue(a.IsOpen);
             Assert.AreEqual(132, a.CurrentAuction.Hour);
+        }
+
+        [Test]
+        public void MoreAuctionHalls_AddBidders_ClosingRemovesTheLastAdded()
+        {
+            // 2026-10-26 AH1(이슈 #10): 경매장 1·2·3개 = 입찰자 2·3·4명. 더 지으면 예고에 한 명 추가, 닫으면 뒤에서부터 빠지고 다시 열면 돌아온다.
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 5000);
+            s.AdvanceHours(38);
+            Assert.AreEqual(1, a.OperatingAuctionHalls);
+            List<string> two = a.AnnouncedBidders.Select(b => b.Id).ToList();
+            Assert.AreEqual(2, two.Count);
+            long auctionHour = a.NextAuctionHour.Value;
+
+            s.BuyStone(30);
+            HexCoord tile = s.Map.Tiles.Select(t => t.Coord).First(c => s.CanBuild(BuildingKinds.AuctionHall, c).Success);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.AuctionHall, tile).Success);
+            int announced = 0;
+            a.BiddersAnnounced += _ => announced++;
+            s.AdvanceHours(14);
+            Facility second = s.FacilityAt(tile);
+            Assert.AreEqual(FacilityState.Operating, second.State);
+            Assert.AreEqual(1, announced, "두 번째 경매장 완공 때 예고 갱신");
+            List<string> three = a.AnnouncedBidders.Select(b => b.Id).ToList();
+            Assert.AreEqual(3, three.Count);
+            CollectionAssert.AreEqual(two, three.Take(2), "앞의 두 명은 그대로, 한 명 추가");
+            Assert.AreEqual(auctionHour, a.NextAuctionHour, "경매 일정은 첫 경매장 기준 그대로");
+
+            Assert.IsTrue(s.SetClosed(second.Id, true).Success);
+            CollectionAssert.AreEqual(two, a.AnnouncedBidders.Select(b => b.Id), "닫으면 마지막에 추가된 사람이 빠짐");
+            Assert.IsTrue(s.SetClosed(second.Id, false).Success);
+            CollectionAssert.AreEqual(three, a.AnnouncedBidders.Select(b => b.Id), "다시 열면 돌아옴");
+
+            RunUntilEvent(s, a);
+            Assert.IsTrue(a.IsOpen);
+            CollectionAssert.AreEqual(three, a.CurrentAuction.Bids.Select(b => b.Bidder.Id), "경매에는 예고된 세 명");
         }
 
         [Test]

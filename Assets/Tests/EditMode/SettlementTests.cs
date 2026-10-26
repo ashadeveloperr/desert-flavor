@@ -252,6 +252,34 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void Queue_DemolishSkipsBlockedFrontJob_BuildsStillWait()
+        {
+            // 2026-10-26 JQ1(이슈 #3): 철거는 석재가 들지 않으니 막힌 앞 작업을 건너뛰어 시작한다. 건설은 FIFO 그대로.
+            Settlement s = NewSettlement(r =>
+            {
+                r.StarterStone = 23;
+                r.FreeBuilds[BuildingKinds.Farm] = 1;
+            });
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, FarmTile).Success); // 무료 완공 배치
+            Facility farm = s.FacilityAt(FarmTile);
+            int big = s.RequestBuild(BuildingKinds.Mine, MineTile).JobId;             // 석재 24 → 부족
+            int well = s.RequestBuild(BuildingKinds.Well, WellTile).JobId;            // 석재가 있어도 앞이 막혀 대기
+            int demolish = s.RequestDemolish(farm.Id).JobId;
+
+            s.AdvanceHour();
+            Assert.AreEqual(JobState.Queued, s.GetJob(big).State);
+            Assert.AreEqual(JobState.Queued, s.GetJob(well).State, "건설은 FIFO: 앞이 막히면 대기");
+            Assert.AreEqual(JobState.InProgress, s.GetJob(demolish).State, "철거는 막힌 작업을 건너뛰어 착공");
+            Assert.AreEqual(FacilityState.Demolishing, farm.State);
+            Assert.AreEqual(23.0, s.Stone, 1e-9, "철거는 석재를 쓰지 않음");
+
+            s.AdvanceHours(3); // 농장 L1 6시간 × 0.5 = 3시간 뒤 철거 완료(무료 배치라 환급 석재는 0)
+            Assert.IsNull(s.GetFacility(farm.Id));
+            Assert.AreEqual(JobState.Queued, s.GetJob(big).State, "석재가 모자란 건설은 계속 대기");
+            Assert.AreEqual(JobState.Queued, s.GetJob(well).State);
+        }
+
+        [Test]
         public void TwoSlotsOnly()
         {
             Settlement s = NewSettlement();

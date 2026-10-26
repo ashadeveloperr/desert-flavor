@@ -428,3 +428,13 @@
 | WD2 | 우물·물탱크(방출 중) 정보창: '물길 n개' → **'물길 n개 · 합계 x/h' + 경로마다 '→ 농장 #id: 수로 k칸(또는 옆 꼭짓점에서 바로) → y/h'**(가까운 순 최대 6줄, 나머지 '외 n개') | [사용자 결정(이슈 완료 기준)] | 우물에서 물이 어디로 얼마 갔는지 숫자로 확인 | `FacilityInfo.AddSentRoutes`, `WaterRoutes.DeliveriesFrom` |
 
 검증: 시뮬레이터 모든 검증 통과·저장 재실행 같음(계산 변화 없음), EditMode 161 통과(`AdjacentWellAndFarm_BorderCanal_ShowsDirectIntake`, `DeliveriesFrom_ListsEveryRoute_NearestFirst`, 직렬 배치 직접 취수 확인 추가).
+
+## 철거는 막힌 작업을 건너뜀 (2026-10-26 — 이슈 #3, 사용자: "이슈 #3 시작하자")
+
+2차 플레이테스트 메모: "상위 건설 명령이 막혀 있으면 건설/철거 슬롯이 남아 있음에도 철거도 대기 상태가 됨". 원인: `StartJobs`가 C2 FIFO에 따라 막힌 작업에서 멈췄다(`break`).
+
+| # | 정한 것 | 구분 | 이유 | 바꾸려면 |
+|---|---|---|---|---|
+| JQ1 | 막힌 작업 뒤의 **철거만** 건너뛰어 시작(빈 슬롯이 있을 때). 건설·개량은 FIFO 그대로, 막힌 철거(저장 한도) 뒤의 건설·개량도 그대로 대기 | [사용자 결정] | 철거는 석재가 들지 않아 막힐 이유가 없고, 환급 석재로 막힌 건설이 풀리기도 한다. 모든 작업 건너뛰기(C2 SkipBlocked)는 경매장 완공이 최대 24h 늦어짐 | `Settlement.StartJobs` |
+
+검증: 시뮬레이터 회귀값 그대로(C2 FifoBlock 값 같음)·저장 재실행 같음, EditMode 162 통과(`Queue_DemolishSkipsBlockedFrontJob_BuildsStillWait`).

@@ -153,10 +153,18 @@ namespace DesertSettlement.Core.Economy
         private void StartJobs(long h)
         {
             int running = JobsInProgress;
+            bool blocked = false;
             foreach (ConstructionJob job in _jobs.Where(j => j.State == JobState.Queued).ToList())
             {
                 if (running >= Rules.ConstructionSlots) break;
-                if (!CanStart(job)) break; // C2 확정: FIFO. 앞 작업이 막히면 뒤 작업도 기다린다.
+                // C2 확정: FIFO. 앞 작업이 막히면 뒤 건설·개량도 기다린다.
+                // 2026-10-26 JQ1(이슈 #3): 철거는 석재가 들지 않으므로 막힌 작업을 건너뛰어 시작한다(빈 슬롯이 있을 때).
+                if (blocked && job.Type != JobType.Demolish) continue;
+                if (!CanStart(job))
+                {
+                    blocked = true;
+                    continue;
+                }
 
                 Stone -= job.StoneCost;
                 job.State = JobState.InProgress;

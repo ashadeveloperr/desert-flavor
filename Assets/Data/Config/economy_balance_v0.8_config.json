@@ -381,16 +381,16 @@
       {
         "stone": 8,
         "hours": 6,
-        "foodStorageBonus": 100,
-        "stoneStorageBonus": 100,
+        "foodStorageBonus": 150,
+        "stoneStorageBonus": 150,
         "foodUse": 0,
         "upkeep": 0.2
       },
       {
         "stone": 12,
         "hours": 8,
-        "foodStorageBonus": 200,
-        "stoneStorageBonus": 200,
+        "foodStorageBonus": 300,
+        "stoneStorageBonus": 300,
         "foodUse": 0,
         "upkeep": 0.35
       }
@@ -407,7 +407,7 @@
       {
         "stone": 10,
         "hours": 6,
-        "capacity": 240,
+        "capacity": 360,
         "chargePerHour": 30,
         "dischargePerHour": 30,
         "foodUse": 0,
@@ -416,7 +416,7 @@
       {
         "stone": 14,
         "hours": 8,
-        "capacity": 420,
+        "capacity": 630,
         "chargePerHour": 45,
         "dischargePerHour": 45,
         "foodUse": 0,

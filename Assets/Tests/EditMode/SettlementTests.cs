@@ -366,8 +366,8 @@ namespace DesertSettlement.Core.Tests
             sc.Run(60);
             Settlement st = sc.S;
             Facility wh = sc.F("warehouse");
-            Assert.AreEqual(200.0, st.StoneCapacity);
-            st.BuyStone(200);
+            Assert.AreEqual(250.0, st.StoneCapacity, "기본 100 + 창고 L1 150(2026-10-26 ST1, 이전 100)");
+            st.BuyStone(250);
             Assert.Greater(st.Stone, 100.0);
             Assert.IsFalse(st.SetClosed(wh.Id, true).Success, "폐쇄 후 한도(100)를 재고가 넘으면 거부(2026-10-23 창고 폐쇄 허용)");
             Assert.IsFalse(st.RequestDemolish(wh.Id).Success, "철거 후 한도(100)를 재고가 넘으면 거부");

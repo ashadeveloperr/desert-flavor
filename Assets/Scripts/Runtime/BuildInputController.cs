@@ -83,6 +83,8 @@ namespace DesertSettlement.Runtime
         {
             // 물길 표시(2026-10-23)는 예전에 만든 씬에도 자동으로 붙인다.
             if (GetComponent<WaterPathOverlay>() == null) gameObject.AddComponent<WaterPathOverlay>();
+            // 건설 가능 타일 강조(2026-10-27 이슈 #7)도 마찬가지.
+            if (GetComponent<BuildableOverlay>() == null) gameObject.AddComponent<BuildableOverlay>();
             // 정식 UI(2026-10-23, UI1~UI5)도 예전 씬에 자동으로 붙인다. F1로 예전 임시 화면과 전환.
             if (GetComponent<UI.GameUi>() == null && GetComponent<SettlementView>() != null) gameObject.AddComponent<UI.GameUi>();
             _session = GetComponent<GameSession>();

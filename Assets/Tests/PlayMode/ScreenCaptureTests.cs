@@ -109,6 +109,12 @@ namespace DesertSettlement.PlayMode.Tests
             GameSession session = _result.Session;
             yield return new WaitForSecondsRealtime(0.3f);
             yield return Capture("01_start_paused");
+            // 건설 가능 타일 강조(2026-10-27 이슈 #7): 농장 도구.
+            var input = session.GetComponent<BuildInputController>();
+            input.SelectBuild(BuildingKinds.Farm);
+            yield return new WaitForSecondsRealtime(0.3f);
+            yield return Capture("01b_build_farm_overlay");
+            input.SelectTool(BuildTool.Select);
 
             Settlement s = session.Settlement;
             session.RequestSampleLayout();

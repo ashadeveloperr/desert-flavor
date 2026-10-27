@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Hex;
 using DesertSettlement.Core.Progression;
@@ -65,6 +66,34 @@ namespace DesertSettlement.PlayMode.Tests
             Transform tiles = session.transform.Find("Tiles");
             Assert.IsNotNull(tiles);
             Assert.AreEqual(session.Map.TileCount, tiles.childCount, "타일마다 육각형 하나");
+        }
+
+        [UnityTest]
+        public IEnumerator BuildTool_HighlightsExactlyTheBuildableTiles()
+        {
+            // 2026-10-27 이슈 #7: 시설 건설 도구를 고르면 지을 수 있는 타일만 강조, 선택 도구로 돌아가면 사라짐.
+            GameSession session = Build();
+            yield return null;
+            var input = session.GetComponent<BuildInputController>();
+            Transform overlay = session.transform.Find("Buildable Overlay");
+            Assert.IsNotNull(overlay);
+            Settlement s = session.Settlement;
+
+            input.SelectBuild(BuildingKinds.Farm);
+            yield return null;
+            Assert.IsTrue(overlay.gameObject.activeSelf);
+            int expected = s.Map.Tiles.Count(t => s.CanBuild(BuildingKinds.Farm, t.Coord).Success);
+            Assert.Greater(expected, 0);
+            Assert.AreEqual(expected, overlay.Cast<Transform>().Count(c => c.gameObject.activeSelf), "농장을 지을 수 있는 타일 수만큼");
+
+            input.SelectBuild(BuildingKinds.Well);
+            yield return null;
+            Assert.AreEqual(s.Map.Tiles.Count(t => s.CanBuild(BuildingKinds.Well, t.Coord).Success),
+                overlay.Cast<Transform>().Count(c => c.gameObject.activeSelf), "도구를 바꾸면 그 시설 기준");
+
+            input.SelectTool(BuildTool.Canal);
+            yield return null;
+            Assert.IsFalse(overlay.gameObject.activeSelf, "수로 도구에서는 강조 없음");
         }
 
         [UnityTest]

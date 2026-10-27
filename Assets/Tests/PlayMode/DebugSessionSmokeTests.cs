@@ -97,6 +97,32 @@ namespace DesertSettlement.PlayMode.Tests
         }
 
         [UnityTest]
+        public IEnumerator BuildCommand_StartsAndGrowsImmediately_NotAtTheNextHour()
+        {
+            // 2026-10-27 이슈 #15: 명령 순간 착공(JQ2)한 공사는 화면 진행률도 그때부터 차오르고 완공 때 100%에 닿는다.
+            GameSession session = Build();
+            yield return null;
+            Settlement s = session.Settlement;
+            session.Clock.AdvanceGameHours(0.5); // 12:30
+            HexCoord tile = s.Map.Tiles.Select(t => t.Coord).First(c => s.CanBuild(BuildingKinds.Farm, c).Success);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, tile).Success);
+            ConstructionJob job = s.Jobs.Single();
+            Assert.AreEqual(JobState.InProgress, job.State, "명령 순간 착공");
+            Facility farm = s.GetFacility(job.FacilityId);
+            yield return null;
+            var view = session.GetComponent<SettlementView>();
+            Assert.AreEqual(0.5f / job.Hours, view.JobProgress(s, farm), 1e-3f, "12:30 명령 = 그 시간의 절반만큼 진행");
+
+            session.Clock.AdvanceGameHours(0.25);
+            Assert.AreEqual(0.75f / job.Hours, view.JobProgress(s, farm), 1e-3f, "다음 정각을 기다리지 않고 차오름");
+            session.Clock.AdvanceGameHours(job.Hours - 0.75 - 0.01);
+            Assert.AreEqual(FacilityState.Constructing, farm.State);
+            Assert.Greater(view.JobProgress(s, farm), 0.99f, "완공 직전 거의 100%");
+            session.Clock.AdvanceGameHours(0.02);
+            Assert.AreEqual(FacilityState.Operating, farm.State, "공사 시간이 지나면 완공");
+        }
+
+        [UnityTest]
         public IEnumerator Lanterns_GlowAtNight_ExceptClosedFacilities()
         {
             // 2026-10-27 이슈 #13: 등불은 밤에만 켜지고(19~20시 켜짐, 4~5시 꺼짐) 폐쇄된 시설만 꺼진다.

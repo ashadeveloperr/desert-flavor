@@ -367,11 +367,18 @@ namespace DesertSettlement.Runtime
         {
             ConstructionJob job = s.Jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress);
             if (job == null || job.Hours <= 0) return 1f;
-            // 정산된 시간(CurrentHour) + 지금 시간 안의 진행분. StartedHour 틱이 끝난 시점이 진행률 0.
+            // 정산된 시간(CurrentHour) + 지금 시간 안의 진행분.
             double fraction = _session.Clock.ElapsedHours - Math.Floor(_session.Clock.ElapsedHours);
-            double elapsed = s.CurrentHour + fraction - (job.StartedHour + 1);
-            return Mathf.Clamp01((float)(elapsed / job.Hours));
+            return JobProgress(job, s.CurrentHour + fraction);
         }
+
+        /// <summary>
+        /// 완공 시각(DeadlineHour 정산이 끝나는 DeadlineHour + 1)까지 남은 시간으로 잰 진행률. 정각 착공은 다음 정각부터 0%,
+        /// 명령 착공(JQ2)은 진행 중인 시간을 첫 1시간으로 세므로 명령 순간부터 차오르고 완공 때 100%에 닿는다(이슈 #15).
+        /// 모래폭풍으로 완공이 늦춰지면 그만큼 뒤로 물러난다.
+        /// </summary>
+        public static float JobProgress(ConstructionJob job, double now) =>
+            job.Hours <= 0 ? 1f : Mathf.Clamp01((float)(1 - (job.DeadlineHour + 1 - now) / job.Hours));
 
         private void OnGUI()
         {

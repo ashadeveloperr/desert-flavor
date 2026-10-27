@@ -1,6 +1,6 @@
 # 이어서 작업하기 (다른 PC·새 Claude 세션용 인계)
 
-마지막 정리: 2026-10-27(회사 PC, #5·#6·#7·#13·#12까지) · 최신 커밋은 `git log -1`로 확인 (origin = 개인 포크 `ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`, main)
+마지막 정리: 2026-10-27(회사 PC, 3차 플레이테스트분 #15~#18까지) · 최신 커밋은 `git log -1`로 확인 (origin = 개인 포크 `ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`, main)
 
 > **2026-10-26부터 남은 작업은 GitHub 이슈로 관리한다.** 먼저 고정된 순서표 이슈 **#14**를 읽는다:
 > `gh issue view 14 -R ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr --comments` (또는 https://github.com/ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr/issues/14)
@@ -53,8 +53,9 @@
 
 ## 3. 지금 상태 요약 (2026-10-27 마감)
 
-**순서표 #14의 #1~#13이 모두 끝났다.** 1단계 버그(#1~#4)·2단계 규칙(#8~#11)은 2026-10-26, 3단계 UI·연출(#5·#6·#7·#13)·4단계 밸런스(#12)는 2026-10-27.
-이슈마다 결과 댓글을 달고 닫았고, #14에 체크와 정한 내용 한 줄을 붙였다. 다음 순서는 **3차 플레이테스트**다.
+**순서표 #14의 #1~#13과 3차 플레이테스트분 #15~#18이 모두 끝났다.** 1단계 버그(#1~#4)·2단계 규칙(#8~#11)은 2026-10-26, 3단계 UI·연출(#5·#6·#7·#13)·4단계 밸런스(#12)는 2026-10-27.
+3차 플레이테스트(2026-10-27, 22개 중 확인 20 · 문제 2)의 문제·메모는 #15~#18로 만들어 같은 날 처리했다.
+이슈마다 결과 댓글을 달고 닫았고, #14에 체크와 정한 내용 한 줄을 붙였다. 다음 순서는 **4차 플레이테스트**다.
 
 **들어간 것**(근거·측정·다른 안은 `Docs/decision_log_auto.md`에서 결정 번호로 찾기, 결정 표는 `Docs/implementation_notes.md`)
 | 이슈 | 내용 | 결정 번호 | 커밋 |
@@ -72,28 +73,32 @@
 | #7 | 시설 건설 도구일 때 **지을 수 있는 타일 초록 맥동**(2초, 투명도 15~45%), 석재 부족이면 노랑(`Runtime/View/BuildableOverlay`) | BO1~BO4 | 698548e |
 | #13 | 밤 **달빛**(같은 방향광, 푸른색 0.35)·환경광 최소 0.5, 시설 **등불 + 점광원**, 폐쇄된 시설만 꺼짐, 19~20시 켜짐·4~5시 꺼짐 | MN1·MN2·LT1~LT4 | bd4c935 |
 | #12 | **D4까지 그대로, 그 뒤만 가속**(x = D−4): 운영비 1 + 0.5D + **0.2x²**, 약점 효과 **×(1+0.5x)**(줄어드는 배율 하한 0.3), 재해 세기 **×(1+0.5x)**(지속 시간·피해). 수치 잠정 | LD0~LD4 | 6853551 |
+| #15 | 명령 착공 공사의 **화면 진행률**을 완공 시각 기준으로(규칙은 이미 명령 순간 착공, 화면만 정각까지 0%로 멈춰 보였음) | JQ3 | 0864b08 |
+| #16 | 등불 **5~6시에 꺼짐**, 시설마다 5~8초(1배속 기준·배속 따름) 다른 주기로 70~100% **숨쉬기** + ±3% 잔떨림 | LT5~LT7 | d337b89 |
+| #17 | **맵 바깥 모래언덕**(`Runtime/View/DesertBackdrop`): 완만한 언덕·타일과 비슷한 모래·옅은 경계선·잔물결·맵 뒤 안개(그래픽 설정 안개 모드 Custom) | DB1~DB5 | 20fc1c0 |
+| #18 | **시장** 시설: 있어야 판매·없으면 상인 ×1.5, 판매가 2차 하락(한도 식량 100·석재 60), 구매 복리 상승, 시간당 8% 회복·시장 수 배율(1·1.2·1.35…상한 1.8), **매각 때 남은 재고 일괄 매도**, 새 명령 `SellFood`·`SellStone` | MK1~MK9 | cc2edb4 |
 
-**현재 기준값**(숙련 봇 `dotnet run --project Tools/SettlementSim -- mods campaign 0.25 14000 30 smart`, 2026-10-27 #12 반영 뒤):
-D=1 도달 6번째 정착지, 처음 적자 D3.7~4.7, D 구간별 정착지 순이익 평균 D0~1 +974 · D1~2 +1174 · D2~3 +743 · D3~4 +278 · D4~5 −360 · D5~6 −690.
-숙련 봇은 사람보다 훨씬 못 번다(사람은 2차 플레이에서 D8 자산 1만 이상, 봇은 보류를 거의 안 하고 물탱크·창고를 안 지음). 그래서 #12의 후반 세기는 3차 플레이로 확인한다.
+**현재 기준값**(숙련 봇 `dotnet run --project Tools/SettlementSim -- mods campaign 0.25 14000 30 smart`, 2026-10-27 #18 시장 반영 뒤, 봇은 시장을 짓고 넘치는 자원을 팖):
+처음 적자 D3.1~4.4, D 구간별 정착지 순이익 평균 D0~1 +1248 · D1~2 +1231 · D2~3 +755 · D3~4 +284 · D4~5 −425 · D5~6 −635(#18 이전 +974 · +1174 · +743 · +278 · −360 · −690, `trade=off`로 재현).
+숙련 봇은 사람보다 훨씬 못 번다(사람은 2차 플레이에서 D8 자산 1만 이상, 봇은 보류를 거의 안 하고 물탱크·창고를 안 지음). #12 후반 세기는 3차 플레이에서 확인됐다(F절 모두 확인).
 그 밖의 흐름 값: 1배속 하루 180초(FL1), 건설·개량·철거 시간 ×0.5(FL2), 시작 자금 500(FB1), 경매 48h(AU1).
 
 **플레이테스트 체크리스트:** 웹 페이지 https://claude.ai/artifact/FVtbqQ1jc1MrT5QiiKSFrj (체크·메모가 저장되고 Claude가 읽을 수 있음, 비공개) / 저장소 문서 `Docs/playtest_checklist_2026-10-23.md`(1차 항목만).
-1차(2026-10-23) 54개 모두 확인. 2차(2026-10-26) 40개 중 확인 37 · 문제 3 → 이슈 #1~#13. 기록은 이슈 #14 본문.
-**3차에서 확인할 것** 22개(10-26분 8 + 10-27분 14)는 #14 댓글 '3차 플레이테스트에서 확인할 것'에 모아 두었다(이슈별 결과 댓글 끝에도 있음). 3차 체크리스트는 이 항목들(고친 부분)만으로 만든다.
+1차(2026-10-23) 54개 모두 확인. 2차(2026-10-26) 40개 중 확인 37 · 문제 3 → 이슈 #1~#13. 3차(2026-10-27) 22개 중 확인 20 · 문제 2 → 이슈 #15~#18(메모 2건 포함). 기록은 이슈 #14 본문·댓글.
+**4차에서 확인할 것** 12개(#15 1 · #16 2 · #17 2 · #18 6, 고친 부분만)는 #14 댓글 끝 '4차 플레이테스트에서 확인할 것'(A~D절)에 모아 두었다(이슈별 결과 댓글 끝에도 있음). 4차 체크리스트는 이 항목들만으로 만든다.
 
 ## 4. 다음에 할 일 (우선순위)
 
-1. **3차 플레이테스트:** 체크리스트 웹 페이지 맨 위 '3차 — 고친 부분만' 절(A~F, 22개, 절 id v3a~v3f)로 확인한다. 이미 확인한 것은 다시 묻지 않는다.
-2. **3차 플레이테스트 결과 기록:** 확인·문제·메모를 #14 본문(또는 새 이슈)에 남기고, 문제는 이슈로 만든다. #12 후반 세기가 지나치거나 약하면 `procedural_map_config.json`의 `difficulty.lateStartD`·`upkeepLatePerD2`·`weaknessLatePerD`·`disasterLatePerD`부터 조정.
+1. **4차 플레이테스트:** #14 댓글의 4차 목록(A~D, 12개)으로 체크리스트 웹 페이지에 4차 절을 추가하고 확인한다. 이미 확인한 것은 다시 묻지 않는다.
+2. **4차 플레이테스트 결과 기록:** 확인·문제·메모를 #14에 남기고, 문제는 이슈로 만든다. 시장 판매가 지나치거나 약하면 `economy_balance_v0.8_config.json`의 `purchase.*.sellLimit`·`purchase.trade.recoveryPerHour`부터 조정. #12 후반 세기가 지나치거나 약하면 `procedural_map_config.json`의 `difficulty.lateStartD`·`upkeepLatePerD2`·`weaknessLatePerD`·`disasterLatePerD`부터 조정.
 3. 그 뒤: 예전 IMGUI 화면(F1) 삭제 여부 결정, 측정 봇 보완(보류·개량·물탱크를 사람처럼 써서 후반 측정이 사람 플레이에 가깝게, #12 LD0에서 미룸), 폴리싱.
 
 ## 5. 주의할 것
 
-- 시뮬레이터 측정 모드: `-- tune`(난이도 곡선) · `-- mods [D]` / `-- mods campaign [정착지항] [cashPerD] [정착지 수] [smart] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s]`(모디파이어·장비. `halls=k`는 봇이 경매장 k개, `late= upkeep2= weak= dis=`는 #12 후반 가속 값을 덮어씀 — 모두 0이면 #12 이전과 같음) · `-- exploit [맵 수]`(몰아짓기·철거) · `-- epidemic [맵 수]` / `-- epidemic sweep [맵 수]`(전염병 후보 표) · `-- savecheck`(저장 재실행). 결과는 `Tools/balance_output/`(git 무시).
+- 시뮬레이터 측정 모드: `-- tune`(난이도 곡선) · `-- mods [D]` / `-- mods campaign [정착지항] [cashPerD] [정착지 수] [smart] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s]`(모디파이어·장비. `halls=k`는 봇이 경매장 k개, `late= upkeep2= weak= dis=`는 #12 후반 가속 값을 덮어씀 — 모두 0이면 #12 이전과 같음. `trade=off`는 시장 규칙 없음(#18 이전), `flimit= slimit= rec=`는 판매 한도·회복, `market=0`·`sell=0`은 봇이 시장을 안 짓거나 안 팖) · `-- exploit [맵 수]`(몰아짓기·철거) · `-- epidemic [맵 수]` / `-- epidemic sweep [맵 수]`(전염병 후보 표) · `-- savecheck`(저장 재실행). 결과는 `Tools/balance_output/`(git 무시).
 - 여러 후보를 동시에 재려면 한 번 빌드(`dotnet build Tools/SettlementSim -c Release`) 뒤 `dotnet Tools/SettlementSim/bin/Release/net10.0/SettlementSim.dll mods campaign …`을 병렬로 돌린다. 콘솔 출력은 cp949라 Git Bash에서는 `iconv -f cp949 -t utf-8`로 읽는다.
 - 설정 값을 바꿔 비교 측정할 때는 설정 JSON을 백업해 두고 바꾼 뒤 측정하고 **반드시 되돌린다**(`git diff Assets/Data/Config/`로 확인). `procedural_map_config.json`의 값은 코드 기본값과 같아야 한다(`ProceduralMapTests.Config_JsonMatchesCodeDefaults`).
-- UI 모양 확인: `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png`. 1920×1080 장면 + `01b_build_farm_overlay`(#7)·`03b_16x10`·`03c_5x4`(#5)·`03d_night_lanterns`(#13)·`06_destination`·`06b_shop`(#6). 캡처는 캔버스 배율을 실제 게임 식(ScaleWithScreenSize 0.5)으로 계산한다.
+- UI 모양 확인: `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png`. 1920×1080 장면 + `01b_build_farm_overlay`(#7)·`03b_16x10`·`03c_5x4`(#5)·`03d_night_lanterns`(#13)·`06_destination`·`06b_shop`(#6)·`01a_zoomed_out_dunes`(#17). 캡처는 캔버스 배율을 실제 게임 식(ScaleWithScreenSize 0.5)으로 계산한다.
 - 반투명·발광 머티리얼은 `WorldVisuals.Unlit`(`Sprites/Default`, 그래픽 설정 '항상 포함')로 만든다. URP Lit 반투명·발광을 코드로 켜면 빌드에서 셰이더 변형이 빠질 수 있다.
 - 경매 시각이 바뀌는 규칙을 건드리면 테스트 기대값이 여러 곳에 있다: `AuctionCampaignTests`(첫 경매 84h·보류 뒤 132h), `DebugSessionSmokeTests`(샘플 배치 경매장 21h·정기 경매 69h), `SettlementTests`(v0.8 스크립트는 예전 착공·96h 기준).
 - 테스트 사본은 새 파일의 `.meta`를 만들면 원본으로 되가져온다. 새 스크립트를 추가했다면 커밋 전에 `.meta`가 있는지 확인.

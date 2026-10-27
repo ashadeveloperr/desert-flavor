@@ -115,13 +115,7 @@ namespace DesertSettlement.Core.Progression
             rules.StarterFood += _pendingFoodBonus;
             foreach (EquipmentDefinition e in Shop.Where(x => _loadout.Contains(x.Id))) rules.ApplyEffects(EffectsOf(e));
             foreach (RegionModifierDefinition m in CurrentModifiers) rules.ApplyEffects(m.Effects);
-            // 난이도 비례 유지비(후보, 기본 0): 생성 맵에서 D가 높을수록 운영비가 비싸진다.
-            // UpkeepMinD(기본 0): D가 낮아도 이 D만큼은 운영비를 올린다(고정 맵은 D 0으로 본다). 초반 긴장 후보(2026-10-24 재미 보강 측정).
-            if (_procedural != null && _procedural.Difficulty.UpkeepPerD > 0 && (CurrentGenerated != null || _procedural.Difficulty.UpkeepMinD > 0))
-            {
-                double upkeepD = Math.Max(CurrentGenerated?.Params.D ?? 0, _procedural.Difficulty.UpkeepMinD);
-                rules.UpkeepMultiplier *= 1 + _procedural.Difficulty.UpkeepPerD * upkeepD;
-            }
+            rules.UpkeepMultiplier *= DifficultyUpkeepFactor(CurrentGenerated?.Params.D);
             foreach (KeyValuePair<string, int> kv in _pendingFreeBuilds) rules.FreeBuilds[kv.Key] = kv.Value;
             _pendingFoodBonus = 0;
             _pendingFreeBuilds.Clear();
@@ -139,6 +133,27 @@ namespace DesertSettlement.Core.Progression
             State = CampaignState.InSettlement;
             SettlementStarted?.Invoke();
             return Current;
+        }
+
+        /// <summary>
+        /// 난이도 비례 운영비 배율(후보, 기본 0이면 1): 생성 맵에서 D가 높을수록 운영비가 비싸진다.
+        /// UpkeepMinD(기본 0): D가 낮아도 이 D만큼은 운영비를 올린다(고정 맵은 D 0으로 본다, null). 초반 긴장 후보(2026-10-24 재미 보강 측정).
+        /// </summary>
+        private double DifficultyUpkeepFactor(double? generatedD)
+        {
+            if (_procedural == null || _procedural.Difficulty.UpkeepPerD <= 0 || (generatedD == null && _procedural.Difficulty.UpkeepMinD <= 0)) return 1;
+            return 1 + _procedural.Difficulty.UpkeepPerD * Math.Max(generatedD ?? 0, _procedural.Difficulty.UpkeepMinD);
+        }
+
+        /// <summary>
+        /// 이 후보에 지금 장착한 장비로 들어가면 걸릴 운영비 배율(위쪽 띠 '운영비 ×'와 같은 값, 2026-10-27 이슈 #6 행선지 창).
+        /// 장착 장비 × 모디파이어 × 난이도 비례. 지형 생성이 실패해 고정 맵으로 대신하는 드문 경우는 반영하지 않는다.
+        /// </summary>
+        public double PreviewUpkeepMultiplier(RegionOffer offer)
+        {
+            double m = Shop.Where(x => _loadout.Contains(x.Id)).Aggregate(1.0, (acc, e) => acc * EffectsOf(e).UpkeepMultiplier);
+            if (!offer.IsFixedMap) m *= offer.Effects.UpkeepMultiplier;
+            return m * DifficultyUpkeepFactor(offer.IsFixedMap ? (double?)null : offer.Params.D);
         }
 
         /// <summary>후보 지역의 맵. 생성 차례면 후보 시드로 만들고, 실패하면(규칙을 못 맞춤) 고정 맵으로 대신한다.</summary>

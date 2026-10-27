@@ -141,6 +141,22 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void Campaign_PreviewUpkeepMultiplier_MatchesRulesAfterDeparture()
+        {
+            // 행선지 창 '운영비 ×'(2026-10-27 이슈 #6) = 들어간 뒤 규칙 값(장착 장비·모디파이어·난이도 비례).
+            for (int pick = 0; pick < 2; pick++)
+            {
+                Campaign c = CampaignInShop(cashBoost: 9000);
+                foreach (EquipmentDefinition e in c.Shop.Take(3)) Assert.IsTrue(c.BuyEquipment(e.Id).Success, e.Id);
+                RegionOffer offer = c.NextOffers()[pick];
+                double preview = c.PreviewUpkeepMultiplier(offer);
+                Settlement s = c.StartNextSettlement(pick);
+                Assert.Greater(preview, 1.0, "생성 맵은 난이도만큼 운영비가 오른다");
+                Assert.AreEqual(s.Rules.UpkeepMultiplier, preview, 1e-12, $"후보 {pick + 1}");
+            }
+        }
+
+        [Test]
         public void Campaign_FixedMapTurn_HasSingleOfferWithoutModifiers()
         {
             var c = new Campaign(_economy, _maps, seed: 3, procedural: _proc);

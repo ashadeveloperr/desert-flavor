@@ -10,7 +10,7 @@ using static DesertSettlement.Runtime.UI.UiKit;
 
 namespace DesertSettlement.Runtime.UI
 {
-    /// <summary>가운데 창의 내용: 경매·상점·파산. 예전 임시 화면(AuctionPanel)과 같은 정보를 카드 형태로.</summary>
+    /// <summary>가운데 창의 내용: 경매·행선지·상점·파산. 예전 임시 화면(AuctionPanel)과 같은 정보를 카드 형태로.</summary>
     public sealed class ModalContent
     {
         private readonly GameUi _ui;
@@ -85,9 +85,26 @@ namespace DesertSettlement.Runtime.UI
             Btn(card, $"{bid.Bidder.Name}에게 매각", () => { _ui.Session.SellTo(index); _changed(); }, -1, 32);
         }
 
-        // ───────────── 상점 ─────────────
+        // ───────────── 행선지 → 상점 (2026-10-27 DS1~DS3, 이슈 #6) ─────────────
+        // 매각 뒤 먼저 행선지 창에서 후보를 고르고(카드 클릭), 그 지역을 보며 상점에서 장비를 산 뒤 출발한다.
+        // 고른 후보는 화면 상태일 뿐 Core에는 출발할 때만 넘긴다(저장·불러오기하면 행선지 창부터 다시).
 
-        public void Shop(Campaign c)
+        /// <summary>고른 후보 번호(null = 아직 안 고름). 상점을 떠나면 지운다.</summary>
+        public int? ChosenOffer { get; private set; }
+        private bool _picking;
+
+        /// <summary>행선지 창을 보여 줄 차례인지(아직 안 골랐거나 '행선지 다시 고르기').</summary>
+        public bool ShowsDestination => ChosenOffer == null || _picking;
+
+        /// <summary>상점 상태를 벗어났을 때(출발·새 캠페인·불러오기) 선택을 지운다.</summary>
+        public void ClearChoice()
+        {
+            ChosenOffer = null;
+            _picking = false;
+            Message = null;
+        }
+
+        public void Destination(Campaign c)
         {
             SaleRecord sale = c.Sales.LastOrDefault();
             if (sale != null)
@@ -97,24 +114,42 @@ namespace DesertSettlement.Runtime.UI
             }
             bool record = RecordBook.Submit(c);
             Label(_root, (record ? Paint("새 기록!  ", Theme.Good) : "") + RecordBook.Describe(c), Theme.Small, Theme.Muted);
+            Label(_root, $"보유 자금 {Paint(c.Cash.ToString("0"), Theme.Text)}", Theme.Body, Theme.Muted);
+
+            var offers = c.NextOffers();
+            Label(_root, $"다음 지역 (정착지 {c.SettlementNumber + 1}) — {(offers.Count > 1 ? "카드를 눌러 고르세요. " : "")}고른 뒤 상점에서 장비를 준비합니다. 지형은 들어가면 보입니다", Theme.Title, Theme.Accent);
+            HorizontalLayoutGroup row = Row(_root, 8);
+            row.childForceExpandWidth = true;
+            row.childAlignment = TextAnchor.UpperLeft;
+            foreach (RegionOffer offer in offers) OfferCard(c, offer, row.transform);
+            if (ChosenOffer != null) Btn(_footer, $"← 상점으로 (후보 {ChosenOffer.Value + 1} 그대로)", () => { _picking = false; _changed(); }, -1, 38);
+        }
+
+        public void Shop(Campaign c)
+        {
+            var offers = c.NextOffers();
+            int chosen = Math.Min(ChosenOffer ?? 0, offers.Count - 1);
+            RegionOffer offer = offers[chosen];
+            Label(_root, "상점 — 다음 정착지 준비", Theme.Big, Theme.Accent);
+            // 행선지 요약: 장비를 고를 때 약점을 보며 고르게(예: 모래바람 지대 → 수로 방풍막).
+            Transform summary = Card(_root);
+            Label(summary, "행선지: " + OfferTitle(offer) + $"   ·   운영비 ×{c.PreviewUpkeepMultiplier(offer):0.00}", Theme.Title, Theme.Accent);
+            ModifierLines(summary, offer);
             Label(_root, $"보유 자금 {Paint(c.Cash.ToString("0"), Theme.Text)}   ·   현장 장비 슬롯 {c.Loadout.Count}/{Campaign.EquipmentSlots} (장착한 것만 다음 정착지에서 효과)", Theme.Body, Theme.Muted);
+            if (!offer.IsFixedMap) Label(_root, "장비를 사면 보유 자금이 줄어 행선지 난이도도 다시 계산됩니다.", Theme.Small, Theme.Muted);
 
             Label(_root, "영구 장비", Theme.Title, Theme.Accent);
             foreach (EquipmentDefinition e in c.Shop) EquipmentRow(c, e);
             if (!string.IsNullOrEmpty(Message)) Label(_root, Message, Theme.Body, Theme.Accent);
 
-            Label(_root, $"다음 지역 (정착지 {c.SettlementNumber + 1}) — 지형은 들어가면 보입니다", Theme.Title, Theme.Accent);
-            var offers = c.NextOffers();
-            foreach (RegionOffer offer in offers) OfferCard(offer);
-            // 출발 버튼은 아래 고정 줄에(UX3): 장비 목록이 길어도 스크롤 없이 보인다.
-            foreach (RegionOffer offer in offers)
+            // 아래 고정 줄(UX3): 장비 목록이 길어도 스크롤 없이 보인다.
+            Btn(_footer, "← 행선지 다시 고르기", () => { _picking = true; Message = null; _changed(); }, -1, 38);
+            Btn(_footer, offers.Count > 1 ? $"후보 {chosen + 1}로 출발 →" : "다음 정착지로 출발 →", () =>
             {
-                int index = offer.Index;
-                string label = offers.Count > 1
-                    ? (offer.IsFixedMap ? $"후보 {index + 1}로 출발" : $"후보 {index + 1}로 출발 (난이도 {offer.Params.D:0.00})")
-                    : "다음 정착지로 출발";
-                Btn(_footer, label, () => { Message = null; _ui.Session.GoToNextSettlement(index); _changed(); }, -1, 38);
-            }
+                ClearChoice();
+                _ui.Session.GoToNextSettlement(chosen);
+                _changed();
+            }, -1, 38);
         }
 
         private void EquipmentRow(Campaign c, EquipmentDefinition e)
@@ -144,24 +179,48 @@ namespace DesertSettlement.Runtime.UI
             _changed();
         }
 
-        private void OfferCard(RegionOffer offer)
+        /// <summary>행선지 후보 카드(DS2): 카드 어디를 눌러도 고른다. 고른 카드는 강조색.</summary>
+        private void OfferCard(Campaign c, RegionOffer offer, Transform parent)
         {
-            Transform card = Card(_root);
-            if (offer.IsFixedMap)
-            {
-                Label(card, $"고정 맵: {offer.FixedMap.Name}", Theme.Title);
-            }
-            else
+            Transform card = Card(parent);
+            var le = card.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth = 1; // 후보 카드 폭을 똑같이 나눈다(글자 길이와 상관없이)
+            le.flexibleWidth = 1;
+            int index = offer.Index;
+            bool chosen = ChosenOffer == index;
+            var image = card.GetComponent<Image>();
+            if (chosen) image.color = Theme.ButtonOn;
+            var button = card.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            ColorBlock colors = button.colors;
+            colors.highlightedColor = new Color(1.25f, 1.2f, 1.1f);
+            button.colors = colors;
+            void Pick() { ChosenOffer = index; _picking = false; Message = null; _changed(); }
+            button.onClick.AddListener(Pick);
+
+            Label(card, OfferTitle(offer), Theme.Title, chosen ? Theme.Text : Theme.Accent);
+            if (!offer.IsFixedMap)
             {
                 DifficultyParams p = offer.Params;
-                Label(card, $"후보 {offer.Index + 1} — 난이도 {p.D:0.00}", Theme.Title, Theme.Accent);
                 Label(card, $"반경 {p.Radius} · 우물 {p.WellCount} · 광맥 {p.OreCount} · 장애물 {p.ObstacleDensity:P0}", Theme.Small, Theme.Muted);
-                if (offer.Modifiers.Count == 0) Label(card, "특이 사항 없음", Theme.Small, Theme.Muted);
-                foreach (RegionModifierDefinition m in offer.Modifiers)
-                {
-                    bool weak = m.Kind == RegionModifierKind.Weakness;
-                    Label(card, $"{Paint(weak ? "약점" : "강점", weak ? Theme.Warn : Theme.Good)} {m.Name}: {m.Effects.Describe()}", Theme.Small);
-                }
+            }
+            double upkeep = c.PreviewUpkeepMultiplier(offer);
+            Label(card, $"운영비 ×{upkeep:0.00}" + (upkeep > 1.005 ? Paint("  (난이도·약점·장착 장비 반영)", Theme.Muted) : ""), Theme.Small, upkeep > 1.005 ? Theme.Warn : Theme.Text);
+            ModifierLines(card, offer);
+            Btn(card, chosen ? "고름 — 상점으로" : "이 지역으로", Pick, -1, 34).SetOn(chosen);
+        }
+
+        private static string OfferTitle(RegionOffer offer) =>
+            offer.IsFixedMap ? $"고정 맵: {offer.FixedMap.Name}" : $"후보 {offer.Index + 1} — 난이도 {offer.Params.D:0.00}";
+
+        private static void ModifierLines(Transform card, RegionOffer offer)
+        {
+            if (offer.IsFixedMap) return;
+            if (offer.Modifiers.Count == 0) Label(card, "특이 사항 없음", Theme.Small, Theme.Muted);
+            foreach (RegionModifierDefinition m in offer.Modifiers)
+            {
+                bool weak = m.Kind == RegionModifierKind.Weakness;
+                Label(card, $"{Paint(weak ? "약점" : "강점", weak ? Theme.Warn : Theme.Good)} {m.Name}: {m.Effects.Describe()}", Theme.Small);
             }
         }
 

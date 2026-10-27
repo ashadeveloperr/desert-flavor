@@ -46,6 +46,7 @@ namespace DesertSettlement.Runtime.UI
             Transform root = _canvas.transform;
             _views.Add(_topBar = new TopBarView(this, root));
             _views.Add(new BuildBarView(this, root));
+            _views.Add(new BuyPanelView(this, root));
             _views.Add(new AlertsView(this, root));
             _views.Add(new InspectorView(this, root));
             _views.Add(_tooltip = new TooltipView(this, root));
@@ -93,6 +94,9 @@ namespace DesertSettlement.Runtime.UI
             _nextRefresh = Time.unscaledTime + refreshSeconds;
             foreach (IUiView v in _views) v.Refresh();
         }
+
+        /// <summary>캔버스 폭(1920×1080 기준 단위). 16:9 = 1920, 16:10 ≈ 1822, 5:4 ≈ 1610. 좁은 화면 축소(LY3)에 쓴다.</summary>
+        public float CanvasWidth => ((RectTransform)_canvas.transform).rect.width;
 
         /// <summary>위쪽 띠 아래에 잠깐 문구를 띄운다(F5·F9 결과 등).</summary>
         public void ShowMessage(string message) => _views.OfType<TopBarView>().FirstOrDefault()?.Show(message);

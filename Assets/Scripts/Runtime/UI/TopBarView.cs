@@ -11,11 +11,15 @@ namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
     /// 위쪽 띠(UI2): 왼쪽 자원(자금·식량·석재·식량 계수 + 지난 1시간 변화), 가운데 정착지·지역 특성·장비,
-    /// 오른쪽 시계·일시정지·배속(` 1 2 3)·저장(F5)·불러오기(F9).
+    /// 오른쪽 시계·일시정지·배속(` 1 2 3) | 저장(F5)·불러오기(F9).
+    /// 좁은 화면에서는 세 구역이 같은 비율로 줄어든다(LY3, 16:10까지는 그대로).
     /// </summary>
     public sealed class TopBarView : IUiView
     {
+        // 구역 폭(1920×1080 기준). 가운데는 화면 중앙이라 '화면 절반 − 가운데 절반'에 왼쪽·오른쪽 중 넓은 쪽이 들어가야 한다.
+        private const float LeftWidth = 624, CenterWidth = 500, Margin = 8;
         private readonly GameUi _ui;
+        private readonly RectTransform _left, _right;
         private readonly Text _cash, _food, _stone, _coef, _delta, _place, _traits, _clock, _message;
         private readonly Button _pause, _save, _load;
         private readonly Button[] _speeds = new Button[3];
@@ -28,44 +32,50 @@ namespace DesertSettlement.Runtime.UI
             RectTransform bar = Panel("Top Bar", canvas).Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), Vector2.zero, new Vector2(0, 64));
 
             // 왼쪽: 자원
-            HorizontalLayoutGroup res = Row(bar, 18, 8);
-            ((RectTransform)res.transform).Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(8, 0), new Vector2(620, 0));
-            _cash = Resource(res.transform, "자금");
-            _food = Resource(res.transform, "식량");
-            _stone = Resource(res.transform, "석재");
-            _coef = Resource(res.transform, "식량 계수");
+            HorizontalLayoutGroup res = Row(bar, 12, 8);
+            _left = ((RectTransform)res.transform).Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(8, 0), new Vector2(LeftWidth, 0));
+            // 칸 폭(2026-10-27 이슈 #5): '식량 계수 100 %'가 140에서 두 줄로 넘쳐 자금 칸을 줄이고 계수 칸을 늘림(합계 570 + 간격 36 + 여백 16 = 622).
+            _cash = Resource(res.transform, "자금", 120);
+            _food = Resource(res.transform, "식량", 140);
+            _stone = Resource(res.transform, "석재", 140);
+            _coef = Resource(res.transform, "식량 계수", 170);
             _delta = Label(bar, "", Theme.Small, Theme.Muted);
             _delta.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(16, 2), new Vector2(640, 18));
 
             // 가운데: 정착지·지역 특성
             _place = Label(bar, "", Theme.Title, Theme.Accent, TextAnchor.UpperCenter);
-            _place.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -6), new Vector2(560, 22));
+            _place.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -6), new Vector2(CenterWidth, 22));
             _traits = Label(bar, "", Theme.Small, Theme.Muted, TextAnchor.UpperCenter);
-            _traits.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(620, 32));
+            _traits.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(CenterWidth, 32));
 
-            // 오른쪽: 시계·배속·저장
-            HorizontalLayoutGroup right = Row(bar, 4, 8);
+            // 오른쪽: 시계·배속 묶음 | 저장·불러오기 묶음(2026-10-27 LY1, 이슈 #5: 구분선으로 떼어 배속을 누르다 저장을 잘못 누르지 않게).
+            // 폭은 내용에 맞춘다(전에는 560 고정 안에 약 600이 들어가 가운데로 넘쳤다).
+            HorizontalLayoutGroup right = Row(bar, 12, 8);
             right.childAlignment = TextAnchor.MiddleRight;
-            ((RectTransform)right.transform).Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-8, 0), new Vector2(560, 0));
-            _clock = Label(right.transform, "", Theme.Title, Theme.Text, TextAnchor.MiddleRight);
-            _clock.gameObject.AddComponent<LayoutElement>().preferredWidth = 190;
-            _pause = Btn(right.transform, "일시정지 `", () => { _ui.Session.Clock.TogglePause(); _ui.RefreshNow(); }, 96);
+            _right = ((RectTransform)right.transform).Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-8, 0), new Vector2(0, 0));
+            right.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            Transform time = Row(right.transform, 4).transform;
+            _clock = Label(time, "", Theme.Title, Theme.Text, TextAnchor.MiddleRight);
+            _clock.gameObject.AddComponent<LayoutElement>().preferredWidth = 150;
+            _pause = Btn(time, "일시정지 `", () => { _ui.Session.Clock.TogglePause(); _ui.RefreshNow(); }, 96);
             for (int i = 0; i < _speeds.Length; i++)
             {
                 int index = i;
-                _speeds[i] = Btn(right.transform, "", () => { _ui.Session.Clock.SelectSpeed(index); _ui.RefreshNow(); }, 46);
+                _speeds[i] = Btn(time, "", () => { _ui.Session.Clock.SelectSpeed(index); _ui.RefreshNow(); }, 46);
             }
-            _save = Btn(right.transform, "저장 F5", () => Show(_ui.Session.SaveGame()), 70);
-            _load = Btn(right.transform, "불러오기 F9", () => Show(_ui.Session.LoadGame()), 84);
+            Divider(right.transform);
+            Transform file = Row(right.transform, 4).transform;
+            _save = Btn(file, "저장 F5", () => Show(_ui.Session.SaveGame()), 76);
+            _load = Btn(file, "불러오기 F9", () => Show(_ui.Session.LoadGame()), 104);
 
             _message = Label(canvas, "", Theme.Body, Theme.Accent, TextAnchor.UpperRight);
             _message.rectTransform.Place(new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1), new Vector2(-12, -70), new Vector2(520, 24));
         }
 
-        private static Text Resource(Transform parent, string name)
+        private static Text Resource(Transform parent, string name, float width)
         {
             Text t = Label(parent, name, Theme.Big);
-            t.gameObject.AddComponent<LayoutElement>().preferredWidth = 140;
+            t.gameObject.AddComponent<LayoutElement>().preferredWidth = width;
             return t;
         }
 
@@ -141,6 +151,15 @@ namespace DesertSettlement.Runtime.UI
             }
             _load.interactable = session.HasSave;
             if (Time.unscaledTime > _messageUntil) _message.text = "";
+            FitToWidth();
+        }
+
+        /// <summary>좁은 화면 축소(LY3). 오른쪽 묶음 폭은 내용에 따라 달라서 매번 잰다.</summary>
+        private void FitToWidth()
+        {
+            float side = Math.Max(LeftWidth, LayoutUtility.GetPreferredWidth(_right));
+            float s = FitScale(_ui.CanvasWidth / 2f - 2 * Margin, CenterWidth / 2f + side + Margin);
+            foreach (RectTransform r in new[] { _left, _right, _delta.rectTransform, _place.rectTransform, _traits.rectTransform }) SetScale(r, s);
         }
     }
 }

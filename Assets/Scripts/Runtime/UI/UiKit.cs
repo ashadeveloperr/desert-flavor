@@ -135,6 +135,28 @@ namespace DesertSettlement.Runtime.UI
             return g;
         }
 
+        /// <summary>묶음 사이 세로 구분선(2026-10-27 LY1, 이슈 #5).</summary>
+        public static void Divider(Transform parent, float height = 30)
+        {
+            RectTransform r = Rect("Divider", parent);
+            r.gameObject.AddComponent<Image>().color = Theme.Muted;
+            var le = r.gameObject.AddComponent<LayoutElement>();
+            le.minWidth = le.preferredWidth = 2;
+            le.minHeight = le.preferredHeight = height;
+        }
+
+        /// <summary>
+        /// 좁은 화면 통째 축소(2026-10-27 LY3, 이슈 #5): 필요한 폭이 쓸 수 있는 폭보다 넓을 때만 같은 비율로 줄인다(넉넉하면 1).
+        /// 16:9·16:10은 1이 되도록 각 구역 폭을 맞춰 두었다. 1보다 작으면 글자가 조금 흐려질 수 있다.
+        /// </summary>
+        public static float FitScale(float available, float needed) => needed > 0 ? Mathf.Clamp(available / needed, 0.5f, 1f) : 1f;
+
+        /// <summary>구역을 축소 비율대로 그린다(피벗 기준).</summary>
+        public static void SetScale(RectTransform r, float s)
+        {
+            if (!Mathf.Approximately(r.localScale.x, s)) r.localScale = new Vector3(s, s, 1f);
+        }
+
         /// <summary>내용 크기에 맞춰 늘어나게(세로 목록·패널).</summary>
         public static void FitHeight(GameObject go)
         {

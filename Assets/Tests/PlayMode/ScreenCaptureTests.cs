@@ -5,6 +5,7 @@ using System.Linq;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Runtime;
+using DesertSettlement.Runtime.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -22,6 +23,7 @@ namespace DesertSettlement.PlayMode.Tests
     public class ScreenCaptureTests
     {
         private const int Width = 1920, Height = 1080;
+        private const float ReferenceWidth = 1920, ReferenceHeight = 1080;
         private DebugSessionBuilder.Result _result;
         private Light _sun;
 
@@ -39,32 +41,37 @@ namespace DesertSettlement.PlayMode.Tests
             _result = null;
         }
 
-        private IEnumerator Capture(string name)
+        private IEnumerator Capture(string name, int width = Width, int height = Height)
         {
             yield return null;
             yield return null;
             Camera cam = _result.MainCamera != null ? _result.MainCamera : Camera.main;
             Canvas canvas = _result.Session.transform.Find("Game UI")?.GetComponent<Canvas>();
             CanvasScaler scaler = canvas != null ? canvas.GetComponent<CanvasScaler>() : null;
-            var rt = new RenderTexture(Width, Height, 24);
+            var rt = new RenderTexture(width, height, 24);
             RenderMode mode = canvas != null ? canvas.renderMode : RenderMode.ScreenSpaceOverlay;
             CanvasScaler.ScaleMode scaleMode = scaler != null ? scaler.uiScaleMode : CanvasScaler.ScaleMode.ConstantPixelSize;
             cam.targetTexture = rt;
             if (canvas != null)
             {
-                // 배치 모드의 가상 화면 크기로 배율을 잡으면 글자가 작게 그려진 뒤 늘어나 번진다 → 캡처 해상도(= 기준 1920×1080)에서 배율 1.
-                if (scaler != null) { scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize; scaler.scaleFactor = 1f; }
+                // 배치 모드의 가상 화면 크기로 배율을 잡으면 글자가 작게 그려진 뒤 늘어나 번진다 → 캡처 해상도로 실제 게임과 같은 배율을 계산해 고정한다
+                // (ScaleWithScreenSize, 폭·높이 0.5 로그 평균. 1920×1080이면 1, 16:10 1920×1200이면 약 1.054).
+                if (scaler != null) { scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize; scaler.scaleFactor = ScaleFactor(width, height); }
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = cam;
                 canvas.planeDistance = cam.nearClipPlane + 0.5f;
             }
             yield return null; // 캔버스 크기·레이아웃을 새 해상도로
+            GameUi ui = _result.Session.GetComponent<GameUi>();
+            if (ui != null) ui.RefreshNow(); // 새 캔버스 폭으로 좁은 화면 축소(LY3)를 다시 계산
+            yield return null;
+            yield return null;
             Canvas.ForceUpdateCanvases();
             cam.Render();
 
             RenderTexture.active = rt;
-            var tex = new Texture2D(Width, Height, TextureFormat.RGB24, false);
-            tex.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
+            var tex = new Texture2D(width, height, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
             tex.Apply();
             RenderTexture.active = null;
             Directory.CreateDirectory(OutDir);
@@ -78,6 +85,10 @@ namespace DesertSettlement.PlayMode.Tests
             Object.Destroy(rt);
             Debug.Log("[Capture] " + Path.Combine(OutDir, name + ".png"));
         }
+
+        /// <summary>CanvasScaler ScaleWithScreenSize(기준 1920×1080, 폭·높이 0.5)와 같은 배율.</summary>
+        private static float ScaleFactor(int width, int height) =>
+            Mathf.Pow(2f, Mathf.Lerp(Mathf.Log(width / ReferenceWidth, 2f), Mathf.Log(height / ReferenceHeight, 2f), 0.5f));
 
         [UnityTest]
         public IEnumerator CaptureMainScreens()
@@ -110,6 +121,9 @@ namespace DesertSettlement.PlayMode.Tests
             if (farm != null) _result.Session.GetComponent<BuildInputController>().SelectedFacilityId = farm.Id;
             yield return new WaitForSecondsRealtime(0.3f);
             yield return Capture("03_operating_inspector");
+            // 화면 비율별 배치(2026-10-27 이슈 #5): 16:10은 그대로, 5:4는 위쪽 띠·도구 막대가 통째로 줄어든다(LY3).
+            yield return Capture("03b_16x10", 1920, 1200);
+            yield return Capture("03c_5x4", 1280, 1024);
 
             // 개량해 레벨 부품 보기(석재가 모자라면 사서 채운다).
             foreach (Facility f in s.Facilities.Where(f => f.Kind == BuildingKinds.Farm || f.Kind == BuildingKinds.Well).ToList())

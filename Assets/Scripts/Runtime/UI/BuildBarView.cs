@@ -9,7 +9,7 @@ namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
     /// 아래 가운데 건설 도구 막대(UI2, Cities: Skylines·Anno 식): 분류별 도구 버튼(비용·무료 완공 표시),
-    /// 가리킨 곳의 불가 이유·마지막 결과 한 줄, 오른쪽에 식량·석재 구매와 샘플 배치.
+    /// 가리킨 곳의 불가 이유·마지막 결과 한 줄. 식량·석재 구매와 샘플 배치는 왼쪽 아래 <see cref="BuyPanelView"/>(2026-10-27 LY2, 이슈 #5).
     /// </summary>
     public sealed class BuildBarView : IUiView
     {
@@ -21,16 +21,19 @@ namespace DesertSettlement.Runtime.UI
             public Button Button;
         }
 
-        private const int BuyStep = 10;
+        /// <summary>막대 폭. 도구 13개(선택 + 시설 9 + 관리 3)가 약 1226이라 딱 들어간다. 시설을 늘리면 이 값과 <see cref="BottomScale"/>을 함께 본다.</summary>
+        public const float BarWidth = 1240;
+        /// <summary>화면 가장자리·구역 사이 여백.</summary>
+        public const float Margin = 8;
         private readonly GameUi _ui;
+        private readonly RectTransform _bar;
         private readonly List<ToolButton> _buttons = new List<ToolButton>();
         private readonly Text _status;
-        private readonly Button _buyFood, _buyStone;
 
         public BuildBarView(GameUi ui, Transform canvas)
         {
             _ui = ui;
-            RectTransform bar = Panel("Build Bar", canvas).Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 8), new Vector2(1240, 104));
+            RectTransform bar = _bar = Panel("Build Bar", canvas).Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, Margin), new Vector2(BarWidth, 104));
 
             _status = Label(bar, "", Theme.Small, Theme.Muted, TextAnchor.MiddleCenter);
             _status.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -2), new Vector2(-20, 20));
@@ -64,18 +67,19 @@ namespace DesertSettlement.Runtime.UI
             Transform manage = Group("관리");
             foreach (BuildTool tool in new[] { BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose }) ToolBtn(manage, tool);
 
-            VerticalLayoutGroup buy = Column(row.transform, 2);
-            Label(buy.transform, "구매·예시", Theme.Small, Theme.Accent);
-            HorizontalLayoutGroup buyRow = Row(buy.transform, 4);
-            _buyFood = Btn(buyRow.transform, "", () => { _ui.Session.Settlement.BuyFood(BuyStep); _ui.RefreshNow(); }, 92, 46, Theme.Small);
-            _buyStone = Btn(buyRow.transform, "", () => { _ui.Session.Settlement.BuyStone(BuyStep); _ui.RefreshNow(); }, 92, 46, Theme.Small);
-            Btn(buyRow.transform, "샘플\n배치", () => { _ui.Session.RequestSampleLayout(); _ui.RefreshNow(); }, 60, 46, Theme.Small);
         }
+
+        /// <summary>
+        /// 아래 줄(도구 막대 + 왼쪽 아래 구매 패널)의 축소 비율(LY3). 막대는 가운데, 구매 패널은 왼쪽 아래라
+        /// 화면 절반 폭에 '막대 절반 + 구매 패널 + 여백'이 들어가야 겹치지 않는다. 16:10(폭 1822)까지는 1.
+        /// </summary>
+        public static float BottomScale(float canvasWidth) => FitScale(canvasWidth / 2f - 3 * Margin, BarWidth / 2f + BuyPanelView.Width);
 
         public void Reset() => Refresh();
 
         public void Refresh()
         {
+            SetScale(_bar, BottomScale(_ui.CanvasWidth));
             Settlement s = _ui.Session.Settlement;
             if (s == null) return;
             foreach (ToolButton b in _buttons)
@@ -89,9 +93,6 @@ namespace DesertSettlement.Runtime.UI
                 b.Button.SetText(label);
                 b.Button.SetOn(_ui.Input.Tool == b.Tool && _ui.Input.CurrentKind == kind);
             }
-            _buyFood.SetText($"식량 +{BuyStep}\n{Paint(s.NextPrice(true).ToString("0.0") + "/개", Theme.Muted)}");
-            _buyStone.SetText($"석재 +{BuyStep}\n{Paint(s.NextPrice(false).ToString("0.0") + "/개", Theme.Muted)}");
-
             string hover = _ui.Input.HoverMessage, last = _ui.Input.LastResult;
             _status.text = !string.IsNullOrEmpty(hover) ? Paint("✕ " + hover, Theme.Danger)
                 : !string.IsNullOrEmpty(last) ? last

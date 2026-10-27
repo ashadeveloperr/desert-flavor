@@ -109,6 +109,15 @@ namespace DesertSettlement.PlayMode.Tests
             GameSession session = _result.Session;
             yield return new WaitForSecondsRealtime(0.3f);
             yield return Capture("01_start_paused");
+            // 맵 바깥 모래언덕(2026-10-27 이슈 #17): 가장 멀리 뺀 카메라.
+            var distanceField = typeof(StrategyCameraRig).GetField("distance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var maxField = typeof(StrategyCameraRig).GetField("maxDistance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            object framed = distanceField.GetValue(_result.CameraRig);
+            distanceField.SetValue(_result.CameraRig, maxField.GetValue(_result.CameraRig));
+            yield return new WaitForSecondsRealtime(0.3f);
+            yield return Capture("01a_zoomed_out_dunes");
+            distanceField.SetValue(_result.CameraRig, framed);
+            yield return new WaitForSecondsRealtime(0.3f);
             // 건설 가능 타일 강조(2026-10-27 이슈 #7): 농장 도구.
             var input = session.GetComponent<BuildInputController>();
             input.SelectBuild(BuildingKinds.Farm);

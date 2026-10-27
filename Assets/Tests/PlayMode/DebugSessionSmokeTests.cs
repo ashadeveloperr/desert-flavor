@@ -123,6 +123,33 @@ namespace DesertSettlement.PlayMode.Tests
         }
 
         [UnityTest]
+        public IEnumerator DesertBackdrop_OutlinesTheMap_AndRisesOutside()
+        {
+            // 2026-10-27 이슈 #17: 맵 가장자리 변마다 경계선, 맵 아래는 타일보다 낮은 모래, 바깥은 언덕.
+            GameSession session = Build();
+            yield return null;
+            Transform backdrop = session.transform.Find("Desert Backdrop");
+            Assert.IsNotNull(backdrop);
+            int outerSides = session.Map.Tiles.Sum(t =>
+                System.Enum.GetValues(typeof(HexDirection)).Cast<HexDirection>().Count(d => !session.Map.Contains(t.Coord.Neighbor(d))));
+            Mesh border = backdrop.Find("Map Border").GetComponent<MeshFilter>().sharedMesh;
+            Assert.AreEqual(outerSides * 4, border.triangles.Length / 3, "가장자리 변 하나에 부드러운 띠 하나(삼각형 4개)");
+
+            Mesh dunes = backdrop.Find("Dunes").GetComponent<MeshFilter>().sharedMesh;
+            Vector3[] v = dunes.vertices;
+            float mapRadius = session.Map.Tiles.Max(t =>
+            {
+                HexPoint p = session.Layout.TileCenter(t.Coord);
+                return Mathf.Sqrt((float)(p.X * p.X + p.Z * p.Z));
+            });
+            Assert.IsTrue(v.Where(p => new Vector2(p.x, p.z).magnitude < mapRadius).All(p => p.y < 0f), "맵 아래 모래는 타일보다 낮다");
+            Assert.Greater(v.Max(p => p.y), session.TileSize * 0.5f, "바깥에는 언덕이 솟는다");
+            Assert.IsTrue(RenderSettings.fog, "먼 곳 흐림(안개)");
+            Assert.Greater(RenderSettings.fogStartDistance, Vector3.Distance(Camera.main.transform.position, session.transform.position),
+                "안개는 맵을 덮지 않는다");
+        }
+
+        [UnityTest]
         public IEnumerator Lanterns_GlowAtNight_ExceptClosedFacilities()
         {
             // 2026-10-27 이슈 #13: 등불은 밤에만 켜지고(19~20시 켜짐, 4~5시 꺼짐) 폐쇄된 시설만 꺼진다.

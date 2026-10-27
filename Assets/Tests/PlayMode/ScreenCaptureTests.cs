@@ -130,6 +130,11 @@ namespace DesertSettlement.PlayMode.Tests
             // 화면 비율별 배치(2026-10-27 이슈 #5): 16:10은 그대로, 5:4는 위쪽 띠·도구 막대가 통째로 줄어든다(LY3).
             yield return Capture("03b_16x10", 1920, 1200);
             yield return Capture("03c_5x4", 1280, 1024);
+            // 밤(2026-10-27 이슈 #13): 달빛·환경광 최소값·시설 등불. 첫 경매(69h) 전인 58h 22:00.
+            session.Clock.AdvanceGameHours((22 - session.Clock.HourOfDay + 24) % 24);
+            _result.Session.GetComponent<BuildInputController>().SelectedFacilityId = -1;
+            yield return new WaitForSecondsRealtime(0.3f);
+            yield return Capture("03d_night_lanterns");
 
             // 개량해 레벨 부품 보기(석재가 모자라면 사서 채운다).
             foreach (Facility f in s.Facilities.Where(f => f.Kind == BuildingKinds.Farm || f.Kind == BuildingKinds.Well).ToList())

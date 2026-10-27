@@ -97,6 +97,34 @@ namespace DesertSettlement.PlayMode.Tests
         }
 
         [UnityTest]
+        public IEnumerator Lanterns_GlowAtNight_ExceptClosedFacilities()
+        {
+            // 2026-10-27 이슈 #13: 등불은 밤에만 켜지고(19~20시 켜짐, 4~5시 꺼짐) 폐쇄된 시설만 꺼진다.
+            GameSession session = Build();
+            yield return null;
+            Settlement s = session.Settlement;
+            Assert.IsEmpty(session.RequestSampleLayout());
+            session.Clock.AdvanceGameHours(46); // 3일차 10:00
+            yield return null;
+            Facility farm = s.Facilities.First(f => f.Kind == BuildingKinds.Farm);
+            Assert.IsTrue(farm.IsOperating);
+            FacilityModel Model(Facility f) => session.transform.Find("Facilities").GetComponentsInChildren<FacilityModel>()
+                .First(m => (m.transform.position - session.ToWorld(session.Layout.TileCenter(f.Tile))).sqrMagnitude < 1e-4f);
+            Assert.IsFalse(Model(farm).LanternLightOn, "낮에는 꺼짐");
+
+            session.Clock.AdvanceGameHours(12); // 22:00
+            yield return null;
+            Assert.IsTrue(Model(farm).LanternLightOn, "밤에 운영 중이면 켜짐");
+            Assert.IsTrue(s.SetClosed(farm.Id, true).Success);
+            yield return null;
+            Assert.IsFalse(Model(farm).LanternLightOn, "폐쇄하면 꺼짐");
+            Assert.AreEqual(1f, DayNightLighting.LanternFactor(22, 5, 20, 1f));
+            Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(19.5, 5, 20, 1f), 1e-4f, "19~20시 서서히 켜짐");
+            Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(4.5, 5, 20, 1f), 1e-4f, "4~5시 서서히 꺼짐");
+            Assert.AreEqual(0f, DayNightLighting.LanternFactor(12, 5, 20, 1f));
+        }
+
+        [UnityTest]
         public IEnumerator SampleLayout_RunsThroughClock_UntilAuctionPausesTheGame()
         {
             GameSession session = Build();

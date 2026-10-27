@@ -45,20 +45,14 @@ namespace DesertSettlement.Runtime
             _input = GetComponent<BuildInputController>();
             _root = new GameObject("Buildable Overlay").transform;
             _root.SetParent(transform, false);
-            // 반투명·조명 없음. Sprites/Default는 그래픽 설정의 '항상 포함' 셰이더라 빌드에서도 빠지지 않는다.
-            _material = new Material(Shader.Find("Sprites/Default")) { name = "Buildable Overlay" };
-            // Sprites/Default는 정점 색 × 재질 색이라 정점 색(흰색)이 있는 육각형 사본을 쓴다.
-            _mesh = Instantiate(WorldVisuals.HexMesh);
-            _mesh.name = "Buildable Hex";
-            var white = new Color[_mesh.vertexCount];
-            for (int i = 0; i < white.Length; i++) white[i] = Color.white;
-            _mesh.colors = white;
+            // 반투명·조명 없음(빌드에서도 빠지지 않는 셰이더, WorldVisuals.Unlit).
+            _material = WorldVisuals.Unlit("Buildable Overlay", buildableColor);
+            _mesh = WorldVisuals.WithWhiteVertexColors(WorldVisuals.HexMesh);
         }
 
         private void OnDestroy()
         {
             if (_material != null) Destroy(_material);
-            if (_mesh != null) Destroy(_mesh);
         }
 
         private void Update()

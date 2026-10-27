@@ -70,6 +70,19 @@ namespace DesertSettlement.Runtime
         [Tooltip("물이 모자란 작물 색")]
         [SerializeField] private Color witheredCrop = new Color(0.72f, 0.62f, 0.32f);
 
+        [Header("밤 등불 (2026-10-27 이슈 #13)")]
+        [Tooltip("밤에 빛나는 불빛 색(1보다 크면 블룸으로 번져 보인다)")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color lanternGlow = new Color(2.6f, 1.7f, 0.7f);
+        [Tooltip("낮이거나 폐쇄된 시설의 꺼진 등불 유리 색")]
+        [SerializeField] private Color lanternOff = new Color(0.45f, 0.38f, 0.28f);
+        [Tooltip("바닥을 비추는 점광원 색·최대 밝기·범위(타일 크기 대비)")]
+        [SerializeField] private Color lanternLightColor = new Color(1f, 0.72f, 0.4f);
+        [SerializeField] private float lanternLightIntensity = 1.6f;
+        [SerializeField] private float lanternLightRange = 1.3f;
+        [Tooltip("밤 시작·낮 시작 전 등불이 서서히 켜지고 꺼지는 시간(게임 시간)")]
+        [SerializeField] private float lanternFadeHours = 1f;
+
         [Header("글자")]
         [SerializeField] private bool showLabels = true;
 
@@ -81,6 +94,8 @@ namespace DesertSettlement.Runtime
         private readonly Dictionary<HexCoord, float> _green = new Dictionary<HexCoord, float>();
         private long _greenHour = -1;
         private Camera _camera;
+        private Material _lanternLit, _lanternOffMaterial;
+        private float _lanternFactor;
 
         private void Awake()
         {
@@ -184,6 +199,7 @@ namespace DesertSettlement.Runtime
             if (!_session.IsReady) return;
             Settlement s = _session.Settlement;
             UpdateGreening(s);
+            UpdateLanternMaterials();
 
             // 시설 생성·삭제 동기화.
             var alive = new HashSet<int>();
@@ -304,6 +320,22 @@ namespace DesertSettlement.Runtime
                 crop = c => Color.Lerp(c, witheredCrop, dry);
             }
             model.Paint(c => Tint(c, f.State, progress), crop);
+            // 등불(LT2): 폐쇄된 시설만 꺼지고, 운영·건설·개량·철거 중에는 켜진다(사람이 일하는 중).
+            model.SetLantern(f.State != FacilityState.Closed, _lanternLit, _lanternOffMaterial, lanternLightIntensity * _lanternFactor, lanternLightColor, Size * lanternLightRange);
+        }
+
+        /// <summary>지금 시각의 등불 밝기(LT3)와 공용 불빛 머티리얼 색을 맞춘다.</summary>
+        private void UpdateLanternMaterials()
+        {
+            if (_lanternLit == null)
+            {
+                _lanternLit = WorldVisuals.Unlit("Lantern Lit", lanternOff);
+                _lanternOffMaterial = WorldVisuals.Unlit("Lantern Off", lanternOff);
+            }
+            var time = _session.TimeSettings;
+            _lanternFactor = DayNightLighting.LanternFactor(_session.Clock.HourOfDay, time.DayStartHour, time.NightStartHour, lanternFadeHours);
+            _lanternLit.color = Color.Lerp(lanternOff, lanternGlow, _lanternFactor);
+            _lanternOffMaterial.color = lanternOff;
         }
 
         private static double CanalCapacity(Settlement s, Facility f) =>

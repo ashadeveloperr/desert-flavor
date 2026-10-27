@@ -76,6 +76,28 @@ namespace DesertSettlement.Runtime
             return go;
         }
 
+        private static readonly Dictionary<Mesh, Mesh> WhiteMeshes = new Dictionary<Mesh, Mesh>();
+
+        /// <summary>
+        /// 조명을 받지 않는 반투명 가능 머티리얼(2026-10-27 이슈 #7·#13). `Sprites/Default`는 그래픽 설정의 '항상 포함' 셰이더라 빌드에서 빠지지 않는다.
+        /// 색이 1보다 크면(HDR) 블룸으로 빛나 보인다. 매번 새 머티리얼이므로 색을 바꿔 쓰는 쪽이 가지고 있는다.
+        /// </summary>
+        public static Material Unlit(string name, Color color) =>
+            new Material(Shader.Find("Sprites/Default")) { name = name, color = color };
+
+        /// <summary>`Sprites/Default`는 정점 색 × 재질 색이라, 정점 색(흰색)을 넣은 메시 사본을 쓴다(원본별로 하나).</summary>
+        public static Mesh WithWhiteVertexColors(Mesh source)
+        {
+            if (WhiteMeshes.TryGetValue(source, out Mesh m) && m != null) return m;
+            m = Object.Instantiate(source);
+            m.name = source.name + " (white)";
+            var white = new Color[m.vertexCount];
+            for (int i = 0; i < white.Length; i++) white[i] = Color.white;
+            m.colors = white;
+            WhiteMeshes[source] = m;
+            return m;
+        }
+
         public static void SetColor(GameObject go, Color color)
         {
             var renderer = go.GetComponent<MeshRenderer>();

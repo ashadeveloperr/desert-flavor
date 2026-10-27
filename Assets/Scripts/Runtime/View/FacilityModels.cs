@@ -5,8 +5,8 @@ using UnityEngine;
 
 namespace DesertSettlement.Runtime
 {
-    /// <summary>부품의 쓰임: 몸체(레벨·공사 진행률로 높이가 바뀜), 작물(자람·시듦), 비계(공사·개량 중에만 보임).</summary>
-    public enum FacilityPartRole { Body, Crop, Scaffold }
+    /// <summary>부품의 쓰임: 몸체(레벨·공사 진행률로 높이가 바뀜), 작물(자람·시듦), 비계(공사·개량 중에만 보임), 등불(상태 색을 입히지 않음, 2026-10-27 이슈 #13).</summary>
+    public enum FacilityPartRole { Body, Crop, Scaffold, Lantern }
 
     /// <summary>
     /// 시설 하나의 표시 오브젝트(여러 부품). 부품마다 원래 색을 기억해 두고, 상태 색(공사·폐쇄·개량·철거)을 모든 부품에 함께 입힌다.
@@ -43,7 +43,7 @@ namespace DesertSettlement.Runtime
         public Transform ParentFor(FacilityPartRole role)
         {
             EnsureBody();
-            return role == FacilityPartRole.Scaffold ? transform : Body;
+            return role == FacilityPartRole.Scaffold || role == FacilityPartRole.Lantern ? transform : Body;
         }
 
         public void Add(GameObject part, Color color, FacilityPartRole role = FacilityPartRole.Body, int minLevel = 1)
@@ -61,7 +61,7 @@ namespace DesertSettlement.Runtime
         {
             foreach (PartInfo p in _parts)
             {
-                if (p.Role != FacilityPartRole.Scaffold) p.Renderer.gameObject.SetActive(p.MinLevel <= level);
+                if (p.Role != FacilityPartRole.Scaffold && p.Role != FacilityPartRole.Lantern) p.Renderer.gameObject.SetActive(p.MinLevel <= level);
             }
         }
 
@@ -74,6 +74,34 @@ namespace DesertSettlement.Runtime
                 if (p.Role == FacilityPartRole.Scaffold) p.Renderer.gameObject.SetActive(show);
             }
         }
+
+        private MeshRenderer _glow;
+        private Light _light;
+
+        /// <summary>등불 불빛 부품과 바닥을 비추는 점광원(<see cref="FacilityModels"/>가 만든다).</summary>
+        public void SetLanternParts(MeshRenderer glow, Light light)
+        {
+            _glow = glow;
+            _light = light;
+        }
+
+        /// <summary>
+        /// 등불(2026-10-27 LT1~LT3, 이슈 #13): <paramref name="lit"/>이면 불빛 머티리얼(밤일수록 밝음)과 점광원 <paramref name="lightIntensity"/>,
+        /// 아니면(폐쇄) 꺼진 유리 머티리얼과 광원 끔.
+        /// </summary>
+        public void SetLantern(bool lit, Material litMaterial, Material offMaterial, float lightIntensity, Color lightColor, float lightRange)
+        {
+            if (_glow != null) _glow.sharedMaterial = lit ? litMaterial : offMaterial;
+            if (_light == null) return;
+            bool on = lit && lightIntensity > 0.01f;
+            if (_light.enabled != on) _light.enabled = on;
+            if (!on) return;
+            _light.intensity = lightIntensity;
+            _light.color = lightColor;
+            _light.range = lightRange;
+        }
+
+        public bool LanternLightOn => _light != null && _light.enabled;
 
         /// <summary>작물 높이(0~1 배). 바닥은 그대로 두고 위로 자란다.</summary>
         public void SetGrowth(float growth)
@@ -93,7 +121,7 @@ namespace DesertSettlement.Runtime
         {
             foreach (PartInfo p in _parts)
             {
-                if (!p.Renderer.gameObject.activeSelf) continue;
+                if (!p.Renderer.gameObject.activeSelf || p.Role == FacilityPartRole.Lantern) continue;
                 Color c = p.Role == FacilityPartRole.Crop && crop != null ? crop(p.Color) : p.Color;
                 p.Renderer.sharedMaterial = WorldVisuals.Solid(p.Role == FacilityPartRole.Scaffold ? c : tint(c));
             }
@@ -136,6 +164,7 @@ namespace DesertSettlement.Runtime
                 default: Part(m, PrimitiveType.Cube, body, new Vector3(0, 0.2f, 0), new Vector3(0.6f, 0.4f, 0.6f)); break;
             }
             Scaffolding(m, kind == BuildingKinds.Farm ? 0.25f : 0.75f);
+            Lantern(m, kind == BuildingKinds.Farm ? new Vector3(-0.66f, 0, -0.56f) : new Vector3(-0.52f, 0, -0.52f));
             return m;
         }
 
@@ -151,6 +180,29 @@ namespace DesertSettlement.Runtime
             go.transform.localScale = scale;
             go.transform.localRotation = Quaternion.Euler(euler);
             m.Add(go, color, role, level);
+        }
+
+        // 등불(2026-10-27 LT1, 이슈 #13): 앞 왼쪽 귀퉁이의 나무 기둥 + 가로대 + 매달린 불빛 + 바닥을 비추는 약한 점광원.
+        // 불빛은 조명을 받지 않는 머티리얼이라 밤에도 밝게 보이고, 밝기·색은 SettlementView가 시각에 따라 바꾼다. 몸체 높이(공사 진행률)와 상관없이 그대로.
+        private static void Lantern(FacilityModel m, Vector3 at)
+        {
+            Part(m, PrimitiveType.Cube, DarkWood, at + new Vector3(0, 0.26f, 0), new Vector3(0.035f, 0.52f, 0.035f), role: FacilityPartRole.Lantern);
+            Part(m, PrimitiveType.Cube, DarkWood, at + new Vector3(0.05f, 0.51f, 0), new Vector3(0.12f, 0.025f, 0.025f), role: FacilityPartRole.Lantern);
+            GameObject glow = WorldVisuals.Primitive(PrimitiveType.Sphere, "Lantern Glow", m.transform, Cream);
+            glow.GetComponent<MeshFilter>().sharedMesh = WorldVisuals.WithWhiteVertexColors(glow.GetComponent<MeshFilter>().sharedMesh);
+            MeshRenderer glowRenderer = glow.GetComponent<MeshRenderer>();
+            glowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glow.transform.localPosition = at + new Vector3(0.1f, 0.44f, 0);
+            glow.transform.localScale = new Vector3(0.08f, 0.1f, 0.08f);
+
+            var lightObject = new GameObject("Lantern Light");
+            lightObject.transform.SetParent(m.transform, false);
+            lightObject.transform.localPosition = at + new Vector3(0.1f, 0.5f, 0);
+            Light light = lightObject.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.shadows = LightShadows.None;
+            light.enabled = false;
+            m.SetLanternParts(glowRenderer, light);
         }
 
         // 공사장 비계: 네 귀퉁이 기둥 + 위·가운데 가로대. 공사·개량 중에만 보인다(SG1).

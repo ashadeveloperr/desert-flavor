@@ -32,6 +32,22 @@ namespace DesertSettlement.Runtime
         [Tooltip("표준 시각별 환경광 배율(일출 6·일몰 18 기준). 가로축 0~24")]
         [SerializeField] private AnimationCurve ambientIntensity = DefaultAmbient();
 
+        // 밤 조명(2026-10-27 MN1~MN2, 이슈 #13: "밤이 너무 어둡다, 기본 월드 조명이 약하게라도"). 해가 진 동안 같은 방향광을 달빛으로 다시 띄운다.
+        [Header("밤")]
+        [Tooltip("달빛 색")]
+        [SerializeField] private Color moonColor = new Color(0.55f, 0.66f, 1f);
+        [Tooltip("달빛 최대 밝기(한밤, 낮 햇빛 최대는 약 1.3)")]
+        [SerializeField] private float moonIntensity = 0.35f;
+        [Tooltip("달 고도(도)")]
+        [Range(10f, 89f)]
+        [SerializeField] private float moonElevation = 50f;
+        [Tooltip("일몰 뒤·일출 전 달빛이 서서히 켜지고 꺼지는 시간(밤 길이 대비 비율)")]
+        [Range(0.01f, 0.5f)]
+        [SerializeField] private float moonFade = 0.12f;
+        [Tooltip("환경광 최소 배율(밤에도 이 아래로 내려가지 않는다, 낮 최대 1)")]
+        [Range(0f, 1f)]
+        [SerializeField] private float nightAmbientMin = 0.5f;
+
         /// <summary>코드로 연결할 때 쓴다.</summary>
         public void Bind(GameSession gameSession, Light sunLight)
         {
@@ -74,10 +90,35 @@ namespace DesertSettlement.Runtime
                 ? 6f + sinceSunrise / dayLength * 12f
                 : Mathf.Repeat(18f + (sinceSunrise - dayLength) / (24f - dayLength) * 12f, 24f);
 
-            sun.transform.rotation = Quaternion.Euler(elevation, sunAzimuth, 0f);
-            sun.color = sunColor.Evaluate(standard / 24f);
-            sun.intensity = sunIntensity.Evaluate(standard);
-            RenderSettings.ambientIntensity = ambientIntensity.Evaluate(standard);
+            RenderSettings.ambientIntensity = Mathf.Max(nightAmbientMin, ambientIntensity.Evaluate(standard));
+            if (sinceSunrise <= dayLength)
+            {
+                sun.transform.rotation = Quaternion.Euler(elevation, sunAzimuth, 0f);
+                sun.color = sunColor.Evaluate(standard / 24f);
+                sun.intensity = sunIntensity.Evaluate(standard);
+                return;
+            }
+            // 밤: 해는 지평선 아래라 비추지 않으므로 같은 광원을 반대편 하늘의 달로 쓴다. 일몰·일출 무렵엔 햇빛이 거의 0이라 방향이 바뀌어도 티가 나지 않는다.
+            float night = (sinceSunrise - dayLength) / (24f - dayLength);
+            float fade = Mathf.Clamp01(Mathf.Min(night, 1f - night) / moonFade);
+            sun.transform.rotation = Quaternion.Euler(moonElevation, sunAzimuth + 180f, 0f);
+            sun.color = moonColor;
+            sun.intensity = Mathf.Max(sunIntensity.Evaluate(standard), moonIntensity * Mathf.SmoothStep(0f, 1f, fade));
+        }
+
+        /// <summary>
+        /// 시설 등불 밝기 0~1(2026-10-27 LT3, 이슈 #13): 밤 시작 <paramref name="fadeHours"/>시간 전부터 서서히 켜져 밤 내내 1,
+        /// 낮 시작 <paramref name="fadeHours"/>시간 전부터 서서히 꺼진다(밤 20시·낮 5시, 1시간이면 19~20시 켜짐·4~5시 꺼짐).
+        /// </summary>
+        public static float LanternFactor(double hour, double dayStartHour, double nightStartHour, float fadeHours)
+        {
+            float fade = Mathf.Max(0.01f, fadeHours);
+            float nightLength = Mathf.Repeat((float)(dayStartHour - nightStartHour), 24f);
+            float x = Mathf.Repeat((float)(hour - nightStartHour) + fade, 24f);
+            if (x < fade) return x / fade;
+            if (x < nightLength) return 1f;
+            if (x < nightLength + fade) return 1f - (x - nightLength) / fade;
+            return 0f;
         }
 
         private static Gradient DefaultSunColor()

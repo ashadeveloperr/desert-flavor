@@ -199,6 +199,8 @@ namespace DesertSettlement.Runtime
             if (f.Kind == BuildingKinds.CanalEdge && f.State == FacilityState.Closed) lines.Add("닫힌 수로: 이 변으로 물이 지나가지 않음 (폐쇄 해제로 다시 열기)");
             if (f.Kind == BuildingKinds.Warehouse) lines.Add($"저장 한도 +식량 {lv.FoodStorageBonus:0} / +석재 {lv.StoneStorageBonus:0}");
             if (f.Kind == BuildingKinds.Hospital) lines.Add("병원: 이 칸과 이웃 6칸 건물의 전염병 피해 절반");
+            if (f.Kind == BuildingKinds.Market && s.Rules.Trade != null)
+                lines.Add($"시장: 식량·석재 판매, 상인 할증 없이 구매 · 시장 {s.MarketCount}개 가격 회복 ×{s.Rules.Trade.RecoveryFactor(s.MarketCount):0.##}(시간당 {s.Rules.Trade.RecoveryPerHour * s.Rules.Trade.RecoveryFactor(s.MarketCount):P0})");
             if (f.Kind == BuildingKinds.WaterTank)
             {
                 lines.Add($"저장 {f.StoredWater:0} / {s.TankCapacityOf(f):0} (충전·방출 최대 {lv.ChargePerHour:0}/{lv.DischargePerHour:0} /h)");

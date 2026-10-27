@@ -73,5 +73,21 @@ namespace DesertSettlement.Core.Economy
             if (bought > 0) Record(CommandResult.Ok(), new GameCommand { Type = GameCommand.BuyStone, Amount = units });
             return bought;
         }
+
+        /// <summary>식량 시장 판매(1단위씩, 판매가 하락). 운영 중인 시장이 있어야 한다. 실제 판매 수를 돌려준다(2026-10-27 이슈 #18).</summary>
+        public int SellFood(int units)
+        {
+            int sold = DoSellFood(units);
+            if (sold > 0) Record(CommandResult.Ok(), new GameCommand { Type = GameCommand.SellFood, Amount = units });
+            return sold;
+        }
+
+        /// <summary>석재 시장 판매(1단위씩, 판매가 하락). 운영 중인 시장이 있어야 한다. 실제 판매 수를 돌려준다.</summary>
+        public int SellStone(int units)
+        {
+            int sold = DoSellStone(units);
+            if (sold > 0) Record(CommandResult.Ok(), new GameCommand { Type = GameCommand.SellStone, Amount = units });
+            return sold;
+        }
     }
 }

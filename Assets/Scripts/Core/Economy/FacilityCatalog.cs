@@ -18,6 +18,8 @@ namespace DesertSettlement.Core.Config
         public const string Mine = "mine";
         public const string AuctionHall = "auctionHall";
         public const string Warehouse = "warehouse";
+        /// <summary>시장(2026-10-27 이슈 #18): 있어야 식량·석재를 팔 수 있고 상인 할증 없이 산다. 여러 개면 가격 회복이 빨라진다.</summary>
+        public const string Market = "market";
         /// <summary>병원(2026-10-23): 인근 1칸 건물의 전염병 피해를 절반으로.</summary>
         public const string Hospital = "hospital";
         public const string WaterTank = "waterTank";
@@ -80,6 +82,7 @@ namespace DesertSettlement.Core.Economy
             new FacilityType(BuildingKinds.Quarry, "채석장", Production, (0.75f, 0.72f, 0.68f), false, TerrainType.Bedrock),
             new FacilityType(BuildingKinds.Mine, "광산", Production, (0.45f, 0.3f, 0.25f), false, TerrainType.OreVein),
             new FacilityType(BuildingKinds.Warehouse, "창고", Infrastructure, (0.7f, 0.5f, 0.3f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.Market, "시장", Infrastructure, (0.85f, 0.45f, 0.35f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Hospital, "병원", Infrastructure, (0.95f, 0.95f, 0.95f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.AuctionHall, "경매장", Infrastructure, (0.95f, 0.75f, 0.2f), false, TerrainType.Desert),
         };

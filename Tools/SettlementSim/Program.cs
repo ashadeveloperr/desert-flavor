@@ -719,6 +719,7 @@ namespace SettlementSim
                 rules.StoneMultiplierUsesQuarryCapacity = false;
                 rules.ConstructionHoursMultiplier = 1; // 원본 v0.8 건설 시간(게임 값은 2026-10-23 흐름 조정 W2로 0.5)
                 rules.StartJobsOnCommand = false; // 원본 v0.8은 다음 정각에 착공(게임 값은 2026-10-26 JQ2로 명령 순간)
+                rules.Trade = null; // 원본 v0.8은 시장 없이 어디서나 같은 값에 구매(게임 값은 2026-10-27 이슈 #18 시장)
             }
             var s = new DesertSettlement.Core.Economy.Settlement(map, rules);
 

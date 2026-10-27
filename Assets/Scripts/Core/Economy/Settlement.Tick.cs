@@ -108,6 +108,7 @@ namespace DesertSettlement.Core.Economy
                 EpidemicDamage = Disasters?.Epidemic.Damage ?? 0,
             };
             _history.Add(record);
+            RecoverPrices();         // 시장 가격 회복(2026-10-27 이슈 #18)
             Disasters?.EndHour(h); // 전염병 심각도·저항력 갱신(이번 시간 피해를 반영한 뒤)
             CurrentHour = h + 1;
             HourSettled?.Invoke(record);

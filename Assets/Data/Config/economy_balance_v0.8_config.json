@@ -36,11 +36,21 @@
   "purchase": {
     "food": {
       "baseCost": 2,
-      "incrementMultiplier": 1.02
+      "incrementMultiplier": 1.02,
+      "sellRatio": 0.5,
+      "sellLimit": 100
     },
     "stone": {
       "baseCost": 4,
-      "incrementMultiplier": 1.03
+      "incrementMultiplier": 1.03,
+      "sellRatio": 0.5,
+      "sellLimit": 60
+    },
+    "trade": {
+      "recoveryPerHour": 0.08,
+      "extraMarketGain": 0.2,
+      "extraMarketDecay": 0.75,
+      "noMarketPriceMultiplier": 1.5
     }
   },
   "auctionSeed": {
@@ -60,6 +70,7 @@
       "perOperationalWarehouse": 0.025,
       "perOperationalHospital": 0.01,
       "perOperationalWaterTank": 0.01,
+      "perOperationalMarket": 0.01,
       "maximum": 1.2
     },
     "fixedTestBidMultiplier": 1.05
@@ -393,6 +404,14 @@
         "stoneStorageBonus": 300,
         "foodUse": 0,
         "upkeep": 0.35
+      }
+    ],
+    "market": [
+      {
+        "stone": 10,
+        "hours": 6,
+        "foodUse": 0.1,
+        "upkeep": 0.3
       }
     ],
     "hospital": [

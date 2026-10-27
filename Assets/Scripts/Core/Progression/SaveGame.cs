@@ -23,6 +23,8 @@ namespace DesertSettlement.Core.Progression
         public const string Open = "open";                  // Id
         public const string BuyFood = "buyFood";            // Amount
         public const string BuyStone = "buyStone";          // Amount
+        public const string SellFood = "sellFood";          // Amount (2026-10-27 시장 판매, 이슈 #18)
+        public const string SellStone = "sellStone";        // Amount
         public const string Sell = "sell";                  // Index = 입찰
         public const string Hold = "hold";
         public const string BuyEquipment = "buyEquipment";  // Kind = 장비 id
@@ -138,6 +140,8 @@ namespace DesertSettlement.Core.Progression
                 case GameCommand.Open: return s.SetClosed(cmd.Id, false).Success;
                 case GameCommand.BuyFood: return s.BuyFood(cmd.Amount) > 0;
                 case GameCommand.BuyStone: return s.BuyStone(cmd.Amount) > 0;
+                case GameCommand.SellFood: return s.SellFood(cmd.Amount) > 0;
+                case GameCommand.SellStone: return s.SellStone(cmd.Amount) > 0;
                 case GameCommand.Sell:
                     if (!c.Auctions.IsOpen) return false;
                     c.Auctions.Sell(cmd.Index);

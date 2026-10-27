@@ -110,7 +110,7 @@ namespace DesertSettlement.Runtime.UI
             if (sale != null)
             {
                 Label(_root, $"정착지 {sale.SettlementNumber} 매각 — {sale.BidderName}{(sale.Emergency ? " (긴급)" : "")}", Theme.Big, Theme.Accent);
-                Label(_root, $"매각 대금 {sale.SaleCash:0}{FacilityInfo.PerkText(sale.FoodBonus, sale.FreeBuilds)}", Theme.Body, Theme.Muted);
+                Label(_root, $"매각 대금 {sale.SaleCash:0}{(sale.StockSaleCash > 0.5 ? $" · 남은 식량·석재 매도 +{sale.StockSaleCash:0}" : "")}{FacilityInfo.PerkText(sale.FoodBonus, sale.FreeBuilds)}", Theme.Body, Theme.Muted);
             }
             bool record = RecordBook.Submit(c);
             Label(_root, (record ? Paint("새 기록!  ", Theme.Good) : "") + RecordBook.Describe(c), Theme.Small, Theme.Muted);

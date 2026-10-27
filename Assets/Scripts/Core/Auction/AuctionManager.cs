@@ -46,6 +46,8 @@ namespace DesertSettlement.Core.Auction
         public AuctionBid Bid { get; internal set; }
         /// <summary>매각 시점 정착지 자금(음수일 수 있음). 매각 대금과 합쳐 캠페인 자금이 된다.</summary>
         public double SettlementCash { get; internal set; }
+        /// <summary>매각 순간 남은 식량·석재를 시장 판매가로 일괄 매도한 금액(2026-10-27 이슈 #18, 시장이 있을 때만). SettlementCash에 이미 들어 있다.</summary>
+        public double StockSaleCash { get; internal set; }
     }
 
     public enum AuctionPhase
@@ -224,7 +226,9 @@ namespace DesertSettlement.Core.Auction
         {
             if (!IsOpen) throw new InvalidOperationException("열린 경매가 없습니다.");
             if (bidIndex < 0 || bidIndex >= CurrentAuction.Bids.Count) throw new ArgumentOutOfRangeException(nameof(bidIndex));
-            var result = new SaleResult { Auction = CurrentAuction, Bid = CurrentAuction.Bids[bidIndex], SettlementCash = _settlement.Cash };
+            // 2026-10-27 이슈 #18: 남은 식량·석재는 매각 순간 시장 판매가 곡선대로 전부 판다(시장이 있을 때만).
+            double stockSale = _settlement.LiquidateStock();
+            var result = new SaleResult { Auction = CurrentAuction, Bid = CurrentAuction.Bids[bidIndex], SettlementCash = _settlement.Cash, StockSaleCash = stockSale };
             Phase = AuctionPhase.Sold;
             Sold?.Invoke(result);
             return result;

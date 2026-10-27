@@ -61,7 +61,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(baseStorage + 50, rules.BaseStoneStorage);
 
             var s = new Settlement(_maps[0].CreateMap(), rules);
-            Assert.AreEqual(4.0 * 1.5, s.NextPrice(false), 1e-9, "석재 구매 단가 ×1.5");
+            Assert.AreEqual(4.0 * 1.5 * rules.Trade.NoMarketPriceMultiplier, s.NextPrice(false), 1e-9, "석재 구매 단가 ×1.5(시장이 없어 상인 값도 곱해짐, 2026-10-27 이슈 #18)");
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Well, new HexCoord(0, 0)).Success);
             Assert.AreEqual((_economy.GetLevel(BuildingKinds.Well, 1).Stone ?? 0) * 1.25, s.Jobs.Single().StoneCost, 1e-9, "건설 석재 ×1.25");
         }

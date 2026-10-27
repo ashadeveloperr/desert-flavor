@@ -65,6 +65,11 @@ namespace DesertSettlement.Core.Economy
         public double EfficiencyCap { get; set; } = 1.0;
         /// <summary>식량·석재 구매 단가 배율.</summary>
         public double PurchasePriceMultiplier { get; set; } = 1.0;
+        /// <summary>
+        /// 시장 규칙(2026-10-27 이슈 #18): 시장이 있어야 판매, 없으면 떠돌이 상인 구매(비쌈), 구매·판매 압력은 매시간 회복.
+        /// null이면 원본 v0.8(어디서나 같은 값에 구매, 판매 없음, 회복 없음) — 회귀 비교용.
+        /// </summary>
+        public TradeSettings Trade { get; set; }
         /// <summary>유지비 배율.</summary>
         public double UpkeepMultiplier { get; set; } = 1.0;
         /// <summary>전염병 저항력의 시작값·하한(방역 장비). 0~1.</summary>
@@ -130,6 +135,7 @@ namespace DesertSettlement.Core.Economy
                 CancelRefundRatio = c.PostStartCancelStoneRefundRatio,
                 ConstructionHoursMultiplier = c.ConstructionHoursMultiplier > 0 ? c.ConstructionHoursMultiplier : 1,
                 StartJobsOnCommand = c.StartJobsOnCommand,
+                Trade = config.Purchase?.Trade,
                 StartingCash = p.StartingCash,
                 StarterStone = p.SiteStarterStone,
                 StarterFood = p.SiteStarterFood,

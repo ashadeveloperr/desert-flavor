@@ -22,7 +22,7 @@ namespace DesertSettlement.Runtime.UI
         }
 
         /// <summary>막대 폭. 도구 13개(선택 + 시설 9 + 관리 3)가 약 1226이라 딱 들어간다. 시설을 늘리면 이 값과 <see cref="BottomScale"/>을 함께 본다.</summary>
-        public const float BarWidth = 1240;
+        public const float BarWidth = 1330;
         /// <summary>화면 가장자리·구역 사이 여백.</summary>
         public const float Margin = 8;
         private readonly GameUi _ui;

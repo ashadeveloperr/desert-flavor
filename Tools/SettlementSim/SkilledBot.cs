@@ -54,6 +54,7 @@ namespace SettlementSim
                     return c.State == CampaignState.Shopping;
                 }
                 ReferenceBot.UnblockStone(s);
+                if (SellSurplus) SellOverflow(s);
                 if (!hospital && EpidemicWarned(s)) hospital = BuildHospital(s);
                 if (h % 6 == 0) Improve(s);
                 s.AdvanceHour();
@@ -74,6 +75,35 @@ namespace SettlementSim
             double upkeep = s.History.Count > 0 ? s.History[s.History.Count - 1].Upkeep * 72 : 0;
             double stone = mines.Sum(m => s.Rules.Config.GetLevel(BuildingKinds.Mine, m.Level + 1).Stone ?? 0) * 4; // 석재 1 ≈ 구매가 4
             return after - upkeep - stone > v;
+        }
+
+        /// <summary>남는 자원 판매 여부(2026-10-27 이슈 #18, 측정 인자 `sell=0`으로 끔)와 누적 판매 수입·구매 지출(측정 출력용).</summary>
+        public static bool SellSurplus = true;
+        public static double SalesIncome, PurchaseSpend;
+
+        /// <summary>
+        /// 창고가 80% 넘게 차면(곧 버려질 몫) 60%까지 판다. 판매가가 기준의 30% 밑이면 멈춘다(헐값 투매 안 함).
+        /// 석재는 대기 작업이 없을 때만 판다.
+        /// </summary>
+        private static void SellOverflow(Settlement s)
+        {
+            if (!s.HasMarket || s.Rules.Trade == null) return;
+            void Sell(bool food)
+            {
+                double stock = food ? s.Food : s.Stone, cap = food ? s.FoodCapacity : s.StoneCapacity;
+                if (stock < cap * 0.8) return;
+                var p = food ? s.Rules.Config.Purchase.Food : s.Rules.Config.Purchase.Stone;
+                double floor = p.BaseCost * p.SellRatio * 0.3;
+                int want = (int)(stock - cap * 0.6);
+                for (int i = 0; i < want && s.NextSellPrice(food) >= floor; i++)
+                {
+                    double before = s.Cash;
+                    if ((food ? s.SellFood(1) : s.SellStone(1)) == 0) break;
+                    SalesIncome += s.Cash - before;
+                }
+            }
+            Sell(true);
+            if (!s.Jobs.Any(j => j.State == JobState.Queued)) Sell(false);
         }
 
         private static IEnumerable<Facility> Upgradable(Settlement s, string kind) =>

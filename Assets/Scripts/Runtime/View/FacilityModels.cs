@@ -170,6 +170,7 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.Hospital: Hospital(m, body); break;
                 case BuildingKinds.WaterTank: WaterTank(m, body); break;
                 case BuildingKinds.Warehouse: Warehouse(m, body); break;
+                case BuildingKinds.Market: Market(m, body); break;
                 default: Part(m, PrimitiveType.Cube, body, new Vector3(0, 0.2f, 0), new Vector3(0.6f, 0.4f, 0.6f)); break;
             }
             Scaffolding(m, kind == BuildingKinds.Farm ? 0.25f : 0.75f);
@@ -341,6 +342,24 @@ namespace DesertSettlement.Runtime
             Part(m, PrimitiveType.Cube, DarkWood, new Vector3(-0.56f, 0.22f, 0), new Vector3(0.22f, 0.02f, 0.5f), new Vector3(0, 0, -15), level: 3);
             Part(m, PrimitiveType.Cube, Wood, new Vector3(-0.64f, 0.1f, -0.22f), new Vector3(0.03f, 0.2f, 0.03f), level: 3);
             Part(m, PrimitiveType.Cube, Wood, new Vector3(-0.64f, 0.1f, 0.22f), new Vector3(0.03f, 0.2f, 0.03f), level: 3);
+        }
+
+        // 시장(2026-10-27 이슈 #18): 천막 노점 셋(몸체 색 천막 + 나무 기둥 + 좌판 위 상자·자루). 개량 없음.
+        private static void Market(FacilityModel m, Color body)
+        {
+            Vector3[] stalls = { new Vector3(-0.28f, 0, 0.2f), new Vector3(0.3f, 0, 0.22f), new Vector3(0.02f, 0, -0.26f) };
+            for (int i = 0; i < stalls.Length; i++)
+            {
+                Vector3 p = stalls[i];
+                Color cloth = i == 1 ? Cream : body;
+                Part(m, PrimitiveType.Cube, Wood, p + new Vector3(0, 0.09f, 0), new Vector3(0.36f, 0.04f, 0.26f));
+                foreach (float sx in new[] { -0.16f, 0.16f })
+                    foreach (float sz in new[] { -0.11f, 0.11f })
+                        Part(m, PrimitiveType.Cube, DarkWood, p + new Vector3(sx, 0.16f, sz), new Vector3(0.025f, 0.32f, 0.025f));
+                Part(m, PrimitiveType.Cube, cloth, p + new Vector3(0, 0.34f, -0.04f), new Vector3(0.42f, 0.02f, 0.34f), new Vector3(-12, 0, 0));
+                Part(m, PrimitiveType.Cube, Soil, p + new Vector3(-0.08f, 0.14f, 0), new Vector3(0.1f, 0.07f, 0.1f));
+                Part(m, PrimitiveType.Sphere, Cream, p + new Vector3(0.08f, 0.15f, 0.02f), new Vector3(0.1f, 0.08f, 0.1f));
+            }
         }
     }
 }

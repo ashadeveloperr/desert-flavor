@@ -71,6 +71,7 @@ namespace SettlementSim
                         break;
                     }
                     double profit = c.Cash - before;
+                    SkilledBot.PurchaseSpend += c.Current.FoodSpent + c.Current.StoneSpent;
                     if (profit < 0 && firstDeficit == null) firstDeficit = $"#{n} {label}";
                     // 경매 전에 시작한 재해 수(☣ 하나 = 재해 한 번, 종류 무관).
                     int hits = c.Disasters?.Events.Count(e => e.State == DisasterState.Active || e.State == DisasterState.Ended) ?? 0;
@@ -108,6 +109,7 @@ namespace SettlementSim
             Line("  D 구간별 정착지 순이익 평균(정착지 수): " + string.Join(" · ", profitsByBand.Select(kv =>
                 $"D{kv.Key}~{kv.Key + 1} {kv.Value.Average():+0;-0}({kv.Value.Count}, 적자 {kv.Value.Count(x => x < 0)})")));
             Line($"  재해를 겪은 정착지(종류 무관): {epidemicSettlements}/{playedSettlements}");
+            Line($"  시장: {(config.Purchase.Trade == null ? "규칙 없음(예전)" : $"식량 한도 {config.Purchase.Food.SellLimit} · 석재 한도 {config.Purchase.Stone.SellLimit} · 회복 {config.Purchase.Trade.RecoveryPerHour:P0}/h, 봇 시장 {(ReferenceBot.BuildMarket ? "지음" : "안 지음")} · 판매 {(SkilledBot.SellSurplus ? "함" : "안 함")}")} — 판매 수입 {SkilledBot.SalesIncome:0} · 구매 지출 {SkilledBot.PurchaseSpend:0} (정착지당 {SkilledBot.SalesIncome / Math.Max(1, playedSettlements):0.0} · {SkilledBot.PurchaseSpend / Math.Max(1, playedSettlements):0.0})");
             if (smart) Line($"  숙련 봇 행동: 보류 {SkilledBot.Holds}번 · 광산 개량 {SkilledBot.MineUpgrades}번 · 병원 {SkilledBot.Hospitals}곳 (정착지 {playedSettlements}곳)");
             Line("  표기: [약점 첫 글자, +강점 첫 글자] 무=무른 지반 산=고지대 마=마른 대수층 모=모래바람 염=염분 외=외딴 / +풍=풍부한 광맥 +비=오아시스 +단=단단한 암반 / ☣ = 경매 전 재해(종류 무관)");
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output");
@@ -152,6 +154,18 @@ namespace SettlementSim
                     else if (kv[0] == "upkeep2") proc.Difficulty.UpkeepLatePerD2 = v;
                     else if (kv[0] == "weak") proc.Difficulty.WeaknessLatePerD = v;
                     else if (kv[0] == "dis") proc.Difficulty.DisasterLatePerD = v;
+                }
+                // 시장 후보(2026-10-27 이슈 #18): trade=off(시장 규칙 없음 = 예전), flimit=식량 판매 한도, slimit=석재 판매 한도, rec=시간당 회복 비율,
+                // market=0(봇이 시장을 안 지음), sell=0(봇이 남는 자원을 안 팖).
+                foreach (string a in args.Where(a => a.Contains("=")))
+                {
+                    string[] kv = a.Split('=');
+                    if (kv[0] == "trade" && kv[1] == "off") { config.Purchase.Trade = null; ReferenceBot.BuildMarket = false; }
+                    else if (kv[0] == "flimit") config.Purchase.Food.SellLimit = double.Parse(kv[1], inv);
+                    else if (kv[0] == "slimit") config.Purchase.Stone.SellLimit = double.Parse(kv[1], inv);
+                    else if (kv[0] == "rec") config.Purchase.Trade.RecoveryPerHour = double.Parse(kv[1], inv);
+                    else if (kv[0] == "market") ReferenceBot.BuildMarket = kv[1] != "0";
+                    else if (kv[0] == "sell") SkilledBot.SellSurplus = kv[1] != "0";
                 }
                 string cashArg = args.FirstOrDefault(a => a.StartsWith("cash="));
                 if (cashArg != null) config.Prototype.StartingCash = double.Parse(cashArg.Substring(5), inv);

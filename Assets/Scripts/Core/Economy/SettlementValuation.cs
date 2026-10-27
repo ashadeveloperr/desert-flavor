@@ -134,6 +134,7 @@ namespace DesertSettlement.Core.Economy
                 + s.OperatingOf(BuildingKinds.Warehouse).Count() * infra.PerOperationalWarehouse
                 + s.OperatingOf(BuildingKinds.Hospital).Count() * infra.PerOperationalHospital
                 + s.OperatingOf(BuildingKinds.WaterTank).Count() * infra.PerOperationalWaterTank
+                + s.OperatingOf(BuildingKinds.Market).Count() * infra.PerOperationalMarket
                 + devInfra;
             miRaw = Math.Min(infra.Maximum, miRaw);
 

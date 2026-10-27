@@ -193,11 +193,28 @@ namespace DesertSettlement.Core.Economy
             Food = Math.Max(0, Food * (1 - Math.Max(0, Math.Min(1, fraction))));
         }
 
-        /// <summary>다음 1단위 구매 가격.</summary>
+        /// <summary>식량 시장 판매(시장이 있어야 함). 실제 판매 수를 돌려준다.</summary>
+        private int DoSellFood(int units) => Sell(units, isFood: true);
+
+        /// <summary>석재 시장 판매(시장이 있어야 함). 실제 판매 수를 돌려준다.</summary>
+        private int DoSellStone(int units) => Sell(units, isFood: false);
+
+        /// <summary>다음 1단위 구매 가격. 시장이 없으면 떠돌이 상인 배율(2026-10-27 이슈 #18).</summary>
         public double NextPrice(bool food)
         {
             PurchasePrice p = food ? Rules.Config.Purchase.Food : Rules.Config.Purchase.Stone;
-            return p.BaseCost * Rules.PurchasePriceMultiplier * Math.Pow(p.IncrementMultiplier, food ? FoodBought : StoneBought);
+            double peddler = HasMarket ? 1 : Rules.Trade.NoMarketPriceMultiplier;
+            return p.BaseCost * Rules.PurchasePriceMultiplier * peddler * Math.Pow(p.IncrementMultiplier, food ? FoodBuyPressure : StoneBuyPressure);
+        }
+
+        /// <summary>다음 1단위 판매 가격. 시장이 없으면(또는 시장 규칙이 없으면) 0.</summary>
+        public double NextSellPrice(bool food)
+        {
+            if (Rules.Trade == null || !HasMarket) return 0;
+            PurchasePrice p = food ? Rules.Config.Purchase.Food : Rules.Config.Purchase.Stone;
+            if (p.SellLimit <= 0) return 0;
+            double x = (food ? FoodSellPressure : StoneSellPressure) / p.SellLimit;
+            return p.BaseCost * p.SellRatio * Math.Max(0, 1 - x * x);
         }
     }
 }

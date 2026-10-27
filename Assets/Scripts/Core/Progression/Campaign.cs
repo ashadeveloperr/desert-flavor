@@ -25,6 +25,8 @@ namespace DesertSettlement.Core.Progression
         public string BidderName;
         public bool Emergency;
         public double SaleCash;
+        /// <summary>매각 순간 남은 재고를 일괄 매도한 금액(2026-10-27 이슈 #18, 매각 대금과 별도, 자금에 포함).</summary>
+        public double StockSaleCash;
         public double FoodBonus;
         /// <summary>다음 정착지 무료 완공 배치(농장주 혜택 등).</summary>
         public Dictionary<string, int> FreeBuilds = new Dictionary<string, int>();
@@ -351,6 +353,7 @@ namespace DesertSettlement.Core.Progression
                 BidderName = sale.Bid.Bidder.Name,
                 Emergency = sale.Auction.Kind == AuctionKind.Emergency,
                 SaleCash = sale.Bid.Cash,
+                StockSaleCash = sale.StockSaleCash,
                 FoodBonus = sale.Bid.NextSettlementFoodBonus,
                 FreeBuilds = new Dictionary<string, int>(_pendingFreeBuilds),
                 CampaignCashAfter = Cash,

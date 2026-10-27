@@ -387,7 +387,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(campaign.Cash, second.Cash, 1e-9, "자금 이월");
             Assert.AreEqual(48 + chosen.NextSettlementFoodBonus, second.Food, 1e-9, "식량은 이월 없이 새로 + 입찰자 혜택");
             Assert.AreEqual(75, second.Stone, 1e-9, "석재는 이월 없음");
-            Assert.AreEqual(4.0, second.NextPrice(false), 1e-9, "구매 단가 초기화");
+            Assert.AreEqual(4.0 * second.Rules.Trade.NoMarketPriceMultiplier, second.NextPrice(false), 1e-9, "구매 단가 초기화(새 정착지는 시장이 없어 상인 값, 2026-10-27 이슈 #18)");
             Assert.AreEqual(1.1, second.Rules.WellSupplyMultiplier, 1e-9, "영구 장비 효과");
             int expectedFreeFarms = chosen.Bidder.Id == "farmer" ? 1 : 0;
             Assert.AreEqual(expectedFreeFarms, second.FreeBuildsRemaining(BuildingKinds.Farm), "농장주에게 팔았으면 완공 농장 1개");

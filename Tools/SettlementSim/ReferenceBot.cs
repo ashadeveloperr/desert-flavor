@@ -157,6 +157,14 @@ namespace SettlementSim
                 }
             }
             AddCanals(new[] { wellFarmEdge });
+            // 2026-10-27 이슈 #18: 시장이 있어야 상인 할증 없이 사고 팔 수 있다. 농장 다음(석재 10)에 우물 가까운 빈 사막.
+            if (BuildMarket)
+            {
+                HexCoord? market = map.Tiles.Where(t => t.Terrain == TerrainType.Desert && !used.Contains(t.Coord) && t.Coord != hall.Value)
+                    .OrderBy(t => t.Coord.DistanceTo(well)).ThenBy(t => t.Coord.Q).ThenBy(t => t.Coord.R)
+                    .Select(t => (HexCoord?)t.Coord).FirstOrDefault();
+                if (market != null) { used.Add(market.Value); plan.Add(Build(BuildingKinds.Market, market.Value)); }
+            }
             AddCanals(rockPath);
             plan.Add(Build(BuildingKinds.Quarry, rock));
             AddCanals(best.Value.path);
@@ -193,6 +201,9 @@ namespace SettlementSim
             foreach (HexDirection d in Enum.GetValues(typeof(HexDirection))) if (from.Neighbor(d) == to) return d;
             throw new ArgumentException("이웃 타일이 아닙니다.");
         }
+
+        /// <summary>계획에 시장을 넣을지(2026-10-27 이슈 #18, 측정 인자 `market=0`으로 끔). 시장 규칙이 없으면(원본) 넣지 않는다.</summary>
+        public static bool BuildMarket = true;
 
         /// <summary>첫 경매장 말고 더 짓는 경매장 수(측정용, 2026-10-26 AH1: 경매장이 하나 늘 때마다 입찰자 +1). `-- mods campaign … halls=k`.</summary>
         public static int ExtraAuctionHalls;

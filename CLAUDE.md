@@ -55,12 +55,13 @@ Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/bal
 - **`Core/Timing/GameClock`:** 1배속 하루 180초(설정 JSON, 2026-10-23 흐름 조정. 건설·개량·철거 시간은 `constructionHoursMultiplier` 0.5), 정착지마다 1일차 12:00 시작, 낮 05:00~밤 20:00, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`(조명 `DayNightLighting`도 이 값을 따름).
 - **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
 - **시설 종류 목록 `Core/Economy/FacilityCatalog`(2026-10-24):** 이름·도구 막대 분류·지을 수 있는 지형·기본 색. **새 시설 = JSON `buildingLevels` + 이 목록 한 줄**(모양은 선택, `Runtime/View/FacilityModels`).
-- **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄(수로 폐쇄 = 물길 차단)·구매), 파일은 목적별 partial(명령 처리 `Settlement.Actions.cs`, 명령 기록 `.Commands.cs`, 경제 틱·작업 큐 `.Tick.cs`, 물 계산 `.Water.cs`, 물탱크 `.WaterTanks.cs`),
+- **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄(수로 폐쇄 = 물길 차단)·구매·시장 판매), 파일은 목적별 partial(명령 처리 `Settlement.Actions.cs`, 명령 기록 `.Commands.cs`, 경제 틱·작업 큐 `.Tick.cs`, 물 계산 `.Water.cs`, 물탱크 `.WaterTanks.cs`),
   `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯, 철거는 막힌 작업을 건너뜀). 명령은 순간 착공하고 진행 중인 시간을 첫 1시간으로 센다(2026-10-26 JQ2, 설정 `startJobsOnCommand`, v0.8 회귀 비교는 끔). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
   `OutputOf(facility)`로 시간당 생산·소비 예상치. 경매 가치는 가동 숙성(막 지은 생산 시설 70% → 48h 100%)과 석재 배율의 채석장 능력을 반영(2026-10-23, v0.8 회귀 비교 때는 끔). 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
   첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
   무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.
 - **`Core/Economy/Disasters`:** `DisasterManager`(캠페인이 정착지마다 붙임) — 재해 일정(시드 결정론, 36h 유예·48h 창(2026-10-26 AU2), 0~2번, 6h 예고, 4종: 전염병·모래폭풍·메뚜기떼·작물 탄저병, 지역 약점별 가중치), 전염병 심각도·저항력, 모래폭풍(수로 손실·공사 속도)·메뚜기떼·탄저병(농장), 병원 반경 1칸 피해 절반, 방역 장비(저항력 상승 속도 ×1.3, `EpidemicResistanceGrowthMultiplier`), 전염병 곡선(R ≥ 0.7 × S이면 감소, 정점 약 31h·35%·약 50h, 2026-10-26 EP1). 수치는 설정 `disasters`. 후보 비교 `-- epidemic sweep`.
+- **시장(2026-10-27 이슈 #18):** 시설 `market`이 있어야 식량·석재 판매(`SellFood`·`SellStone`), 없으면 구매는 상인 ×1.5. 판매가 2차 하락·구매가 복리 상승, 두 압력은 매시간 회복(시장 수 배율). 매각 순간 남은 재고는 판매가로 일괄 매도(`LiquidateStock`). 수치는 JSON `purchase`, 결정 MK1~MK9.
 - **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +48h 첫 경매·이후 48h(설정 `auctionRepeatsGameHours`, 2026-10-26 AU1, 이전 72h), 완공·보류 직후 입찰자 예고(입찰자 수 = 경매장 1·2·3개에 2·3·4명, 2026-10-26 AH1),
   자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
 - 배치 모드 CLI는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`, Unity는 한 프로젝트를 한 프로세스만 연다). 테스트는 **`bash Tools/unity-tests.sh [EditMode|PlayMode|All]`**로 돌린다: 테스트 전용 사본(`.unity-testcopy/`, git 무시)에 작업 트리를 미러 복사하고 그 사본에서 배치 모드로 실행한다. **사용자가 연 에디터에는 손대지 않는다**(열린 에디터에 테스트를 시키는 방식은 작업을 방해해서 2026-10-23 폐기). 에디터를 닫아 달라고 하지 않는다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
@@ -136,7 +137,7 @@ dotnet run --project Tools/SettlementSim
 - 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
 - 절차 맵: 생성기는 Core 파일을 링크하고 수치는 `procedural_map_config.json`을 읽는다. `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
   난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
-  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign [dPerSettlement] [cashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] [late=D upkeep2=k weak=s dis=s]`(`ModifierTuning.cs`, 난이도 기준은 `smart` 숙련 봇). 그 밖에 `-- upgrades`(장비 강화), `-- bidders`(입찰자), `-- savecheck`(저장 재실행), `-- botdiag`(봇 진단), `-- funcheck`(보류·초반 긴장·입찰자 차이), `-- funboost`(재미 보강 후보: 초반 긴장·매각 선택). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
+  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign [dPerSettlement] [cashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`(`ModifierTuning.cs`, 난이도 기준은 `smart` 숙련 봇). 그 밖에 `-- upgrades`(장비 강화), `-- bidders`(입찰자), `-- savecheck`(저장 재실행), `-- botdiag`(봇 진단), `-- funcheck`(보류·초반 긴장·입찰자 차이), `-- funboost`(재미 보강 후보: 초반 긴장·매각 선택). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
   난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
 
 ## 작업 방식 (사용자 선호, 2026-10-23 정리)

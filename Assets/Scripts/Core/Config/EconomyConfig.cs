@@ -91,13 +91,43 @@ namespace DesertSettlement.Core.Config
     {
         public PurchasePrice Food { get; set; }
         public PurchasePrice Stone { get; set; }
+        /// <summary>시장 규칙(2026-10-27 이슈 #18). 없으면 원본 v0.8: 어디서나 구매, 판매 없음, 값은 정착지 동안 회복 없음.</summary>
+        public TradeSettings Trade { get; set; }
     }
 
-    /// <summary>외부 구매 가격. n번째 구매 단가 = BaseCost × IncrementMultiplier^(n-1) (잠정).</summary>
+    /// <summary>
+    /// 외부 구매·판매 가격. 다음 1개 구매 단가 = BaseCost × IncrementMultiplier^(구매 압력). 살 때마다 압력 +1(현재 가격에 배율이 곱해짐).
+    /// 판매 단가 = BaseCost × SellRatio × max(0, 1 − (판매 압력 ÷ SellLimit)²). 두 압력은 매시간 일정 비율로 0을 향해 줄어든다(<see cref="TradeSettings"/>).
+    /// </summary>
     public sealed class PurchasePrice
     {
         public double BaseCost { get; set; }
         public double IncrementMultiplier { get; set; }
+        /// <summary>판매 기준가 = 구매 기준가 × 이 비율(2026-10-27 사용자 결정 0.5).</summary>
+        public double SellRatio { get; set; }
+        /// <summary>판매 압력이 이 값에 이르면 판매가가 0(2차 곡선).</summary>
+        public double SellLimit { get; set; }
+    }
+
+    /// <summary>시장(2026-10-27 이슈 #18, Docs/decision_log_auto.md MK1~).</summary>
+    public sealed class TradeSettings
+    {
+        /// <summary>시장 1개일 때 구매·판매 압력이 매시간 줄어드는 비율(0.05 = 5%).</summary>
+        public double RecoveryPerHour { get; set; }
+        /// <summary>두 번째 시장이 회복 속도에 더하는 몫(0.2 → ×1.2).</summary>
+        public double ExtraMarketGain { get; set; }
+        /// <summary>시장을 하나 더 지을 때마다 더하는 몫에 곱하는 값(0.75 → +0.2, +0.15, +0.11 …, 상한 ×1.8).</summary>
+        public double ExtraMarketDecay { get; set; }
+        /// <summary>운영 중인 시장이 없을 때 떠돌이 상인 구매 가격 배율(판매는 불가).</summary>
+        public double NoMarketPriceMultiplier { get; set; }
+
+        /// <summary>운영 중인 시장 수에 따른 회복 속도 배율. 0·1개 = 1, n개 = 1 + gain × (1 − decay^(n−1)) ÷ (1 − decay).</summary>
+        public double RecoveryFactor(int markets)
+        {
+            if (markets <= 1) return 1;
+            if (ExtraMarketDecay >= 1 - 1e-12) return 1 + ExtraMarketGain * (markets - 1);
+            return 1 + ExtraMarketGain * (1 - System.Math.Pow(ExtraMarketDecay, markets - 1)) / (1 - ExtraMarketDecay);
+        }
     }
 
     public sealed class AuctionSeed
@@ -221,6 +251,8 @@ namespace DesertSettlement.Core.Config
         public double PerOperationalHospital { get; set; }
         /// <summary>가동 중 물탱크 하나당 기반시설 배율 가산(2026-10-23 로드맵 1-⑥, 수자원 사업자가 크게 봄).</summary>
         public double PerOperationalWaterTank { get; set; }
+        /// <summary>가동 중 시장 하나당 기반시설 배율 가산(2026-10-27 이슈 #18, 병원·물탱크와 같은 0.01).</summary>
+        public double PerOperationalMarket { get; set; }
         public double Maximum { get; set; }
     }
 

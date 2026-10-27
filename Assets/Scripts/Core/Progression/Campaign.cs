@@ -122,7 +122,9 @@ namespace DesertSettlement.Core.Progression
 
             Current = new Settlement(CurrentMap.CreateMap(), rules);
             Auctions = new AuctionManager(Current, _seed + SettlementNumber * 7919);
-            Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421, CurrentModifiers.Select(m => m.Id));
+            // 후반 가속(LD3, 이슈 #12): 생성 맵은 D가 LateStartD를 넘은 만큼 재해가 세진다.
+            double disasterIntensity = CurrentGenerated != null ? 1 + _procedural.Difficulty.DisasterLatePerD * _procedural.Difficulty.LateExcess(CurrentGenerated.Params.D) : 1;
+            Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421, CurrentModifiers.Select(m => m.Id), disasterIntensity);
             // 저장 파일 명령 기록(2026-10-23 로드맵 2-①): 정착지 명령·경매 결정을 모은다.
             Current.CommandRecorded += Log;
             Settlement recorded = Current;
@@ -142,7 +144,10 @@ namespace DesertSettlement.Core.Progression
         private double DifficultyUpkeepFactor(double? generatedD)
         {
             if (_procedural == null || _procedural.Difficulty.UpkeepPerD <= 0 || (generatedD == null && _procedural.Difficulty.UpkeepMinD <= 0)) return 1;
-            return 1 + _procedural.Difficulty.UpkeepPerD * Math.Max(generatedD ?? 0, _procedural.Difficulty.UpkeepMinD);
+            DifficultyCurve curve = _procedural.Difficulty;
+            // 후반 가속(LD1, 이슈 #12): D가 LateStartD를 넘은 만큼의 제곱항.
+            double late = generatedD.HasValue ? curve.LateExcess(generatedD.Value) : 0;
+            return 1 + curve.UpkeepPerD * Math.Max(generatedD ?? 0, curve.UpkeepMinD) + curve.UpkeepLatePerD2 * late * late;
         }
 
         /// <summary>
@@ -189,11 +194,25 @@ namespace DesertSettlement.Core.Progression
             for (int i = 0; i < Math.Max(1, _procedural.RegionChoices); i++)
             {
                 int seed = unchecked(MapSeed(next) + i * 7777);
-                List<RegionModifierDefinition> mods = _procedural.Modifiers.Roll(p.D, seed, taken);
+                List<RegionModifierDefinition> mods = ScaleWeaknesses(_procedural.Modifiers.Roll(p.D, seed, taken), p.D);
                 foreach (RegionModifierDefinition m in mods.Where(m => m.Kind == RegionModifierKind.Weakness)) taken.Add(m.Id);
                 offers.Add(new RegionOffer { Index = i, Seed = seed, Params = p, Modifiers = mods });
             }
             return offers;
+        }
+
+        /// <summary>
+        /// 후반 가속(LD2, 이슈 #12): D가 LateStartD를 넘으면 약점 효과를 1 + WeaknessLatePerD × (D − LateStartD)배로(강점은 그대로).
+        /// 후보 단계에서 바꿔 두므로 행선지 카드·운영비 미리보기·실제 규칙이 같은 값을 쓴다.
+        /// </summary>
+        private List<RegionModifierDefinition> ScaleWeaknesses(List<RegionModifierDefinition> mods, double d)
+        {
+            double s = 1 + _procedural.Difficulty.WeaknessLatePerD * _procedural.Difficulty.LateExcess(d);
+            if (s <= 1 + 1e-9) return mods;
+            return mods.Select(m => m.Kind != RegionModifierKind.Weakness ? m : new RegionModifierDefinition
+            {
+                Id = m.Id, Name = m.Name, Kind = m.Kind, Description = m.Description, Effects = m.Effects.ScaledWeakness(s),
+            }).ToList();
         }
 
         /// <summary>다음 정착지(첫 후보)의 생성 난이도. 고정 맵 차례면 null.</summary>

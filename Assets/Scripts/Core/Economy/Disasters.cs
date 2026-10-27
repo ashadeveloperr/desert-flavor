@@ -73,24 +73,32 @@ namespace DesertSettlement.Core.Economy
         public EpidemicState Epidemic { get; } = new EpidemicState();
         public DisasterSettings Settings => _settings;
 
+        /// <summary>
+        /// 재해 세기 배수(2026-10-27 LD3, 이슈 #12 후반 가속, 1 = 설정 그대로). 정해진 길이 재해(모래폭풍·메뚜기떼·탄저병)의 지속 시간,
+        /// 메뚜기떼 식량 손실·농장 피해, 탄저병 농장 피해, 모래폭풍 수로 손실 증가분·공사 감속, 전염병 심각도 상승 속도에 곱한다(피해는 최대 100%).
+        /// </summary>
+        public double Intensity { get; private set; } = 1;
+
         public event Action<DisasterEvent> Warned;
         public event Action<DisasterEvent> Started;
         public event Action<DisasterEvent> Ended;
 
         /// <summary>정착지에 재해 일정을 만들어 붙인다. 설정이 없으면 null(재해 없음). regionModifierIds = 이 지역의 약점·강점 id(재해 종류 가중치 배율).</summary>
-        public static DisasterManager Attach(Settlement settlement, DisasterSettings settings, int seed, IEnumerable<string> regionModifierIds = null)
+        /// <param name="intensity">재해 세기 배수(1 = 설정 그대로, 2026-10-27 LD3 후반 가속). <see cref="Intensity"/>.</param>
+        public static DisasterManager Attach(Settlement settlement, DisasterSettings settings, int seed, IEnumerable<string> regionModifierIds = null, double intensity = 1)
         {
             if (settlement == null) throw new ArgumentNullException(nameof(settlement));
             if (settings == null || settings.Types == null || settings.Types.Count == 0) return null;
-            var m = new DisasterManager(settlement, settings, seed, regionModifierIds);
+            var m = new DisasterManager(settlement, settings, seed, regionModifierIds, Math.Max(1, intensity));
             settlement.Disasters = m;
             return m;
         }
 
-        private DisasterManager(Settlement settlement, DisasterSettings settings, int seed, IEnumerable<string> regionModifierIds)
+        private DisasterManager(Settlement settlement, DisasterSettings settings, int seed, IEnumerable<string> regionModifierIds, double intensity)
         {
             _settlement = settlement;
             _settings = settings;
+            Intensity = intensity;
             Epidemic.Resistance = settlement.Rules.EpidemicResistanceFloor;
 
             var rng = new DeterministicRandom(unchecked(seed * 13 + 0xD15A));
@@ -110,7 +118,7 @@ namespace DesertSettlement.Core.Economy
             foreach (DisasterEvent e in _events)
             {
                 (int min, int max) = DurationRange(e.TypeId);
-                if (max > 0) e.DurationHours = min + rng.Next(Math.Max(1, max - min + 1));
+                if (max > 0) e.DurationHours = (int)Math.Round((min + rng.Next(Math.Max(1, max - min + 1))) * Intensity);
             }
         }
 
@@ -178,7 +186,7 @@ namespace DesertSettlement.Core.Economy
             if (e.TypeId == Locusts && !IsActiveExcept(Locusts, e))
             {
                 // 메뚜기떼가 날아든 순간 식량 재고를 잃는다(방충망이면 줄어듦). 이미 메뚜기떼가 있으면 두 번 잃지 않는다.
-                _settlement.LoseFood(_settings.Locusts.FoodStockLoss * _settlement.Rules.LocustDamageMultiplier);
+                _settlement.LoseFood(Math.Min(1, _settings.Locusts.FoodStockLoss * Intensity) * _settlement.Rules.LocustDamageMultiplier);
             }
             if (e.TypeId == EpidemicId)
             {
@@ -218,8 +226,8 @@ namespace DesertSettlement.Core.Economy
             if (f.Kind == BuildingKinds.Farm)
             {
                 SettlementRules r = _settlement.Rules;
-                if (IsActive(Locusts)) factor *= 1 - (1 - _settings.Locusts.FarmProduction) * r.LocustDamageMultiplier;
-                if (IsActive(Blight)) factor *= 1 - (1 - _settings.Blight.FarmProduction) * r.BlightDamageMultiplier;
+                if (IsActive(Locusts)) factor *= 1 - Math.Min(1, (1 - _settings.Locusts.FarmProduction) * Intensity) * r.LocustDamageMultiplier;
+                if (IsActive(Blight)) factor *= 1 - Math.Min(1, (1 - _settings.Blight.FarmProduction) * Intensity) * r.BlightDamageMultiplier;
             }
             return Math.Max(0, factor);
         }
@@ -232,10 +240,10 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>이번 시간 수로 거리 손실 배율(모래폭풍 중 ×2, 수로 방풍막이면 증가분이 줄어듦). 평소 1.</summary>
         public double CanalLossFactor =>
-            IsActive(Sandstorm) ? 1 + (_settings.Sandstorm.CanalLossMultiplier - 1) * _settlement.Rules.SandstormDamageMultiplier : 1;
+            IsActive(Sandstorm) ? 1 + (_settings.Sandstorm.CanalLossMultiplier - 1) * Intensity * _settlement.Rules.SandstormDamageMultiplier : 1;
 
         /// <summary>이번 시간 공사(건설·개량·철거) 진행 속도(모래폭풍 중 0.5). 평소 1.</summary>
-        public double ConstructionSpeed => IsActive(Sandstorm) ? _settings.Sandstorm.ConstructionSpeed : 1;
+        public double ConstructionSpeed => IsActive(Sandstorm) ? Math.Max(0.1, 1 - (1 - _settings.Sandstorm.ConstructionSpeed) * Intensity) : 1;
 
         /// <summary>가동 중인 병원 반경(설정 hospitalRadius, 기본 1칸) 안에 있는지. 병원이 여럿이어도 절반은 한 번.</summary>
         public bool IsNearHospital(Facility f) =>
@@ -254,7 +262,7 @@ namespace DesertSettlement.Core.Economy
                 Epidemic.Weakening = Epidemic.Resistance >= p.SeverityFallResistanceRatio * Epidemic.Severity;
                 Epidemic.Severity = Epidemic.Weakening
                     ? Math.Max(0, Epidemic.Severity - p.SeverityFallPerHour)
-                    : Math.Min(1, Epidemic.Severity + p.SeverityRisePerHour);
+                    : Math.Min(1, Epidemic.Severity + p.SeverityRisePerHour * Intensity);
                 if (Epidemic.Severity <= 1e-9)
                 {
                     Epidemic.Active = false;

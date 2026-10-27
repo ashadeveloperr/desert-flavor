@@ -32,6 +32,7 @@ namespace SettlementSim
         {
             if (!disasters) config.Disasters = null;
             Header($"모디파이어 캠페인 — Core Campaign + 다중 봇(장비 구매·후보 선택·슬롯), 정착지 최대 {settlements}개, DPerSettlement {proc.Difficulty.DPerSettlement}, CashPerD {proc.Difficulty.CashPerD}"
+                + $", 후반 가속 D>{proc.Difficulty.LateStartD}: 운영비²×{proc.Difficulty.UpkeepLatePerD2} 약점×{proc.Difficulty.WeaknessLatePerD} 재해×{proc.Difficulty.DisasterLatePerD}"
                 + $", 재해 {(disasters ? "있음" : "없음")}{(vaccine ? ", 방역 장비 우선" : "")}{(upgrade ? ", 장비 강화" : "")}");
             var reachD1 = new List<int>();
             var maps = LoadMaps();
@@ -141,6 +142,17 @@ namespace SettlementSim
                 // halls=k : 봇이 경매장을 모두 k개 짓는다(2026-10-26 AH1 입찰자 수가 경매장 수에 따라 늘어나는 규칙 측정용, 기본 1).
                 string hallsArg = args.FirstOrDefault(a => a.StartsWith("halls="));
                 if (hallsArg != null) ReferenceBot.ExtraAuctionHalls = Math.Max(0, int.Parse(hallsArg.Substring(6), inv) - 1);
+                // 후반 가속 후보(2026-10-27 이슈 #12): late=D(시작 D), upkeep2=k(운영비 제곱항), weak=s(약점 세기 /D), dis=s(재해 세기 /D).
+                foreach (string a in args.Where(a => a.Contains("=")))
+                {
+                    string[] kv = a.Split('=');
+                    if (!new[] { "late", "upkeep2", "weak", "dis" }.Contains(kv[0])) continue;
+                    double v = double.Parse(kv[1], inv);
+                    if (kv[0] == "late") proc.Difficulty.LateStartD = v;
+                    else if (kv[0] == "upkeep2") proc.Difficulty.UpkeepLatePerD2 = v;
+                    else if (kv[0] == "weak") proc.Difficulty.WeaknessLatePerD = v;
+                    else if (kv[0] == "dis") proc.Difficulty.DisasterLatePerD = v;
+                }
                 string cashArg = args.FirstOrDefault(a => a.StartsWith("cash="));
                 if (cashArg != null) config.Prototype.StartingCash = double.Parse(cashArg.Substring(5), inv);
                 args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && !a.Contains("=")).ToArray();

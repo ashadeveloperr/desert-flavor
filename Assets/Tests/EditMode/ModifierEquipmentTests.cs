@@ -157,6 +157,41 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void ScaledWeakness_StrengthensAndKeepsAFloor()
+        {
+            // 후반 가속(2026-10-27 LD2, 이슈 #12): 1에서 벗어난 만큼 s배, 줄어드는 배율은 0.3 아래로 내려가지 않는다.
+            Assert.AreEqual(1.75, new EconomyEffects { StoneCostMultiplier = 1.25 }.ScaledWeakness(3).StoneCostMultiplier, 1e-12, "무른 지반 +25% × 3");
+            Assert.AreEqual(0.3, new EconomyEffects { FoodOutputMultiplier = 0.75 }.ScaledWeakness(4).FoodOutputMultiplier, 1e-12, "염분 토양이 0이 되지 않음");
+            Assert.AreEqual(0.8, new EconomyEffects { EfficiencyCap = 0.9 }.ScaledWeakness(2).EfficiencyCap, 1e-12, "고지대 효율 상한 0.9 → 0.8");
+            Assert.AreEqual(1.0, new EconomyEffects { EfficiencyCap = 1 }.ScaledWeakness(3).EfficiencyCap, 1e-12, "상한 없는 약점은 그대로");
+        }
+
+        [Test]
+        public void Campaign_LateDifficulty_ScalesWeaknessesUpkeepAndDisasters()
+        {
+            // D가 lateStartD(4)를 넘으면 약점·운영비·재해가 세진다(LD1~LD3). 후보 카드에 보이는 약점 값 = 실제 규칙 값.
+            Campaign c = CampaignInShop(cashBoost: 90000);
+            RegionOffer offer = c.NextOffers()[0];
+            DifficultyCurve curve = _proc.Difficulty;
+            double d = offer.Params.D;
+            Assert.Greater(d, curve.LateStartD + 1, "후반 난이도 후보");
+            double s = 1 + curve.WeaknessLatePerD * (d - curve.LateStartD);
+            Assert.IsNotEmpty(offer.Weaknesses);
+            foreach (RegionModifierDefinition w in offer.Weaknesses)
+            {
+                EconomyEffects original = _proc.Modifiers.Definitions.Single(x => x.Id == w.Id).Effects;
+                Assert.AreEqual(original.ScaledWeakness(s).Describe(), w.Effects.Describe(), w.Id);
+            }
+            double preview = c.PreviewUpkeepMultiplier(offer);
+            Settlement started = c.StartNextSettlement(0);
+            Assert.AreEqual(started.Rules.UpkeepMultiplier, preview, 1e-12);
+            double late = d - curve.LateStartD;
+            double upkeepFromD = 1 + curve.UpkeepPerD * d + curve.UpkeepLatePerD2 * late * late;
+            Assert.AreEqual(upkeepFromD * offer.Effects.UpkeepMultiplier, started.Rules.UpkeepMultiplier, 1e-9, "장비 없음: 모디파이어 × (1 + 0.5D + 0.2x²)");
+            Assert.AreEqual(1 + curve.DisasterLatePerD * late, c.Disasters.Intensity, 1e-12);
+        }
+
+        [Test]
         public void Campaign_FixedMapTurn_HasSingleOfferWithoutModifiers()
         {
             var c = new Campaign(_economy, _maps, seed: 3, procedural: _proc);

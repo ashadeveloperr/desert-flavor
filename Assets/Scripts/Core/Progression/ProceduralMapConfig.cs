@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace DesertSettlement.Core.Progression
@@ -78,6 +79,19 @@ namespace DesertSettlement.Core.Progression
         /// <summary>운영비 배율 계산에 쓰는 D의 하한(0이면 끔). 예: 0.6이면 첫 정착지부터 운영비 × (1 + UpkeepPerD × 0.6).</summary>
         public double UpkeepMinD { get; set; }
         public double UpkeepPerD { get; set; } = 0.5; // 2026-10-23 H1: 숙련 봇 기준 후반 난이도(0.3) → FL3: 건설 ×0.5 보정으로 0.5
+
+        // 후반 가속(2026-10-27 이슈 #12, LD1~LD4): D가 LateStartD를 넘은 만큼(x = max(0, D − LateStartD)) 운영비·약점·재해를 더 세게. 0이면 끔.
+        /// <summary>후반 가속이 시작되는 D.</summary>
+        public double LateStartD { get; set; } = 4;
+        /// <summary>운영비 배율에 더하는 제곱항: 1 + UpkeepPerD × D + UpkeepLatePerD2 × x².</summary>
+        public double UpkeepLatePerD2 { get; set; } = 0.2; // 2026-10-27 LD4: 후보 S4(D4부터 중간)
+        /// <summary>약점 효과 세기 배수 = 1 + WeaknessLatePerD × x(1에서 벗어난 만큼을 배수만큼, 예: 무른 지반 +25% → 배수 2면 +50%).</summary>
+        public double WeaknessLatePerD { get; set; } = 0.5;
+        /// <summary>재해 세기 배수 = 1 + DisasterLatePerD × x(지속 시간·피해, <see cref="DesertSettlement.Core.Economy.DisasterManager.Intensity"/>).</summary>
+        public double DisasterLatePerD { get; set; } = 0.5;
+
+        /// <summary>x = max(0, D − LateStartD).</summary>
+        public double LateExcess(double d) => Math.Max(0, d - LateStartD);
 
         /// <summary>반경: D &lt; FirstRadiusStepD이면 BaseRadius, 이후 RadiusStepD마다 +1, 최대 MaxRadius(HexMap 한도 7).</summary>
         public int BaseRadius { get; set; } = 3;

@@ -91,6 +91,25 @@ namespace DesertSettlement.Core.Economy
             };
         }
 
+        /// <summary>
+        /// 약점 세기를 s배로(2026-10-27 LD2, 이슈 #12 후반 가속). <see cref="Scaled"/>와 같고, 효율 상한도 1에서 모자란 만큼을 s배(0.9 → s=2면 0.8).
+        /// 줄어드는 배율(우물·생산·효율 상한)은 <see cref="WeaknessFloor"/>(0.3) 아래로 내려가지 않는다(예: 염분 토양 농장 0.75가 세져도 생산 0이 되지 않게).
+        /// </summary>
+        public EconomyEffects ScaledWeakness(double s)
+        {
+            EconomyEffects r = Scaled(s);
+            double F(double scaled, double original) => original < 1 ? Math.Max(WeaknessFloor, scaled) : scaled;
+            r.EfficiencyCap = F(1 - (1 - EfficiencyCap) * s, EfficiencyCap);
+            r.WellSupplyMultiplier = F(r.WellSupplyMultiplier, WellSupplyMultiplier);
+            r.FoodOutputMultiplier = F(r.FoodOutputMultiplier, FoodOutputMultiplier);
+            r.StoneOutputMultiplier = F(r.StoneOutputMultiplier, StoneOutputMultiplier);
+            r.OreOutputMultiplier = F(r.OreOutputMultiplier, OreOutputMultiplier);
+            return r;
+        }
+
+        /// <summary>세진 약점의 줄어드는 배율 하한(LD2).</summary>
+        public const double WeaknessFloor = 0.3;
+
         /// <summary>최종 효율 상한(상한 + 보너스, 최대 1).</summary>
         public double EffectiveEfficiencyCap => Math.Min(1, EfficiencyCap + EfficiencyCapBonus);
 

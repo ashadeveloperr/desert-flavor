@@ -146,8 +146,47 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.IsFalse(Model(farm).LanternLightOn, "폐쇄하면 꺼짐");
             Assert.AreEqual(1f, DayNightLighting.LanternFactor(22, 5, 20, 1f));
             Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(19.5, 5, 20, 1f), 1e-4f, "19~20시 서서히 켜짐");
-            Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(4.5, 5, 20, 1f), 1e-4f, "4~5시 서서히 꺼짐");
+            Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(4.5, 5, 20, 1f), 1e-4f, "남기는 시간 0이면 4~5시 서서히 꺼짐");
             Assert.AreEqual(0f, DayNightLighting.LanternFactor(12, 5, 20, 1f));
+            // 2026-10-27 이슈 #16: 낮 시작 뒤 1시간 더 → 5~6시 서서히 꺼짐.
+            Assert.AreEqual(1f, DayNightLighting.LanternFactor(4.5, 5, 20, 1f, 1f), "5시 전에는 다 켜짐");
+            Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(5.5, 5, 20, 1f, 1f), 1e-4f, "5~6시 서서히 꺼짐");
+            Assert.AreEqual(0f, DayNightLighting.LanternFactor(6.01, 5, 20, 1f, 1f), "6시에 다 꺼짐");
+            Assert.AreEqual(0.5f, DayNightLighting.LanternFactor(19.5, 5, 20, 1f, 1f), 1e-4f, "켜지는 시각은 그대로");
+        }
+
+        [Test]
+        public void LanternBreath_DiffersPerFacility_AndStaysInRange()
+        {
+            // 2026-10-27 이슈 #16: 시설마다 5~8초 중 다른 주기·시작점으로 70~100%, 그 위에 ±3% 잔떨림.
+            float Breath(int id, double t, float flicker = 0f) => SettlementView.LanternBreath(id, t, 5f, 8f, 0.7f, flicker);
+            float lo = 1f, hi = 0f;
+            for (double t = 0; t < 60; t += 0.05)
+            {
+                float b = Breath(1, t, 0.03f);
+                lo = Mathf.Min(lo, b);
+                hi = Mathf.Max(hi, b);
+            }
+            Assert.GreaterOrEqual(lo, 0.7f * 0.97f - 1e-4f);
+            Assert.LessOrEqual(hi, 1.03f + 1e-4f);
+            Assert.Less(lo, 0.75f, "충분히 어두워지고");
+            Assert.Greater(hi, 0.97f, "충분히 밝아진다");
+
+            // 잔떨림을 빼면 주기 안에 같은 값으로 돌아온다: 주기를 찾아 5~8초인지, 시설마다 다른지 본다.
+            float Period(int id)
+            {
+                float b0 = Breath(id, 0);
+                for (double t = 4.9; t < 8.2; t += 0.001)
+                {
+                    float d = Mathf.Abs(Breath(id, t) - b0) + Mathf.Abs(Breath(id, t + 0.3) - Breath(id, 0.3));
+                    if (d < 1e-3f) return (float)t;
+                }
+                return -1f;
+            }
+            float[] periods = Enumerable.Range(1, 6).Select(Period).ToArray();
+            foreach (float p in periods) Assert.That(p, Is.InRange(5f, 8.01f), "주기 5~8초");
+            Assert.Greater(periods.Distinct().Count(), 3, "시설마다 다른 주기");
+            Assert.AreNotEqual(Breath(1, 0), Breath(2, 0), "시작점도 다름");
         }
 
         [UnityTest]

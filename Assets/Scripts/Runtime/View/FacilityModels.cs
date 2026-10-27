@@ -77,6 +77,12 @@ namespace DesertSettlement.Runtime
 
         private MeshRenderer _glow;
         private Light _light;
+        private Material _glowLit;
+
+        private void OnDestroy()
+        {
+            if (_glowLit != null) Destroy(_glowLit);
+        }
 
         /// <summary>등불 불빛 부품과 바닥을 비추는 점광원(<see cref="FacilityModels"/>가 만든다).</summary>
         public void SetLanternParts(MeshRenderer glow, Light light)
@@ -86,12 +92,15 @@ namespace DesertSettlement.Runtime
         }
 
         /// <summary>
-        /// 등불(2026-10-27 LT1~LT3, 이슈 #13): <paramref name="lit"/>이면 불빛 머티리얼(밤일수록 밝음)과 점광원 <paramref name="lightIntensity"/>,
-        /// 아니면(폐쇄) 꺼진 유리 머티리얼과 광원 끔.
+        /// 등불(2026-10-27 LT1~LT3, 이슈 #13): <paramref name="lit"/>이면 이 시설 몫의 불빛 머티리얼(<paramref name="litTemplate"/> 사본)을
+        /// <paramref name="litColor"/>로 칠하고 점광원 <paramref name="lightIntensity"/>, 아니면(폐쇄) 꺼진 유리 머티리얼과 광원 끔.
+        /// 시설마다 숨쉬는 밝기가 달라서(LT5, 이슈 #16) 불빛 머티리얼은 시설마다 따로 둔다.
         /// </summary>
-        public void SetLantern(bool lit, Material litMaterial, Material offMaterial, float lightIntensity, Color lightColor, float lightRange)
+        public void SetLantern(bool lit, Color litColor, Material litTemplate, Material offMaterial, float lightIntensity, Color lightColor, float lightRange)
         {
-            if (_glow != null) _glow.sharedMaterial = lit ? litMaterial : offMaterial;
+            if (lit && _glowLit == null && litTemplate != null) _glowLit = new Material(litTemplate);
+            if (_glowLit != null) _glowLit.color = litColor;
+            if (_glow != null) _glow.sharedMaterial = lit ? _glowLit : offMaterial;
             if (_light == null) return;
             bool on = lit && lightIntensity > 0.01f;
             if (_light.enabled != on) _light.enabled = on;

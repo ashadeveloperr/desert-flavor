@@ -108,12 +108,13 @@ namespace DesertSettlement.Runtime
 
         /// <summary>
         /// 시설 등불 밝기 0~1(2026-10-27 LT3, 이슈 #13): 밤 시작 <paramref name="fadeHours"/>시간 전부터 서서히 켜져 밤 내내 1,
-        /// 낮 시작 <paramref name="fadeHours"/>시간 전부터 서서히 꺼진다(밤 20시·낮 5시, 1시간이면 19~20시 켜짐·4~5시 꺼짐).
+        /// 낮 시작 + <paramref name="lingerHours"/>의 <paramref name="fadeHours"/>시간 전부터 서서히 꺼진다.
+        /// 밤 20시·낮 5시, 1시간·1시간이면 19~20시 켜짐·5~6시 꺼짐(2026-10-27 이슈 #16, 전에는 4~5시).
         /// </summary>
-        public static float LanternFactor(double hour, double dayStartHour, double nightStartHour, float fadeHours)
+        public static float LanternFactor(double hour, double dayStartHour, double nightStartHour, float fadeHours, float lingerHours = 0f)
         {
             float fade = Mathf.Max(0.01f, fadeHours);
-            float nightLength = Mathf.Repeat((float)(dayStartHour - nightStartHour), 24f);
+            float nightLength = Mathf.Repeat((float)(dayStartHour + lingerHours - nightStartHour), 24f);
             float x = Mathf.Repeat((float)(hour - nightStartHour) + fade, 24f);
             if (x < fade) return x / fade;
             if (x < nightLength) return 1f;

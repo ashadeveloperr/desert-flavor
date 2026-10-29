@@ -13,16 +13,22 @@
     <Compile Include="../../Assets/Scripts/Core/Hex/*.cs" Link="Core/Hex/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Canal/*.cs" Link="Core/Canal/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Water/*.cs" Link="Core/Water/%(Filename)%(Extension)" />
-    <Compile Include="../../Assets/Scripts/Core/Config/EconomyConfig.cs" Link="Core/Config/EconomyConfig.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Config/*.cs" Link="Core/Config/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Economy/*.cs" Link="Core/Economy/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Auction/*.cs" Link="Core/Auction/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Progression/Campaign.cs" Link="Core/Progression/Campaign.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/SaveGame.cs" Link="Core/Progression/SaveGame.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/MapDefinition.cs" Link="Core/Progression/MapDefinition.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/MapLoader.cs" Link="Core/Progression/MapLoader.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfigLoader.cs" Link="Core/Progression/ProceduralMapConfigLoader.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/DeterministicRandom.cs" Link="Core/Progression/DeterministicRandom.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfig.cs" Link="Core/Progression/ProceduralMapConfig.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapGenerator.cs" Link="Core/Progression/ProceduralMapGenerator.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/RegionModifiers.cs" Link="Core/Progression/RegionModifiers.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/RegionOffer.cs" Link="Core/Progression/RegionOffer.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 게임과 같은 JSON 파서·검증(설정·맵 로더). Unity 패키지 com.unity.nuget.newtonsoft-json 3.2.2 = Newtonsoft.Json 13.0.2. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
   </ItemGroup>
 </Project>

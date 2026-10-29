@@ -702,3 +702,15 @@ D=1 도달은 모두 6번째.
 
 측정: 시뮬레이터 '모든 검증 통과'(v0.8 회귀값 그대로). 숙련 봇 `-- mods campaign 0.25 14000 30 smart`는 기준값과 같음(D0~1 +1248 · D1~2 +1231 · D2~3 +755 · D3~4 +284 · D4~5 −425 · D5~6 −635, 처음 적자 D3.1~4.4) — 봇은 경매 때 물탱크·시장·두 번째 우물·경매장을 짓고 있지 않다.
 검증: EditMode 178 · PlayMode 10 통과(새 테스트 `DevelopmentAssets_InfraUnderConstructionCountsWhatCompletionAdds`: 경매장 둘을 함께 지으면 하나만, 물탱크·시장은 보너스, 경매장이 운영 중이면 하나 더 지어도 0).
+
+## 설정 JSON 읽기 검증 (2026-10-30 — 이슈 #20, 유지보수성 검토 M2·M5, 사용자: "#20 시작")
+
+조사: Newtonsoft는 클래스에 없는 키를 조용히 무시해서, 키 이름에 오타가 나면 오류 없이 그 값이 기본값(0·null)이 된다. 엄격 모드로 읽어 보니 지금 파일에서 모르는 키는 `disasters.status`(메모)와 절차 맵의 `_note`(설명) 둘뿐이었다. 반대로 클래스에는 있지만 코드가 읽지 않는 값이 약 15개였다: `status`·`updated` 메모, `foodStoneInventoryRemainsAtSoldSettlement` 같은 규칙 설명 스위치(바꿔도 효과 없음), 낡은 회귀값 사본 `sampleBenchmarks`(V 1732.80은 원본 직렬 공식 값이라 지금 Core 값과 다름), 끝난 제안 `upgradeEffectProposal`(AH1로 결정됨), 수로 레벨 `lossPerWholeEdge`(실제 손실은 `prototype.canalLossPerWholeEdge`), 검증만 하던 `prototype.economicTickGameHours`. 시뮬레이터는 같은 파일을 System.Text.Json(대소문자 무시, 검증 없음)으로 따로 읽었다.
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| CF1 | 경제·절차 맵 설정에서 **클래스에 없는 키는 불러오기 오류**(경로를 알려 줌: "알 수 없는 키 'disasters.graceHour'"). **`_`로 시작하는 키는 설명용으로 허용**. 딕셔너리 키(시설 종류 등)는 데이터라 검사하지 않음. 저장 파일·맵 파일은 예전 파일을 열어야 하므로 그대로 | [사용자 결정] | 오타를 게임 시작·테스트·시뮬레이터에서 바로 알 수 있음. 경고만 남기는 안은 놓치기 쉬움 | `Core/Config/JsonKeyCheck`, `EconomyConfigLoader.UnknownKeyProblems`, `ProceduralMapConfigLoader` |
+| CF2 | **코드가 읽지 않는 값을 JSON과 클래스에서 삭제**, 경제 설정 머리에 `_note` 한 줄(설명은 EconomyConfig.cs, 결정은 결정 표). `fixedTestBidMultiplier`(1.05)는 회귀 테스트가 읽어 남김 | [사용자 결정] | 바꿔도 아무 일도 없는 값이 헷갈림을 만든다. 지운 내용은 git에 남음 | 설정 JSON, `EconomyConfig.cs` |
+| CF3 | **시뮬레이터가 게임과 같은 로더**(`EconomyConfigLoader`·`ProceduralMapConfigLoader`·`MapLoader`, Newtonsoft 13.0.2 = Unity 패키지 3.2.2)로 설정·맵을 읽고, 생성 맵 예시도 `MapLoader.ToJson`으로 씀 | [자동] | 같은 파서·같은 검증. 출력은 바꾸기 전과 한 글자도 같음 | `Tools/SettlementSim/Program.cs`, `SettlementSim.csproj` |
+
+검증: 시뮬레이터 '모든 검증 통과', 출력 전체가 #19 때와 같음. EditMode 179 · PlayMode 10 통과(새 테스트 `UnknownKey_IsRejectedWithItsPath_ButUnderscoreNotesAreAllowed`, 절차 맵 `Config_RejectsWrongSchemaAndBadValues`에 오타 검사 추가).

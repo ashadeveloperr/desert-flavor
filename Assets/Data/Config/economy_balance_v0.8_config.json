@@ -1,34 +1,24 @@
 {
   "schema": "desert-settlement-economy-v0.8",
-  "status": "playtest_seed",
-  "updated": "2026-10-20",
+  "_note": "경제 수치. 키마다의 설명은 Assets/Scripts/Core/Config/EconomyConfig.cs 주석, 정한 이유는 Docs/implementation_notes.md(결정 표). 클래스에 없는 키는 불러오기 오류가 된다(설명용 키는 '_'로 시작).",
   "confirmedRules": {
-    "constructionCurrency": "stone_only",
     "auctionHistoryGameHours": 24,
-    "wellWaterSupplyIgnoresFoodMultiplier": true,
-    "foodStoneInventoryRemainsAtSoldSettlement": true,
     "auctionRepeatsGameHours": 48,
     "constructionSlots": 2,
     "postStartCancelStoneRefundRatio": 0.5,
     "gameDayRealSecondsAt1x": 180,
     "constructionHoursMultiplier": 0.5,
-    "startJobsOnCommand": true,
-    "waterNetworkGeometry": "shared_hex_edges_and_vertices",
-    "waterOrder": "upstream_first_same_priority_demand_proportional"
+    "startJobsOnCommand": true
   },
   "prototype": {
-    "economicTickGameHours": 1,
     "startingCash": 500,
     "siteStarterStone": 75,
     "siteStarterFood": 48,
-    "starterSuppliesAreSiteSpecific": true,
     "startingFoodStorage": 100,
     "startingStoneStorage": 100,
     "foodDeficitFullIntensityRatio": 0.25,
     "foodDeclinePerDayMax": 0.2,
     "foodRecoveryPerDay": 0.3,
-    "foodRecoveryRequiresOperatingWateredFarm": true,
-    "foodRecoveryFreezesWhenNoDemand": true,
     "closedFacilityUpkeepRatio": 0.3,
     "canalLossPerWholeEdge": 0.05,
     "initialMvpMaxFacilityLevel": 3
@@ -76,7 +66,6 @@
     "fixedTestBidMultiplier": 1.05
   },
   "auction": {
-    "status": "playtest_seed_2026-10-22",
     "attendeesMin": 1,
     "attendeesMax": 4,
     "attendeesWithOneAuctionHall": 2,
@@ -236,12 +225,10 @@
     }
   ],
   "equipmentUpgrade": {
-    "status": "playtest_seed_2026-10-23",
     "effectScales": [1.0, 1.3, 1.5],
     "costMultipliers": [2.0, 3.0]
   },
   "disasters": {
-    "status": "playtest_seed_2026-10-23",
     "graceHours": 36,
     "warningHours": 6,
     "scheduleWindowHours": 48,
@@ -384,8 +371,7 @@
         "stone": 20,
         "hours": 12,
         "foodUse": 0.25,
-        "upkeep": 0.8,
-        "upgradeEffectProposal": "one_extra_bidder_not_yet_finalized"
+        "upkeep": 0.8
       }
     ],
     "warehouse": [
@@ -447,7 +433,6 @@
         "stone": 2,
         "hours": 2,
         "capacityPerHour": 100,
-        "lossPerWholeEdge": 0.05,
         "foodUse": 0,
         "upkeep": 0.05
       },
@@ -455,24 +440,9 @@
         "stone": 6,
         "hours": 3,
         "capacityPerHour": 150,
-        "lossPerWholeEdge": 0.05,
         "foodUse": 0,
         "upkeep": 0.08
       }
     ]
-  },
-  "sampleBenchmarks": {
-    "firstAuctionHour": 133,
-    "auctionHouseCompletedHour": 37,
-    "mineWaterRate": 0.7427964,
-    "cashFirstAuction": 540.05,
-    "foodFirstAuction": 91.5,
-    "stoneFirstAuction": 100,
-    "discardedStone": 8,
-    "firstAuctionBaseValue": 1732.8,
-    "firstAuctionBidAt105Percent": 1819.44,
-    "totalCashAfterFirstAuction": 2359.49,
-    "totalCashAfterSecondAuctionNoInvestment": 1512.7,
-    "totalCashAfterSecondAuctionMineL2WarehouseL1": 3248.32
   }
 }

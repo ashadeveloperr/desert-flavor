@@ -57,6 +57,10 @@ namespace DesertSettlement.Core.Tests
             Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("procedural-map-v1", "procedural-map-v0")));
             Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("\"mountainChance\": 0.5", "\"mountainChance\": 1.5")));
             Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("\"cashPerD\": 14000", "\"cashPerD\": 0")));
+            // 결정 CF1: 키 오타는 오류(경로가 메시지에 나옴), '_'로 시작하는 설명용 키(_note)는 허용.
+            var typo = Assert.Throws<ArgumentException>(() => ProceduralMapConfigLoader.Parse(_configJson.Replace("\"cashPerD\"", "\"cashPerDD\"")));
+            StringAssert.Contains("'difficulty.cashPerDD'", typo.Message);
+            StringAssert.Contains("\"_note\"", _configJson);
         }
 
         // ───────────── 난이도 수치 ─────────────

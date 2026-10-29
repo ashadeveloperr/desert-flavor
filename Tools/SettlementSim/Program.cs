@@ -412,9 +412,7 @@ namespace SettlementSim
         private static void CoreEconomyCrossCheck()
         {
             Header("Core Settlement ↔ v0.8 이식본 교차 검증 (시간별 현금·재고·F·광물, 경매 입찰가)");
-            string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "economy_balance_v0.8_config.json"));
-            var config = System.Text.Json.JsonSerializer.Deserialize<DesertSettlement.Core.Config.EconomyConfig>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var config = LoadConfig();
 
             var scenarios = new (string label, int until, (string, string, int)[] actions, Dictionary<int, int> stone, Dictionary<int, int> food)[]
             {
@@ -465,31 +463,21 @@ namespace SettlementSim
             }
         }
 
-        private static DesertSettlement.Core.Config.EconomyConfig LoadConfig()
-        {
-            string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "economy_balance_v0.8_config.json"));
-            return System.Text.Json.JsonSerializer.Deserialize<DesertSettlement.Core.Config.EconomyConfig>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
+        // 설정·맵은 게임과 같은 Core 로더(Newtonsoft + 검증)로 읽는다. 오타·잘못된 값이면 여기서 예외로 멈춘다(결정 CF3).
+
+        /// <summary>Assets/Data/Config/economy_balance_v0.8_config.json(게임과 같은 경제 수치).</summary>
+        private static DesertSettlement.Core.Config.EconomyConfig LoadConfig() =>
+            DesertSettlement.Core.Config.EconomyConfigLoader.Parse(
+                File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "economy_balance_v0.8_config.json")));
 
         /// <summary>Assets/Data/Config/procedural_map_config.json(게임과 같은 절차 맵 수치).</summary>
-        private static ProceduralMapConfig LoadProceduralConfig()
-        {
-            string json = File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "procedural_map_config.json"));
-            var config = System.Text.Json.JsonSerializer.Deserialize<ProceduralMapConfig>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } });
-            var problems = config.Validate();
-            if (problems.Count > 0) throw new InvalidOperationException("절차 맵 설정 오류: " + string.Join("; ", problems));
-            return config;
-        }
+        private static ProceduralMapConfig LoadProceduralConfig() =>
+            ProceduralMapConfigLoader.Parse(File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "procedural_map_config.json")));
 
-        private static List<DesertSettlement.Core.Progression.MapDefinition> LoadMaps()
-        {
-            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            return Directory.GetFiles(Path.Combine(FindRepoRoot(), "Assets", "Data", "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
-                .Select(p => System.Text.Json.JsonSerializer.Deserialize<DesertSettlement.Core.Progression.MapDefinition>(File.ReadAllText(p), options))
+        private static List<DesertSettlement.Core.Progression.MapDefinition> LoadMaps() =>
+            Directory.GetFiles(Path.Combine(FindRepoRoot(), "Assets", "Data", "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
+                .Select(p => DesertSettlement.Core.Progression.MapLoader.Parse(File.ReadAllText(p)))
                 .ToList();
-        }
 
         /// <summary>A3 재검토: 개발 중 자산 가치를 넣으면 경매 직전 개량이 여전히 손해인지.</summary>
         private static void LateInvestmentWithDevelopmentAssets()
@@ -612,13 +600,7 @@ namespace SettlementSim
                         Id = def.Id, Name = def.Name, Description = def.Description + " / 다중 봇 배치 포함", Radius = def.Radius,
                         Terrain = def.Terrain, SampleLayout = plan ?? new List<DesertSettlement.Core.Progression.MapBuildEntry>(),
                     };
-                    var json = System.Text.Json.JsonSerializer.Serialize(copy, new System.Text.Json.JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                    });
-                    File.WriteAllText(Path.Combine(outDir, def.Id + ".json"), json, new UTF8Encoding(false));
+                    File.WriteAllText(Path.Combine(outDir, def.Id + ".json"), DesertSettlement.Core.Progression.MapLoader.ToJson(copy), new UTF8Encoding(false));
                 }
             }
             // Unity EditMode 테스트(ProceduralMapTests.Generate_MatchesSimulatorGoldenMap)와 같은 맵이 나오는지 확인하는 서명.

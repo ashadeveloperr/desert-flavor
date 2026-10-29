@@ -17,8 +17,8 @@ namespace DesertSettlement.Core.Config
     }
 
     /// <summary>
-    /// 경제 설정 JSON 문자열을 읽고 검증한다. 파일 읽기는 호출하는 쪽(Unity에서는 TextAsset)이 한다.
-    /// 검증 규칙을 추가하려면 <see cref="Validate"/>에 한 줄씩 추가하면 된다.
+    /// 경제 설정 JSON 문자열을 읽고 검증한다. 파일 읽기는 호출하는 쪽(Unity에서는 TextAsset, 시뮬레이터는 파일)이 한다.
+    /// 클래스에 없는 키(오타)는 오류다(<see cref="JsonKeyCheck"/>). 검증 규칙을 추가하려면 <see cref="Validate"/>에 한 줄씩 추가하면 된다.
     /// </summary>
     public static class EconomyConfigLoader
     {
@@ -42,10 +42,15 @@ namespace DesertSettlement.Core.Config
                 throw new ConfigValidationException(new[] { "JSON 형식 오류: " + e.Message });
             }
 
-            List<string> problems = Validate(config);
+            List<string> problems = UnknownKeyProblems<EconomyConfig>(json);
+            problems.AddRange(Validate(config));
             if (problems.Count > 0) throw new ConfigValidationException(problems);
             return config;
         }
+
+        /// <summary>클래스에 없는 키마다 문제 한 줄. 절차 맵 설정 로더도 같은 문구를 쓴다.</summary>
+        public static List<string> UnknownKeyProblems<T>(string json) =>
+            JsonKeyCheck.UnknownKeys<T>(json).ConvertAll(key => $"알 수 없는 키 '{key}' — 오타인지 확인한다(설명용 키는 '_'로 시작).");
 
         public static List<string> Validate(EconomyConfig config)
         {
@@ -78,14 +83,7 @@ namespace DesertSettlement.Core.Config
                 if (rules.AuctionRepeatsGameHours <= 0) problems.Add("confirmedRules.auctionRepeatsGameHours는 0보다 커야 합니다.");
             }
 
-            if (config.Prototype == null)
-            {
-                problems.Add("prototype이 없습니다.");
-            }
-            else if (config.Prototype.EconomicTickGameHours <= 0)
-            {
-                problems.Add("prototype.economicTickGameHours는 1 이상이어야 합니다.");
-            }
+            if (config.Prototype == null) problems.Add("prototype이 없습니다.");
 
             AuctionSettings auction = config.Auction;
             if (auction == null)
@@ -150,10 +148,6 @@ namespace DesertSettlement.Core.Config
                     RequirePositive(problems, where, "hours", level.Hours);
                     RequireNonNegative(problems, where, "foodUse", level.FoodUse);
                     RequireNonNegative(problems, where, "upkeep", level.Upkeep);
-                    if (level.LossPerWholeEdge.HasValue && (level.LossPerWholeEdge < 0 || level.LossPerWholeEdge >= 1))
-                    {
-                        problems.Add($"{where}.lossPerWholeEdge는 0 이상 1 미만이어야 합니다.");
-                    }
                 }
             }
 

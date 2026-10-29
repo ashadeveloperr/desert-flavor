@@ -4,13 +4,12 @@ namespace DesertSettlement.Core.Config
 {
     // economy_balance_v0.8_config.json 의 구조를 그대로 옮긴 데이터 클래스.
     // JSON 키(camelCase)와 속성 이름(PascalCase)은 대소문자 무시로 자동 매칭된다.
-    // JSON에 새 키를 추가하면 여기에 같은 이름의 속성을 추가하면 된다. 없는 속성은 무시된다.
+    // JSON에 새 키를 추가하면 여기에 같은 이름의 속성을 추가한다. 클래스에 없는 키는 불러오기 오류다
+    // (JsonKeyCheck, 결정 CF1). 설명용 키는 '_'로 시작한다.
 
     public sealed class EconomyConfig
     {
         public string Schema { get; set; }
-        public string Status { get; set; }
-        public string Updated { get; set; }
         public ConfirmedRules ConfirmedRules { get; set; }
         public PrototypeSettings Prototype { get; set; }
         public PurchaseSettings Purchase { get; set; }
@@ -27,9 +26,6 @@ namespace DesertSettlement.Core.Config
         /// <summary>시설 종류(<see cref="BuildingKinds"/>) → 레벨별 명세. 인덱스 0 = L1.</summary>
         public Dictionary<string, List<BuildingLevel>> BuildingLevels { get; set; }
 
-        /// <summary>Python 시뮬레이터 기준 결과값. 게임 로직에서 쓰지 않고 비교 검증용.</summary>
-        public Dictionary<string, double> SampleBenchmarks { get; set; }
-
         /// <summary>시설 종류의 레벨 명세. level은 1부터. 없으면 null.</summary>
         public BuildingLevel GetLevel(string kind, int level)
         {
@@ -45,10 +41,7 @@ namespace DesertSettlement.Core.Config
     /// <summary>사용자가 확정한 규칙. 바꾸려면 기획 확정이 먼저 필요하다.</summary>
     public sealed class ConfirmedRules
     {
-        public string ConstructionCurrency { get; set; }
         public int AuctionHistoryGameHours { get; set; }
-        public bool WellWaterSupplyIgnoresFoodMultiplier { get; set; }
-        public bool FoodStoneInventoryRemainsAtSoldSettlement { get; set; }
         public int AuctionRepeatsGameHours { get; set; }
         public int ConstructionSlots { get; set; }
         public double PostStartCancelStoneRefundRatio { get; set; }
@@ -63,25 +56,19 @@ namespace DesertSettlement.Core.Config
         /// 진행 중인 이 시간을 첫 1시간으로 센다(명령부터 완공까지 표시 시간 이하). false = 다음 정각에 착공(원본 v0.8).
         /// </summary>
         public bool StartJobsOnCommand { get; set; }
-        public string WaterNetworkGeometry { get; set; }
-        public string WaterOrder { get; set; }
     }
 
     /// <summary>프로토타입 기본값(잠정). 플레이테스트로 조정한다.</summary>
     public sealed class PrototypeSettings
     {
-        public int EconomicTickGameHours { get; set; }
         public double StartingCash { get; set; }
         public double SiteStarterStone { get; set; }
         public double SiteStarterFood { get; set; }
-        public bool StarterSuppliesAreSiteSpecific { get; set; }
         public double StartingFoodStorage { get; set; }
         public double StartingStoneStorage { get; set; }
         public double FoodDeficitFullIntensityRatio { get; set; }
         public double FoodDeclinePerDayMax { get; set; }
         public double FoodRecoveryPerDay { get; set; }
-        public bool FoodRecoveryRequiresOperatingWateredFarm { get; set; }
-        public bool FoodRecoveryFreezesWhenNoDemand { get; set; }
         public double ClosedFacilityUpkeepRatio { get; set; }
         public double CanalLossPerWholeEdge { get; set; }
         public int InitialMvpMaxFacilityLevel { get; set; }
@@ -154,7 +141,6 @@ namespace DesertSettlement.Core.Config
     /// <summary>경매 진행 규칙과 입찰자. 값은 모두 플레이테스트 기본값.</summary>
     public sealed class AuctionSettings
     {
-        public string Status { get; set; }
         /// <summary>
         /// 경매 한 번에 오는 입찰자 수 범위(입찰자 목록에서 무작위 순서, 중복 없음).
         /// 2026-10-26 AH1부터 실제 인원 = <see cref="AttendeesWithOneAuctionHall"/> + (가동 중인 경매장 수 − 1)을 이 범위로 제한한 값
@@ -232,7 +218,6 @@ namespace DesertSettlement.Core.Config
     /// </summary>
     public sealed class EquipmentUpgradeSettings
     {
-        public string Status { get; set; }
         // 리스트 기본값을 두지 않는다: Newtonsoft가 기본값 리스트에 JSON 값을 덧붙이는 문제(2026-10-23 재해 설정에서 겪음).
         public List<double> EffectScales { get; set; }
         public List<double> CostMultipliers { get; set; }
@@ -279,10 +264,6 @@ namespace DesertSettlement.Core.Config
         public double? ChargePerHour { get; set; }
         public double? DischargePerHour { get; set; }
         public double? CapacityPerHour { get; set; }
-        public double? LossPerWholeEdge { get; set; }
-
-        /// <summary>아직 확정되지 않은 개량 효과 메모(예: 경매장 L2). 로직에서 사용하지 않는다.</summary>
-        public string UpgradeEffectProposal { get; set; }
     }
 
     /// <summary>buildingLevels의 키. 오타 방지를 위해 문자열 대신 이 상수를 쓴다.</summary>

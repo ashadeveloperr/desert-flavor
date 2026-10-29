@@ -792,3 +792,12 @@ D=1 도달은 모두 6번째.
 | CM2 | 목적별 partial 파일: `GameSession` → 본체(초기화·시계·정착지 연결) + `.Commands`(캠페인 명령)·`.SaveLoad`(F5/F9)·`.FallbackMap`(대체 지형, `TerrainEntry`), `SettlementView` → 본체(타일·시설·수로·작물) + `.Lanterns`(등불 필드·밝기·숨쉬기)·`.Labels`(머리 위 글자). `HudMode`는 #25에서 없어짐 | [자동] | 300줄 기준(CLAUDE.md 구조 원칙). 컴포넌트·필드 이름이 같아 씬은 그대로 | `Runtime/GameSession*.cs`, `Runtime/View/SettlementView*.cs` |
 
 검증: EditMode 181 · PlayMode 10 통과, 컴파일 경고 0.
+
+## 테스트 데이터 도우미 (2026-10-30 — 이슈 #29, 유지보수성 검토 M19)
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| TD1 | EditMode 테스트의 설정·맵 경로와 불러오기를 `TestData` 한 곳에(`Economy()`·`Procedural()`·`Maps()`·`MapPaths`·`EconomyJson`…). 부를 때마다 새로 읽어 테스트끼리 값 변경이 번지지 않음 | [자동] | 같은 경로·불러오기 코드가 15개 파일에 있었다. PlayMode 테스트는 다른 어셈블리라 그대로 | `Assets/Tests/EditMode/TestData.cs` |
+| TD2 | 일부러 고정하는 v0.8 회귀값을 `V08Golden`에 이유와 함께 모음(첫 경매 133h, 경매장 37h, 현금 540.05, 광산 물 0.7885, V 1149.63, 즉시 매각 1747.16, 보류 1959.54 등). 설정에서 나오는 기대값(경매 간격 `auctionRepeatsGameHours`, 경매장 1개 입찰자 수 `attendeesWithOneAuctionHall`)은 숫자 대신 설정에서 읽음 | [자동] | 설정 숫자를 바꿔도 테스트를 여기저기 고치지 않아도 되고, 진짜로 고정한 값만 한 곳에 남는다 | `TestData.cs`, `SettlementTests`, `AuctionCampaignTests` |
+
+검증: EditMode 181 · PlayMode 10 통과, 컴파일 경고 0.

@@ -18,9 +18,8 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            string data = Path.Combine(Application.dataPath, "Data");
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(data, "Config", "economy_balance_v0.8_config.json")));
-            _map = MapLoader.Parse(File.ReadAllText(Directory.GetFiles(Path.Combine(data, "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal).First()));
+            _config = TestData.Economy();
+            _map = MapLoader.Parse(File.ReadAllText(TestData.MapPaths.First()));
         }
 
         private static Settlement RunSample(int hours, Action<SettlementRules> tweak = null)

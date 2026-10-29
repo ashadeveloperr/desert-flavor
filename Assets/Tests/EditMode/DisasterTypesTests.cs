@@ -19,7 +19,7 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json")));
+            _config = TestData.Economy();
         }
 
         /// <summary>반경 3 맵, 가운데 수원, 농장 하나(무료 완공). 장비 효과를 걸 수 있다.</summary>

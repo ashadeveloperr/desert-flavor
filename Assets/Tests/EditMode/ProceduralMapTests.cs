@@ -22,12 +22,10 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            string data = Path.Combine(Application.dataPath, "Data");
-            _configJson = File.ReadAllText(Path.Combine(data, "Config", "procedural_map_config.json"));
+            _configJson = TestData.ProceduralJson;
             _proc = ProceduralMapConfigLoader.Parse(_configJson);
-            _economy = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(data, "Config", "economy_balance_v0.8_config.json")));
-            _maps = Directory.GetFiles(Path.Combine(data, "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
-                .Select(p => MapLoader.Parse(File.ReadAllText(p))).ToList();
+            _economy = TestData.Economy();
+            _maps = TestData.Maps();
         }
 
         // ───────────── 설정 ─────────────

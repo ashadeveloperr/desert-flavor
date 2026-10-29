@@ -8,7 +8,7 @@ namespace DesertSettlement.Core.Tests
     public class EconomyConfigTests
     {
         private static string ConfigPath =>
-            Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json");
+            TestData.EconomyConfigPath;
 
         private static string ReadRealConfig() => File.ReadAllText(ConfigPath);
 

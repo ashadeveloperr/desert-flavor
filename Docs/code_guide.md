@@ -121,7 +121,7 @@ Unity가 만드는 `.meta`도 함께 커밋한다(테스트 사본이 만든 `.m
 세션 오브젝트에 붙는 새 컴포넌트(MonoBehaviour)라면 `DebugSessionBuilder.EnsureComponents`에 한 줄 더하고 씬 재구성(`SetupSampleScene`, 에디터를 닫아야 하므로 먼저 묻는다)으로 SampleScene에 넣는다. 다른 컴포넌트의 `Awake`에서 붙이지 않는다(결정 SC1). 씬에 넣지 않으면 플레이해도 그 컴포넌트가 없다.
 
 ### 원본 v0.8 회귀 모드
-v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 `SettlementRules.ForV08Regression(config)`로 규칙을 만든다(결정 RG1). v0.8 뒤에 넣은 규칙(시작 자금·가동 숙성·채석장 능력·건설 시간 배율·명령 순간 착공·시장)을 여기서 끈다. EditMode `SettlementTests`의 Script와 시뮬레이터 `RunCoreScript`가 이것을 쓴다. 새 규칙을 넣을 때 **끄는 값**을 이 프리셋에 한 줄 더한다.
+v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)과 비교할 때는 `SettlementRules.ForV08Regression(config)`로 규칙을 만든다(결정 RG1). v0.8 뒤에 넣은 규칙(시작 자금·가동 숙성·채석장 능력·건설 시간 배율·명령 순간 착공·시장)을 여기서 끈다. EditMode `SettlementTests`의 Script와 시뮬레이터 `RunCoreScript`가 이것을 쓴다. 새 규칙을 넣을 때 **끄는 값**을 이 프리셋에 한 줄 더한다.
 
 ## 5. 무엇을 바꾸려면 어디를 고치나
 
@@ -170,6 +170,7 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 `SettlementR
 |---|---|---|
 | Core 규칙·회귀값 | `dotnet run --project Tools/SettlementSim` | 마지막 줄 '모든 검증 통과', 종료 코드 0 |
 | Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-30: EditMode 181 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
+| 새 EditMode 테스트 | 설정·맵은 `TestData`(경로·불러오기 한 곳), 설정에서 나오는 기대값은 설정에서 읽고, 일부러 고정하는 회귀값만 `V08Golden`에(결정 TD1·TD2) |
 | 화면 모양(에디터 없이) | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` | `.unity-testcopy/Captures/*.png` |
 | 저장·불러오기 재실행 | `dotnet run --project Tools/SettlementSim -- savecheck` | |
 | 직접 플레이 | `SampleScene` Play → 일시정지로 시작 → 왼쪽 아래 '샘플 배치' → 배속(` 1 2 3) | F5/F9 = 저장/불러오기(단축키 표는 `Runtime/UI/Hotkeys.cs`) |

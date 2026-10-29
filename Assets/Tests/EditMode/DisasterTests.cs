@@ -18,7 +18,7 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json")));
+            _config = TestData.Economy();
         }
 
         /// <summary>반경 3 사막 맵(가운데 수원). 시설은 무료 완공 배치로 바로 세운다.</summary>

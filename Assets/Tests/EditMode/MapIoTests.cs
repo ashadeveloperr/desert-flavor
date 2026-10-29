@@ -42,7 +42,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void ExistingCampaignMaps_SurviveARoundTrip()
         {
-            foreach (string path in Directory.GetFiles(Path.Combine(Application.dataPath, "Data", "Maps"), "*.json"))
+            foreach (string path in TestData.MapPaths)
             {
                 MapDefinition original = MapLoader.Parse(File.ReadAllText(path));
                 MapDefinition back = MapLoader.Parse(MapLoader.ToJson(original));

@@ -12,7 +12,7 @@ namespace DesertSettlement.Core.Tests
     public class FacilityCatalogTests
     {
         private static EconomyConfig LoadConfig() => EconomyConfigLoader.Parse(
-            File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json")));
+            TestData.EconomyJson);
 
         [Test]
         public void Catalog_MatchesConfigBuildingLevels()

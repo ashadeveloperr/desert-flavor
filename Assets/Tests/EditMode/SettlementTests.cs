@@ -28,8 +28,7 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void LoadConfig()
         {
-            string path = Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json");
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(path));
+            _config = TestData.Economy();
         }
 
         private static Settlement NewSettlement(Action<SettlementRules> tweak = null, bool v08Regression = false)
@@ -122,35 +121,35 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void BaseScript_FirstAuctionMatchesRegression()
         {
-            Script sc = new Script().Run(133);
+            // 회귀값과 그 뜻은 TestData.cs의 V08Golden(결정 TD2). 게임의 경매 간격(설정)과 별개인 v0.8 기준 시점이다.
+            const int auction = V08Golden.FirstAuctionHour;
+            Script sc = new Script().Run(auction);
             Settlement s = sc.S;
 
-            Assert.AreEqual(37, s.AuctionHallCompletedHour, "경매장 완공 37h");
-            // 133h = 원본 v0.8 스크립트의 첫 경매 시각(경매장 37h + 96h). 게임의 경매 간격은 72h(2026-10-23) → 48h(2026-10-26)로 바뀌었지만,
-            // 이 회귀는 v0.8 이식본과 같은 133h 시점의 경제 상태를 비교한다.
-            Assert.AreEqual(48, _config.ConfirmedRules.AuctionRepeatsGameHours, "경매 간격 48h(2026-10-26 AU1, 첫 경매 = 완공 + 48h = 85h)");
-            Assert.AreEqual(540.05, sc.CashBefore(133), 0.01, "첫 경매 직전 현금");
-            Assert.AreEqual(0.7885, s.WaterRateOf(sc.F("mine")), 1e-4, "광산 물 가동률");
-            Assert.AreEqual(91.5, s.Food, 0.01);
-            Assert.AreEqual(100.0, s.Stone, 0.01);
-            Assert.AreEqual(8.0, s.StoneDiscarded, 0.01, "초과 석재 폐기 8");
+            Assert.AreEqual(V08Golden.AuctionHallCompletedHour, s.AuctionHallCompletedHour, "경매장 완공");
+            Assert.AreEqual(V08Golden.CashBeforeFirstAuction, sc.CashBefore(auction), 0.01, "첫 경매 직전 현금");
+            Assert.AreEqual(V08Golden.MineWaterRate, s.WaterRateOf(sc.F("mine")), 1e-4, "광산 물 가동률");
+            Assert.AreEqual(V08Golden.FoodAtFirstAuction, s.Food, 0.01);
+            Assert.AreEqual(V08Golden.StoneAtFirstAuction, s.Stone, 0.01);
+            Assert.AreEqual(V08Golden.StoneDiscarded, s.StoneDiscarded, 0.01, "초과 석재 폐기");
 
-            ValuationResult v = WithV08OreFactor(() => SettlementValuation.Evaluate(s, 133));
-            Assert.AreEqual(1.0, v.StoneAveragePerHour, 1e-9, "석재가 한도(100)에 차서 폐기돼도 생산 실적으로 센다(확정)");
-            Assert.AreEqual(1149.63, v.Value, 0.01, "첫 경매 기준 가치 V (광물 가치 계수 2.5)");
-            Assert.AreEqual(1747.16, sc.CashBefore(133) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금(중립 1.05)");
+            ValuationResult v = WithV08OreFactor(() => SettlementValuation.Evaluate(s, auction));
+            Assert.AreEqual(1.0, v.StoneAveragePerHour, 1e-9, "석재가 한도에 차서 폐기돼도 생산 실적으로 센다(확정)");
+            Assert.AreEqual(V08Golden.FirstAuctionValue, v.Value, 0.01, "첫 경매 기준 가치 V (광물 가치 계수 2.5)");
+            Assert.AreEqual(V08Golden.CashAfterSellingAtFirstAuction, sc.CashBefore(auction) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01, "즉시 매각 후 현금");
         }
 
         [Test]
         public void DeferWithMineUpgradeAndWarehouse_MatchesRegression()
         {
             Script sc = new Script();
-            sc.Do(133, s => Assert.IsTrue(s.RequestUpgrade(sc.Ids["mine"]).Success));
-            sc.At(133, "warehouse", s => s.RequestBuild(BuildingKinds.Warehouse, WarehouseTile));
-            sc.Run(229);
+            sc.Do(V08Golden.FirstAuctionHour, s => Assert.IsTrue(s.RequestUpgrade(sc.Ids["mine"]).Success));
+            sc.At(V08Golden.FirstAuctionHour, "warehouse", s => s.RequestBuild(BuildingKinds.Warehouse, WarehouseTile));
+            sc.Run(V08Golden.SecondAuctionHour);
 
-            ValuationResult v = WithV08OreFactor(() => SettlementValuation.Evaluate(sc.S, 229));
-            Assert.AreEqual(1959.54, sc.CashBefore(229) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
+            ValuationResult v = WithV08OreFactor(() => SettlementValuation.Evaluate(sc.S, V08Golden.SecondAuctionHour));
+            Assert.AreEqual(V08Golden.CashAfterHoldWithMineUpgradeAndWarehouse,
+                sc.CashBefore(V08Golden.SecondAuctionHour) + v.Bid(_config.AuctionSeed.FixedTestBidMultiplier), 0.01);
             Assert.AreEqual(2, sc.F("mine").Level);
             Assert.GreaterOrEqual(sc.S.FoodCoefficient, 0.99);
         }
@@ -407,7 +406,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void OutputOf_ReportsProductionAndFoodUse()
         {
-            Script sc = new Script().Run(133);
+            Script sc = new Script().Run(V08Golden.FirstAuctionHour);
             Settlement s = sc.S;
 
             FacilityOutput farm = s.OutputOf(sc.F("farm"));

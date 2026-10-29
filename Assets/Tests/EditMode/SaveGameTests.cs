@@ -20,10 +20,8 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            string data = Path.Combine(Application.dataPath, "Data");
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(data, "Config", "economy_balance_v0.8_config.json")));
-            _maps = Directory.GetFiles(Path.Combine(data, "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
-                .Select(p => MapLoader.Parse(File.ReadAllText(p))).ToList();
+            _config = TestData.Economy();
+            _maps = TestData.Maps();
         }
 
         private static string Signature(Campaign c)

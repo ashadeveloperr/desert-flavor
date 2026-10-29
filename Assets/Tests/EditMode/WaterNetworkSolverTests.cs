@@ -253,7 +253,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void CapacityComesFromCanalLevel()
         {
-            string json = File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json"));
+            string json = TestData.EconomyJson;
             WaterNetworkSettings settings = WaterNetworkSettings.FromConfig(EconomyConfigLoader.Parse(json));
             CanalGraph g = Canals(SerialA);
             // m1은 우물과 꼭짓점을 공유(수로 불필요), m2·m3은 첫 변을 지나야 한다. 우물 L3(190)으로 우물이 아닌 수로가 병목이 되게.

@@ -21,10 +21,8 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            string data = Path.Combine(Application.dataPath, "Data");
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(data, "Config", "economy_balance_v0.8_config.json")));
-            _maps = Directory.GetFiles(Path.Combine(data, "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
-                .Select(p => MapLoader.Parse(File.ReadAllText(p))).ToList();
+            _config = TestData.Economy();
+            _maps = TestData.Maps();
         }
 
         private static BidderProfile Bidder(string id) => _config.Auction.Bidders.First(b => b.Id == id);
@@ -178,9 +176,9 @@ namespace DesertSettlement.Core.Tests
 
             s.AdvanceHours(38);
             Assert.AreEqual(36, s.AuctionHallCompletedHour, "명령 순간 착공(2026-10-26 JQ2)이라 원본 37h보다 1시간 이름");
-            Assert.AreEqual(36 + 48, a.NextAuctionHour, "완공 + 48h(2026-10-26 AU1, 이전 72h)");
+            Assert.AreEqual(s.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, a.NextAuctionHour, "완공 + 경매 간격(결정 AU1)");
             Assert.AreEqual(1, announcements, "경매장 완공 직후 예고");
-            Assert.AreEqual(2, a.AnnouncedBidders.Count, "경매장 1개 = 입찰자 2명(2026-10-26 AH1)");
+            Assert.AreEqual(_config.Auction.AttendeesWithOneAuctionHall, a.AnnouncedBidders.Count, "경매장 1개의 입찰자 수(결정 AH1)");
             Assert.AreEqual(AuctionPhase.Scheduled, a.Phase);
         }
 
@@ -344,7 +342,7 @@ namespace DesertSettlement.Core.Tests
         {
             // 2026-10-23 로드맵 1-④ 장비 강화(Docs/decision_log_auto.md E1~E5).
             // 강화 비용(800)까지 살 수 있게 시작 자금을 넉넉히(2026-10-26 AU1: 경매 48h라 첫 매각 대금이 줄어 기본 500으로는 모자람).
-            EconomyConfig config = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json")));
+            EconomyConfig config = TestData.Economy();
             config.Prototype.StartingCash = 1000;
             var campaign = new Campaign(config, _maps, seed: 7);
             Settlement first = campaign.StartNextSettlement();

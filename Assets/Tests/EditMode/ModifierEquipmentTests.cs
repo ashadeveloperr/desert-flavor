@@ -22,11 +22,9 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void Load()
         {
-            string data = Path.Combine(Application.dataPath, "Data");
-            _economy = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(data, "Config", "economy_balance_v0.8_config.json")));
-            _proc = ProceduralMapConfigLoader.Parse(File.ReadAllText(Path.Combine(data, "Config", "procedural_map_config.json")));
-            _maps = Directory.GetFiles(Path.Combine(data, "Maps"), "*.json").OrderBy(p => p, StringComparer.Ordinal)
-                .Select(p => MapLoader.Parse(File.ReadAllText(p))).ToList();
+            _economy = TestData.Economy();
+            _proc = TestData.Procedural();
+            _maps = TestData.Maps();
         }
 
         // ───────────── 효과 ─────────────
@@ -267,7 +265,7 @@ namespace DesertSettlement.Core.Tests
         /// <summary>첫 정착지를 샘플 배치로 첫 경매까지 돌려 판 뒤(상점), 시작 자금을 늘려 높은 난이도 후보가 나오게 한다.</summary>
         private static Campaign CampaignInShop(double cashBoost)
         {
-            EconomyConfig rich = EconomyConfigLoader.Parse(File.ReadAllText(Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json")));
+            EconomyConfig rich = TestData.Economy();
             rich.Prototype.StartingCash += cashBoost;
             var c = new Campaign(rich, _maps, seed: 11, procedural: _proc);
             Settlement s = c.StartNextSettlement();

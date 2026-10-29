@@ -17,8 +17,7 @@ namespace DesertSettlement.Core.Tests
         [OneTimeSetUp]
         public void LoadConfig()
         {
-            string path = Path.Combine(Application.dataPath, "Data", "Config", "economy_balance_v0.8_config.json");
-            _config = EconomyConfigLoader.Parse(File.ReadAllText(path));
+            _config = TestData.Economy();
         }
 
         /// <summary>무료 완공 배치로 시장을 바로 운영 상태로 짓는다.</summary>

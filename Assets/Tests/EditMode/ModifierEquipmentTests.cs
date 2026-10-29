@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Hex;
@@ -43,6 +44,47 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual("효과 없음", new EconomyEffects().Describe());
             StringAssert.Contains("건설 석재 +25%", a.Describe());
         }
+
+        [Test]
+        public void Effects_EveryPropertySurvivesCombineScaledDescribeAndApply()
+        {
+            // 결정 MT1: EconomyEffects에 속성을 더하고 Combine·Scaled·Describe·SettlementRules.ApplyEffects 중 하나를 빠뜨리면 여기서 걸린다.
+            // 속성 목록은 반사로 읽으므로 새 속성도 저절로 검사된다.
+            var notScaled = new HashSet<string> { nameof(EconomyEffects.EfficiencyCap), nameof(EconomyEffects.ExtraConstructionSlots) }; // Scaled 주석: 약점 전용 상한·정수 슬롯
+            var defaults = new EconomyEffects();
+            List<PropertyInfo> props = typeof(EconomyEffects).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite).ToList();
+            Assert.Greater(props.Count, 15);
+            foreach (PropertyInfo p in props)
+            {
+                // '효과 있음' 값: 배율(기본 1)은 0.8, 더하는 값(기본 0)은 0.3, 정수는 2.
+                object value;
+                if (p.PropertyType == typeof(int)) value = 2;
+                else if (p.PropertyType == typeof(double)) value = (double)p.GetValue(defaults) == 1 ? 0.8 : 0.3;
+                else { Assert.Fail($"{p.Name}: 숫자가 아닌 효과 속성은 이 테스트에 값 규칙을 더해야 한다"); continue; }
+                var e = new EconomyEffects();
+                p.SetValue(e, value);
+                double v = Convert.ToDouble(value);
+
+                Assert.AreEqual(v, Convert.ToDouble(p.GetValue(EconomyEffects.Combine(new[] { e }))), 1e-12, $"Combine에서 {p.Name}이 빠짐");
+                Assert.AreEqual(v, Convert.ToDouble(p.GetValue(e.Scaled(1))), 1e-12, $"Scaled에서 {p.Name}이 빠짐");
+                bool changedAt2 = Math.Abs(Convert.ToDouble(p.GetValue(e.Scaled(2))) - v) > 1e-12;
+                Assert.AreEqual(!notScaled.Contains(p.Name), changedAt2, $"Scaled(2)가 {p.Name}을 {(changedAt2 ? "바꿈" : "안 바꿈")}");
+                Assert.AreNotEqual("효과 없음", e.Describe(), $"Describe에 {p.Name}이 없음");
+
+                // 효율 상한 보너스는 상한이 1보다 낮을 때만 드러나므로 두 규칙 모두 상한 0.9에서 시작한다.
+                SettlementRules before = SettlementRules.FromConfig(_economy), after = SettlementRules.FromConfig(_economy);
+                before.ApplyEffects(new EconomyEffects { EfficiencyCap = 0.9 });
+                after.ApplyEffects(new EconomyEffects { EfficiencyCap = 0.9 });
+                after.ApplyEffects(e);
+                Assert.AreNotEqual(RulesSnapshot(before), RulesSnapshot(after), $"SettlementRules.ApplyEffects가 {p.Name}을 반영하지 않음");
+            }
+        }
+
+        /// <summary>규칙의 숫자 속성 전부 + 수로 손실(효과가 규칙에 반영됐는지 비교용).</summary>
+        private static string RulesSnapshot(SettlementRules r) =>
+            string.Join("|", typeof(SettlementRules).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.GetIndexParameters().Length == 0 && (p.PropertyType == typeof(double) || p.PropertyType == typeof(int)))
+                .Select(p => $"{p.Name}={p.GetValue(r)}")) + $"|loss={r.Water.LossPerWholeEdge}";
 
         [Test]
         public void Effects_ChangeSettlementEconomy()

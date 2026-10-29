@@ -8,18 +8,20 @@ namespace DesertSettlement.Core.Economy
     /// 정착지 경제에 거는 효과 묶음. 영구 장비와 지역 모디파이어(약점·강점)가 같은 형식을 쓴다.
     /// JSON에서는 바꾸고 싶은 항목만 적는다(빠진 항목은 '효과 없음' 기본값).
     /// 여러 효과는 <see cref="Combine"/>으로 합친다: 배율은 곱하고, 더하는 값은 더하고, 효율 상한은 가장 낮은 값.
+    /// 속성을 더하면 <see cref="Combine"/>·<see cref="Scaled"/>·<see cref="Describe"/>와 SettlementRules.ApplyEffects에도 넣는다
+    /// (빠뜨리면 ModifierEquipmentTests.Effects_EveryPropertySurvivesCombineScaledDescribeAndApply가 실패). 예시 값은 설정 JSON의 equipment와 절차 맵 설정의 지역 모디파이어.
     /// </summary>
     public sealed class EconomyEffects
     {
-        /// <summary>건설·개량에 드는 석재 배율(무른 지반 1.25, 보강 자재 0.85).</summary>
+        /// <summary>건설·개량에 드는 석재 배율(무른 지반, 보강 자재).</summary>
         public double StoneCostMultiplier { get; set; } = 1;
-        /// <summary>생산 시설(농장·채석장·광산) 효율(물 공급률 × 식량 계수)의 상한. 1 = 제한 없음(고지대 0.9).</summary>
+        /// <summary>생산 시설(농장·채석장·광산) 효율(물 공급률 × 식량 계수)의 상한. 1 = 제한 없음(고지대).</summary>
         public double EfficiencyCap { get; set; } = 1;
-        /// <summary>효율 상한에 더하는 값(산소 공급기 +0.1). 상한은 1을 넘지 않는다.</summary>
+        /// <summary>효율 상한에 더하는 값(산소 공급기). 상한은 1을 넘지 않는다.</summary>
         public double EfficiencyCapBonus { get; set; }
-        /// <summary>우물 방출량 배율(우물 성능 향상 1.2, 마른 대수층 0.8).</summary>
+        /// <summary>우물 방출량 배율(우물 성능 향상, 마른 대수층).</summary>
         public double WellSupplyMultiplier { get; set; } = 1;
-        /// <summary>수로 거리 손실 배율(모래바람 2, 수로 방풍막 0.6).</summary>
+        /// <summary>수로 거리 손실 배율(모래바람, 수로 방풍막).</summary>
         public double CanalLossMultiplier { get; set; } = 1;
         /// <summary>농장 식량 생산 배율.</summary>
         public double FoodOutputMultiplier { get; set; } = 1;
@@ -31,15 +33,15 @@ namespace DesertSettlement.Core.Economy
         public double PurchasePriceMultiplier { get; set; } = 1;
         /// <summary>시설 유지비 배율.</summary>
         public double UpkeepMultiplier { get; set; } = 1;
-        /// <summary>동시 작업 슬롯 추가 수(건설 슬롯 +1).</summary>
+        /// <summary>동시 작업 슬롯 추가 수(건설 슬롯 +1 장비).</summary>
         public int ExtraConstructionSlots { get; set; }
-        /// <summary>기본 식량·석재 저장 한도에 더하는 값(대형 창고 설비 +50).</summary>
+        /// <summary>기본 식량·석재 저장 한도에 더하는 값(대형 창고 설비).</summary>
         public double ExtraStorage { get; set; }
-        /// <summary>정착지 시작 전염병 저항력(방역 장비 +0.3). 전염병이 끝나 저항력이 줄어도 이 값 아래로는 안 내려간다.</summary>
+        /// <summary>정착지 시작 전염병 저항력(방역 장비). 전염병이 끝나 저항력이 줄어도 이 값 아래로는 안 내려간다.</summary>
         public double InitialEpidemicResistance { get; set; }
         /// <summary>전염병 중 저항력이 오르는 속도 배율(방역 장비, 결정 B1·EP2). 면역이 아니라 '더 빨리 회복'.</summary>
         public double EpidemicResistanceGrowthMultiplier { get; set; } = 1;
-        /// <summary>재해 피해 배율(2026-10-23 D3·D5·D6): 1 = 그대로, 0.5 = 절반. 수로 방풍막 = 모래폭풍, 방충망 = 메뚜기떼, 관개 설비 = 탄저병.</summary>
+        /// <summary>재해 피해 배율(결정 D3·D5·D6): 1 = 그대로, 0.5 = 절반. 수로 방풍막 = 모래폭풍, 방충망 = 메뚜기떼, 관개 설비 = 탄저병.</summary>
         public double SandstormDamageMultiplier { get; set; } = 1;
         public double LocustDamageMultiplier { get; set; } = 1;
         public double BlightDamageMultiplier { get; set; } = 1;
@@ -73,8 +75,8 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 효과 세기를 s배로 바꾼 사본(장비 강화, 2026-10-23 로드맵 1-④). 배율은 1에서 벗어난 만큼을 s배(1.1 → s=2면 1.2),
-        /// 더하는 값은 s배. 효율 상한(약점 전용)과 동시 작업 슬롯(정수)은 바꾸지 않는다. Docs/decision_log_auto.md E2.
+        /// 효과 세기를 s배로 바꾼 사본(장비 강화, 결정 E2). 배율은 1에서 벗어난 만큼을 s배(1.1 → s=2면 1.2),
+        /// 더하는 값은 s배. 효율 상한(약점 전용)과 동시 작업 슬롯(정수)은 바꾸지 않는다.
         /// </summary>
         public EconomyEffects Scaled(double s)
         {
@@ -92,7 +94,7 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 약점 세기를 s배로(2026-10-27 LD2, 이슈 #12 후반 가속). <see cref="Scaled"/>와 같고, 효율 상한도 1에서 모자란 만큼을 s배(0.9 → s=2면 0.8).
+        /// 약점 세기를 s배로(후반 가속, 결정 LD2). <see cref="Scaled"/>와 같고, 효율 상한도 1에서 모자란 만큼을 s배(0.9 → s=2면 0.8).
         /// 줄어드는 배율(우물·생산·효율 상한)은 <see cref="WeaknessFloor"/>(0.3) 아래로 내려가지 않는다(예: 염분 토양 농장 0.75가 세져도 생산 0이 되지 않게).
         /// </summary>
         public EconomyEffects ScaledWeakness(double s)

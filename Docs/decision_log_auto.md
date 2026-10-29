@@ -714,3 +714,13 @@ D=1 도달은 모두 6번째.
 | CF3 | **시뮬레이터가 게임과 같은 로더**(`EconomyConfigLoader`·`ProceduralMapConfigLoader`·`MapLoader`, Newtonsoft 13.0.2 = Unity 패키지 3.2.2)로 설정·맵을 읽고, 생성 맵 예시도 `MapLoader.ToJson`으로 씀 | [자동] | 같은 파서·같은 검증. 출력은 바꾸기 전과 한 글자도 같음 | `Tools/SettlementSim/Program.cs`, `SettlementSim.csproj` |
 
 검증: 시뮬레이터 '모든 검증 통과', 출력 전체가 #19 때와 같음. EditMode 179 · PlayMode 10 통과(새 테스트 `UnknownKey_IsRejectedWithItsPath_ButUnderscoreNotesAreAllowed`, 절차 맵 `Config_RejectsWrongSchemaAndBadValues`에 오타 검사 추가).
+
+## 빠뜨림 검사 테스트 (2026-10-30 — 이슈 #21, 유지보수성 검토 M3·M4, 사용자: "#21 시작")
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| MT1 | `EconomyEffects`의 쓰기 가능한 속성 전부(반사로 읽음)에 '효과 있음' 값(배율 0.8·더하는 값 0.3·정수 2)을 하나씩 넣고 `Combine`(그대로)·`Scaled(1)`(그대로)·`Scaled(2)`(바뀜, 효율 상한·동시 작업 슬롯만 예외 목록)·`Describe`('효과 없음'이 아님)·`SettlementRules.ApplyEffects`(규칙의 숫자 속성이나 수로 손실이 바뀜)를 확인 | [자동] | 새 효과를 한 곳에 빠뜨리면 장비·모디파이어가 조용히 효과를 잃음. 효율 상한 보너스는 상한이 1보다 낮을 때만 드러나서 두 규칙 모두 상한 0.9에서 비교 | `ModifierEquipmentTests.Effects_EveryPropertySurvivesCombineScaledDescribeAndApply` |
+| MT2 | `GameCommand`의 문자열 상수 전부(반사로 읽음)를 '정착지 시작 + 그 명령' 저장으로 다시 실행해 '알 수 없는 명령'이 나오지 않는지 확인. 없는 종류(`notACommand`)는 나와야 함(검사가 실제로 동작하는지) | [자동] | `SaveGame.Apply`에 case를 빠뜨리면 불러오기에서 그 명령이 문제 목록에만 남고 상태가 어긋남. 명령 자체는 실패해도 됨(경매가 없을 때 매각 등) | `SaveGameTests.EveryCommandType_IsHandledByReplay` |
+
+함께: code_guide 4절의 해당 ⚠ 두 곳을 '테스트가 막음'으로 바꾸고, #20에서 놓친 '시뮬레이터는 JSON을 따로 읽는다 ⚠'를 고침. `EconomyEffects.cs` 주석의 낡은 값(우물 성능 향상 1.2 → 지금 1.1 등)을 지우고 값은 설정 JSON을 가리키게 함.
+검증: 시뮬레이터 '모든 검증 통과'(출력 #20과 같음), EditMode 181 · PlayMode 10 통과. 테스트가 실제로 잡는지 테스트 사본에서만 일부러 줄을 빼 확인: `Combine`의 탄저병 줄을 빼면 "Combine에서 BlightDamageMultiplier이 빠짐", `SaveGame.Apply`의 석재 판매 case를 빼면 "sellStone … 알 수 없는 명령"으로 두 테스트 모두 실패.

@@ -99,16 +99,17 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 
 ### 새 플레이어 명령
 1. `Settlement.Actions.cs`에 `Can*`(불가 이유)·`Do*` 2. `Settlement.Commands.cs`에 공개 메서드 — 성공하면 반드시 `Record` 호출 ⚠(안 부르면 저장에서 빠지고 순간 착공도 안 됨)
-3. `GameCommand`의 종류 상수 + `SaveGame.Apply`의 case ⚠(빠뜨리면 불러오기에서 '건너뜀'으로만 남고 상태가 어긋남)
+3. `GameCommand`의 종류 상수 + `SaveGame.Apply`의 case — case를 빠뜨리면 `SaveGameTests.EveryCommandType_IsHandledByReplay`가 실패
 4. UI 버튼(`Runtime/UI/…View.cs`) 5. 확인: `dotnet run --project Tools/SettlementSim -- savecheck`, EditMode `SaveGameTests`
 
 ### 새 설정 숫자
 1. JSON에 키 2. `Core/Config/EconomyConfig.cs`에 같은 이름 속성(+ 기본값·한국어 주석) — 클래스에 없는 키는 불러오기 오류라서 오타는 게임·테스트·시뮬레이터가 바로 잡는다(`JsonKeyCheck`). 설명용 키는 `_`로 시작. 코드가 읽지 않는 값은 두지 않는다
 3. 규칙에서 쓰면 `SettlementRules`에 속성 + `FromConfig`에서 옮기기 4. 범위가 중요하면 `EconomyConfigLoader.Validate`에 검사
-5. 시뮬레이터도 그 값을 써야 하면 `Tools/SettlementSim`(JSON을 따로 읽는다) ⚠
+5. 시뮬레이터는 게임과 같은 로더로 읽으므로 따로 할 일 없음
 
 ### 새 효과(장비·지역 모디파이어 공통)
-`EconomyEffects`에 속성 → 같은 파일의 `Combine`·`Scaled`·`ScaledWeakness`·`Describe` ⚠(`Scaled`에서 빠지면 장비 강화 때 효과가 1로 돌아감) → `SettlementRules`에 속성 → `SettlementRules.ApplyEffects` → 규칙에서 사용.
+`EconomyEffects`에 속성 → 같은 파일의 `Combine`·`Scaled`·`Describe`(약점을 세게 할 때 줄어드는 배율이면 `ScaledWeakness`의 하한도) → `SettlementRules`에 속성 → `SettlementRules.ApplyEffects` → 규칙에서 사용.
+`Combine`·`Scaled`·`Describe`·`ApplyEffects` 중 하나를 빠뜨리면 `ModifierEquipmentTests.Effects_EveryPropertySurvivesCombineScaledDescribeAndApply`가 실패한다. `Scaled`가 일부러 바꾸지 않는 속성이면 그 테스트의 `notScaled`에 더한다.
 
 ### 새 재해
 `DisasterManager`의 id 상수·지속 시간 switch → `EconomyConfig`에 설정 클래스 → 효과를 거는 곳(생산·수로·공사) → JSON `disasters.types[]`·`regionWeightMultipliers` → 피해 배율 효과면 위 '새 효과'. 문구는 `FacilityInfo.TimedDisasterText`.
@@ -167,7 +168,7 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 �
 | 무엇 | 명령 | 기준 |
 |---|---|---|
 | Core 규칙·회귀값 | `dotnet run --project Tools/SettlementSim` | 마지막 줄 '모든 검증 통과', 종료 코드 0 |
-| Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-30: EditMode 179 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
+| Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-30: EditMode 181 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
 | 화면 모양(에디터 없이) | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` | `.unity-testcopy/Captures/*.png` |
 | 저장·불러오기 재실행 | `dotnet run --project Tools/SettlementSim -- savecheck` | |
 | 직접 플레이 | `SampleScene` Play → 일시정지로 시작 → 왼쪽 아래 '샘플 배치' → 배속(` 1 2 3) | F1 = 예전 화면, F5/F9 = 저장/불러오기 |

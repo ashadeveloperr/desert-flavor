@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Progression;
@@ -77,6 +78,32 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(CampaignState.Shopping, restored.Campaign.State);
             Assert.AreEqual(campaign.Cash, restored.Campaign.Cash, 1e-9);
         }
+
+        [Test]
+        public void EveryCommandType_IsHandledByReplay()
+        {
+            // 결정 MT2: GameCommand에 종류 상수를 더하고 SaveGame.Apply에 case를 빠뜨리면 여기서 걸린다(불러오기에서 상태가 어긋나는 것을 막음).
+            // 종류 목록은 반사로 읽으므로 새 상수도 저절로 검사된다. 명령이 실패해도 되고, '알 수 없는 명령'만 아니면 된다.
+            List<string> types = typeof(GameCommand).GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(f => f.IsLiteral && f.FieldType == typeof(string)).Select(f => (string)f.GetRawConstantValue()).ToList();
+            Assert.Greater(types.Count, 15);
+
+            int settlement = SaveGame.Replay(_config, _maps, null, WithStart()).Campaign.SettlementNumber;
+            foreach (string type in types.Append("notACommand"))
+            {
+                // 정착지 안에서 같은 정착지 번호로 부르므로 Apply의 종류 switch까지 반드시 간다.
+                SaveData data = WithStart(new GameCommand { Settlement = settlement, Hour = 0, Type = type, Kind = BuildingKinds.Farm });
+                List<string> problems = SaveGame.Replay(_config, _maps, null, data).Problems;
+                bool unknown = problems.Any(m => m.Contains("알 수 없는 명령"));
+                Assert.AreEqual(type == "notACommand", unknown, $"{type}: {string.Join(" / ", problems)}");
+            }
+        }
+
+        private static SaveData WithStart(params GameCommand[] then) => new SaveData
+        {
+            Seed = 1, SettlementNumber = 1,
+            Commands = new[] { new GameCommand { Type = GameCommand.Start } }.Concat(then).ToList(),
+        };
 
         [Test]
         public void NewerVersion_IsRejected()

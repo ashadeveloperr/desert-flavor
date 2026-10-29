@@ -15,9 +15,9 @@ namespace DesertSettlement.Runtime
     /// - 시설: 기본 도형을 조합한 종류별 모양(<see cref="FacilityModels"/>). 레벨마다 부품이 붙고 조금 높아짐,
     ///   공사 중이면 비계 안에서 진행률만큼 자라고 회색, 폐쇄는 어둡게. 농장 작물은 완공 뒤 자라고 물이 모자라면 시든다(SG1~SG3)
     /// - 수로: 변 위의 막대. 물이 많이 흐를수록 진한 파랑(부하/용량)이고 반짝임이 흘러간다, 공사 중은 회색
-    /// - 닫힌 수로: 빨강(2026-10-23 수문 폐지 뒤 수로 닫기가 물길 차단)
+    /// - 닫힌 수로: 빨강(수로 닫기가 물길 차단)
     /// - 대기 중 건설 예약: 바닥의 얇은 표시
-    /// - 머리 위 글자: 공사 진행률, 물 부족 이유(설정에서 끌 수 있음)
+    /// - 등불: SettlementView.Lanterns.cs, 머리 위 글자(공사 진행률·물 부족 이유): SettlementView.Labels.cs
     /// 색·크기는 인스펙터에서 바꾼다.
     /// </summary>
     /// <summary>인스펙터에서 시설 색을 덮어쓰는 한 줄(종류 이름 = 설정 JSON buildingLevels 키).</summary>
@@ -29,7 +29,7 @@ namespace DesertSettlement.Runtime
     }
 
     [RequireComponent(typeof(GameSession))]
-    public sealed class SettlementView : MonoBehaviour
+    public sealed partial class SettlementView : MonoBehaviour
     {
         [Header("지형 색")]
         [SerializeField] private Color desert = new Color(0.86f, 0.74f, 0.52f);
@@ -70,30 +70,6 @@ namespace DesertSettlement.Runtime
         [Tooltip("물이 모자란 작물 색")]
         [SerializeField] private Color witheredCrop = new Color(0.72f, 0.62f, 0.32f);
 
-        [Header("밤 등불 (2026-10-27 이슈 #13)")]
-        [Tooltip("밤에 빛나는 불빛 색(1보다 크면 블룸으로 번져 보인다)")]
-        [ColorUsage(false, true)]
-        [SerializeField] private Color lanternGlow = new Color(2.6f, 1.7f, 0.7f);
-        [Tooltip("낮이거나 폐쇄된 시설의 꺼진 등불 유리 색")]
-        [SerializeField] private Color lanternOff = new Color(0.45f, 0.38f, 0.28f);
-        [Tooltip("바닥을 비추는 점광원 색·최대 밝기·범위(타일 크기 대비)")]
-        [SerializeField] private Color lanternLightColor = new Color(1f, 0.72f, 0.4f);
-        [SerializeField] private float lanternLightIntensity = 1.6f;
-        [SerializeField] private float lanternLightRange = 1.3f;
-        [Tooltip("밤 시작 전·꺼지기 전 등불이 서서히 켜지고 꺼지는 시간(게임 시간)")]
-        [SerializeField] private float lanternFadeHours = 1f;
-        [Tooltip("낮이 시작된 뒤에도 켜져 있는 시간(게임 시간). 1이면 낮 5시 기준 5~6시에 서서히 꺼진다(이슈 #16)")]
-        [SerializeField] private float lanternLingerHours = 1f;
-        [Tooltip("숨쉬기 주기 범위(1배속 기준 초). 시설마다 이 범위에서 다른 주기·다른 시작점이고 배속을 따른다(이슈 #16)")]
-        [SerializeField] private Vector2 lanternBreathSeconds = new Vector2(5f, 8f);
-        [Tooltip("숨쉬기 중 가장 어두울 때의 밝기 비율(1 = 숨쉬기 없음)")]
-        [Range(0f, 1f)] [SerializeField] private float lanternBreathMin = 0.7f;
-        [Tooltip("촛불 같은 빠른 잔떨림의 폭(0.03 = ±3%, 0 = 없음)")]
-        [Range(0f, 0.2f)] [SerializeField] private float lanternFlicker = 0.03f;
-
-        [Header("글자")]
-        [SerializeField] private bool showLabels = true;
-
         private GameSession _session;
         private Transform _tilesRoot, _facilitiesRoot, _plannedRoot;
         private readonly Dictionary<int, GameObject> _facilityObjects = new Dictionary<int, GameObject>();
@@ -101,9 +77,6 @@ namespace DesertSettlement.Runtime
         private readonly Dictionary<HexCoord, GameObject> _tileObjects = new Dictionary<HexCoord, GameObject>();
         private readonly Dictionary<HexCoord, float> _green = new Dictionary<HexCoord, float>();
         private long _greenHour = -1;
-        private Camera _camera;
-        private Material _lanternLit, _lanternOffMaterial;
-        private float _lanternFactor;
 
         private void Awake()
         {
@@ -328,45 +301,7 @@ namespace DesertSettlement.Runtime
                 crop = c => Color.Lerp(c, witheredCrop, dry);
             }
             model.Paint(c => Tint(c, f.State, progress), crop);
-            // 등불(LT2): 폐쇄된 시설만 꺼지고, 운영·건설·개량·철거 중에는 켜진다(사람이 일하는 중).
-            // 숨쉬기(LT5, 이슈 #16): 시설마다 다른 주기·시작점으로 70~100%, 그 위에 약한 잔떨림. 게임 시간 기준이라 배속을 따르고 일시정지면 멈춘다.
-            float glow = _lanternFactor * LanternBreath(f.Id, _session.Clock.ElapsedHours * _session.Clock.RealSecondsPerGameDay / 24.0,
-                lanternBreathSeconds.x, lanternBreathSeconds.y, lanternBreathMin, lanternFlicker);
-            model.SetLantern(f.State != FacilityState.Closed, Color.Lerp(lanternOff, lanternGlow, glow), _lanternLit, _lanternOffMaterial,
-                lanternLightIntensity * glow, lanternLightColor, Size * lanternLightRange);
-        }
-
-        /// <summary>지금 시각의 등불 밝기(LT3)와 공용 불빛 머티리얼 색을 맞춘다.</summary>
-        private void UpdateLanternMaterials()
-        {
-            if (_lanternLit == null)
-            {
-                _lanternLit = WorldVisuals.Unlit("Lantern Lit", lanternOff);
-                _lanternOffMaterial = WorldVisuals.Unlit("Lantern Off", lanternOff);
-            }
-            var time = _session.TimeSettings;
-            _lanternFactor = DayNightLighting.LanternFactor(_session.Clock.HourOfDay, time.DayStartHour, time.NightStartHour, lanternFadeHours, lanternLingerHours);
-            _lanternOffMaterial.color = lanternOff;
-        }
-
-        /// <summary>
-        /// 등불 숨쉬기 배율(LT5·LT6, 이슈 #16). <paramref name="seconds"/>는 1배속 기준으로 환산한 게임 시간(초)이라 배속을 따른다.
-        /// 시설 번호로 주기(<paramref name="minPeriod"/>~<paramref name="maxPeriod"/>초)와 시작점을 정해 <paramref name="breathMin"/>~1 사이를 천천히 오가고,
-        /// 그 위에 ±<paramref name="flicker"/>의 빠른 잔떨림을 얹는다.
-        /// </summary>
-        public static float LanternBreath(int facilityId, double seconds, float minPeriod, float maxPeriod, float breathMin, float flicker)
-        {
-            uint h = (uint)facilityId * 2654435761u;
-            h ^= h >> 15;
-            h *= 2246822519u;
-            h ^= h >> 13;
-            double u1 = (h & 0xFFFF) / 65535.0, u2 = (h >> 16) / 65535.0;
-            double period = Math.Max(0.1, minPeriod + (maxPeriod - minPeriod) * u1);
-            double phase = seconds / period + u2;
-            double wave = 0.5 - 0.5 * Math.Cos(2 * Math.PI * (phase - Math.Floor(phase)));
-            double breath = breathMin + (1 - breathMin) * wave;
-            double jitter = 0.6 * Math.Sin(2 * Math.PI * (seconds / 0.37 + u2)) + 0.4 * Math.Sin(2 * Math.PI * (seconds / 0.23 + u1));
-            return (float)Math.Max(0, breath * (1 + flicker * jitter));
+            ApplyLantern(f, model);
         }
 
         private static double CanalCapacity(Settlement s, Facility f) =>
@@ -410,53 +345,5 @@ namespace DesertSettlement.Runtime
         /// </summary>
         public static float JobProgress(ConstructionJob job, double now) =>
             job.Hours <= 0 ? 1f : Mathf.Clamp01((float)(1 - (job.DeadlineHour + 1 - now) / job.Hours));
-
-        private void OnGUI()
-        {
-            if (!showLabels || !_session.IsReady) return;
-            if (_camera == null) _camera = Camera.main;
-            if (_camera == null) return;
-            Settlement s = _session.Settlement;
-
-            foreach (Facility f in s.Facilities)
-            {
-                if (f.Edge.HasValue) continue;
-                string text = null;
-                if (f.State == FacilityState.Constructing) text = $"건설 {JobProgress(s, f):P0}";
-                else if (f.State == FacilityState.Upgrading) text = $"개량 {JobProgress(s, f):P0}";
-                else if (f.State == FacilityState.Demolishing) text = $"철거 {JobProgress(s, f):P0}";
-                else if (f.State == FacilityState.Closed) text = "폐쇄";
-                else if (f.IsOperating)
-                {
-                    // 농장 자기 수지 적자와 물 부족은 원인이 다르므로 따로 적는다.
-                    var parts = new List<string>();
-                    FacilityOutput o = s.OutputOf(f);
-                    if (o.FarmBelowOwnUpkeep) parts.Add($"식량 생산 {o.ProducedPerHour:0.0} < 소비 {o.FoodUsePerHour:0.0}");
-                    if (s.LastWater != null && s.LastWater.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w) && w.Rate < 0.999)
-                    {
-                        parts.Add($"물 {w.Rate:P0} · {FacilityInfo.ShortageText(w.Shortage)}");
-                    }
-                    if (parts.Count > 0) text = string.Join("\n", parts);
-                }
-                if (text == null) continue;
-
-                Vector3 screen = _camera.WorldToScreenPoint(_session.ToWorld(_session.Layout.TileCenter(f.Tile), Size * 0.9f));
-                if (screen.z < 0) continue;
-                int lineCount = text.Split('\n').Length;
-                var rect = new Rect(screen.x - 90, Screen.height - screen.y - 11 * lineCount, 180, 20 * lineCount + 2);
-                GUI.Label(rect, text, LabelStyle);
-            }
-        }
-
-        private static GUIStyle _labelStyle;
-        private static GUIStyle LabelStyle
-        {
-            get
-            {
-                if (_labelStyle != null) return _labelStyle;
-                _labelStyle = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontSize = 12 };
-                return _labelStyle;
-            }
-        }
     }
 }

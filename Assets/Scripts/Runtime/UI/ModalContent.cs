@@ -167,9 +167,9 @@ namespace DesertSettlement.Runtime.UI
                 return;
             }
             double? cost = c.UpgradeCost(id);
-            if (cost.HasValue) Btn(row.transform, $"강화 {cost.Value:0}", () => Act(c.UpgradeEquipment(id), $"{e.Name} Lv{c.EquipmentLevel(id)}로 강화"), 90, 34);
+            if (cost.HasValue) Btn(row.transform, $"강화 {cost.Value:0}", () => Act(_ui.Session.UpgradeEquipment(id), $"{e.Name} Lv{c.EquipmentLevel(id)}로 강화"), 90, 34);
             bool on = c.IsEquipped(id);
-            Button equip = Btn(row.transform, on ? "장착됨" : "장착", () => Act(c.SetEquipped(id, !on), null), 70, 34);
+            Button equip = Btn(row.transform, on ? "장착됨" : "장착", () => Act(_ui.Session.SetEquipped(id, !on), null), 70, 34);
             equip.SetOn(on);
         }
 

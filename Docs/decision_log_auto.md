@@ -783,3 +783,12 @@ D=1 도달은 모두 6번째.
 | UK1 | `UiKit.Label`·`Btn`이 만드는 오브젝트 이름 = 종류 + 처음 문구(서식 태그·줄바꿈 제거, 24자까지). 이름은 만들 때 한 번만 정함 | [자동] | 모두 'Text'·'Button'이라 Hierarchy에서 찾을 수 없었다. 갱신마다 이름을 바꾸지 않아 실행 비용 없음 | `UiKit.NameFor` |
 | UK2 | 가운데 창(`ModalView`)은 9개 값의 비교 키를 없애고 '캠페인 명령 기록 수·캠페인 상태·열린 경매 시각이 바뀌었을 때 + 창 안 버튼이 `MarkDirty`'로 다시 그린다. 알림·대기열(`AlertsView`)은 그릴 글자·색(대기열은 글자·작업 번호·대기 순서·상태)을 그대로 비교 | [자동] | 키에 새 값을 빠뜨리면 화면이 갱신되지 않았다. 플레이어 행동은 모두 명령으로 기록되므로(저장 규칙) 명령 기록 수가 바뀌면 다시 그리면 빠짐이 없다. 창이 열린 동안은 시간이 멈춰 이 밖의 변화가 없다 | `ModalView.cs`, `AlertsView.cs` |
 검증: EditMode 181 · PlayMode 10 통과, 컴파일 경고 0. 화면 캡처(`ScreenCaptureTests`)로 경매·행선지·상점 창이 그려지는 것을 확인.
+
+## Runtime 구조 (2026-10-30 — 이슈 #28, 유지보수성 검토 M16~M18)
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| CM1 | **명령 입구 규칙**: 정착지 안 명령(건설·수로·개량·철거·취소·순서·폐쇄·구매·판매)은 화면이 `Settlement`를 직접 부른다. 캠페인 단계 명령(매각·보류·장비 구매·강화·장착·출발·새 캠페인·샘플 배치·저장·불러오기)은 모두 `GameSession`을 거친다. 장비 강화·장착이 `Campaign`을 직접 부르던 것을 `GameSession.UpgradeEquipment`·`SetEquipped`로 맞춤 | [사용자 결정] | 보류(시계 재개)·출발·새 캠페인·불러오기(정착지 연결)처럼 세션이 함께 할 일이 있어 입구를 하나로. 다른 안: 세션 일이 있을 때만 `GameSession`(전달만 하는 메서드 삭제) | `GameSession.Commands.cs`, `ModalContent.cs`, code_guide 3-3절 |
+| CM2 | 목적별 partial 파일: `GameSession` → 본체(초기화·시계·정착지 연결) + `.Commands`(캠페인 명령)·`.SaveLoad`(F5/F9)·`.FallbackMap`(대체 지형, `TerrainEntry`), `SettlementView` → 본체(타일·시설·수로·작물) + `.Lanterns`(등불 필드·밝기·숨쉬기)·`.Labels`(머리 위 글자). `HudMode`는 #25에서 없어짐 | [자동] | 300줄 기준(CLAUDE.md 구조 원칙). 컴포넌트·필드 이름이 같아 씬은 그대로 | `Runtime/GameSession*.cs`, `Runtime/View/SettlementView*.cs` |
+
+검증: EditMode 181 · PlayMode 10 통과, 컴파일 경고 0.

@@ -37,10 +37,10 @@ Assets/Scripts/
     Timing/              GameClock(게임 시각·배속·정각 이벤트), GameTimeSettings
     Config/              EconomyConfig(JSON 모양 그대로의 데이터 클래스), EconomyConfigLoader(읽기·검증), JsonKeyCheck(모르는 키 찾기)
   Runtime/             DesertSettlement.Runtime — MonoBehaviour
-    (루트)               GameSession(진입점), BuildInputController(마우스 도구), StrategyCameraRig(카메라),
+    (루트)               GameSession(진입점, + .Commands 캠페인 명령·.SaveLoad 저장·.FallbackMap 대체 지형), BuildInputController(마우스 도구), StrategyCameraRig(카메라),
                          DebugSessionBuilder(씬 구성 한 벌을 코드로), RecordBook(최고 기록), HudInputBlocker(UI 위 클릭 차단)
     UI/                  정식 화면(uGUI를 코드로 만든다). GameUi가 뿌리, 구역마다 *View 하나, UiKit = 버튼·글자 만드는 도구 + Theme(색·크기), Hotkeys = 단축키 표
-    View/                맵 표시: SettlementView(타일·시설·수로·등불), FacilityModels(시설 모양), FacilityInfo(한국어 문구),
+    View/                맵 표시: SettlementView(타일·시설·수로, + .Lanterns 등불·.Labels 머리 위 글자), FacilityModels(시설 모양), FacilityInfo(한국어 문구),
                          DayNightLighting, WaterPathOverlay, BuildableOverlay, DesertBackdrop, WorldVisuals(머티리얼·메시 도우미)
     Tools/               MapSketch(예시 맵 그리기), HexMapDebugView(Gizmo 확인용)
   Editor/              DebugSessionMenu(메뉴·SetupSampleScene), MapSketchEditor
@@ -84,7 +84,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 
 - 불가 이유 문자열은 `Can*`이 돌려주고, 툴팁·버튼 비활성도 같은 `Can*`을 쓴다(규칙과 화면이 한 검사).
 - 저장(F5)은 시드 + 명령 기록, 불러오기(F9)는 같은 시드로 새 캠페인을 만들고 `SaveGame.Apply`로 명령을 다시 실행한다.
-- 매각·보류·다음 정착지처럼 캠페인 단위 명령은 `GameSession`(`SellTo`, `HoldAuction`, `GoToNextSettlement`)을 거친다.
+- **명령 입구 규칙(결정 CM1):** 정착지 안 명령(건설·수로·개량·철거·취소·순서·폐쇄·구매·판매)은 화면이 `Settlement`를 직접 부른다. 캠페인 단계 명령(매각·보류·장비 구매·강화·장착·출발·새 캠페인·샘플 배치·저장·불러오기)은 모두 `GameSession`(`GameSession.Commands.cs`·`GameSession.SaveLoad.cs`)을 거친다 — 시계 재개·정착지 연결처럼 세션이 함께 할 일이 있어서 입구를 하나로 둔다. 새 캠페인 단계 명령도 `GameSession.Commands.cs`에 메서드를 더한다.
 
 ## 4. 자주 하는 변경 — 고칠 곳 체크리스트
 

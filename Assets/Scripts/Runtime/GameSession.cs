@@ -11,31 +11,16 @@ using UnityEngine;
 
 namespace DesertSettlement.Runtime
 {
-    /// <summary>인스펙터에서 편집하는 지형 한 칸(맵 파일이 없을 때의 대체 지형).</summary>
-    [Serializable]
-    public struct TerrainEntry
-    {
-        public int q;
-        public int r;
-        public TerrainType terrain;
-
-        public TerrainEntry(int q, int r, TerrainType terrain)
-        {
-            this.q = q;
-            this.r = r;
-            this.terrain = terrain;
-        }
-    }
-
     /// <summary>
     /// 게임 진입점. 설정 JSON과 맵 파일로 <see cref="Campaign"/>을 만들고, 지금 정착지의 <see cref="Settlement"/>와
     /// <see cref="AuctionManager"/>를 시계에 연결한다(정각마다 AdvanceHour).
     /// - 경매가 열리면 시계를 멈춘다(경매 중 자동 일시정지). 매각하면 상점, 다음 정착지로 가면 맵·시계를 새로 시작한다.
-    /// - 다른 컴포넌트(뷰, 입력, HUD, 경매 패널)는 이 컴포넌트의 속성을 읽고 명령 메서드를 호출한다.
+    /// - 화면은 이 컴포넌트의 속성을 읽는다. 캠페인 단계 명령은 GameSession.Commands.cs의 메서드를, 정착지 안 명령은
+    ///   <see cref="Settlement"/>를 직접 부른다(결정 CM1). 저장·불러오기는 GameSession.SaveLoad.cs, 대체 지형은 GameSession.FallbackMap.cs.
     /// 메뉴 Tools > Desert Settlement > 디버그 세션 만들기 로 씬에 추가할 수 있다.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class GameSession : MonoBehaviour
+    public sealed partial class GameSession : MonoBehaviour
     {
         [Header("데이터")]
         [Tooltip("Assets/Data/Config/economy_balance_v0.8_config.json")]
@@ -143,57 +128,6 @@ namespace DesertSettlement.Runtime
             }
         }
 
-        // ───────────── 저장·불러오기(2026-10-23 로드맵 2-①, Docs/decision_log_auto.md S1~S5) ─────────────
-
-        /// <summary>저장 파일 위치(한 칸). 에디터·빌드 모두 Application.persistentDataPath 아래.</summary>
-        public string SavePath => System.IO.Path.Combine(Application.persistentDataPath, "desert_settlement_save.json");
-
-        public bool HasSave => System.IO.File.Exists(SavePath);
-
-        /// <summary>지금 캠페인을 저장한다(명령 기록 + 시드 + 지금 시간). 결과 문구를 돌려준다.</summary>
-        public string SaveGame()
-        {
-            if (!IsReady || Campaign == null) return "저장할 게임이 없습니다.";
-            try
-            {
-                SaveData data = DesertSettlement.Core.Progression.SaveGame.Capture(Campaign, DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
-                System.IO.File.WriteAllText(SavePath, SaveGameJson.Serialize(data));
-                Debug.Log($"[Save] {SavePath} — {data.Summary}, 명령 {data.Commands.Count}개");
-                return $"저장했습니다: {data.Summary}";
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[Save] 저장 실패: {e.Message}", this);
-                return "저장 실패: " + e.Message;
-            }
-        }
-
-        /// <summary>저장 파일을 읽어 같은 시드로 명령을 다시 실행해 캠페인을 되살린다. 결과 문구를 돌려준다.</summary>
-        public string LoadGame()
-        {
-            if (!HasSave) return "저장 파일이 없습니다.";
-            try
-            {
-                SaveData data = SaveGameJson.Deserialize(System.IO.File.ReadAllText(SavePath));
-                LoadData(out List<MapDefinition> definitions, out ProceduralMapConfig procedural);
-                var result = DesertSettlement.Core.Progression.SaveGame.Replay(Config, definitions, procedural, data);
-                foreach (string p in result.Problems) Debug.LogWarning("[Save] 복원 중 " + p);
-                IsReady = false;
-                Campaign = result.Campaign;
-                EnsureClock();
-                HookSettlement();
-                Clock.RestoreElapsedHours(Settlement?.CurrentHour ?? 0);
-                Clock.SetPaused(true); // 불러온 뒤에는 멈춘 상태로 시작
-                string warn = result.Problems.Count > 0 ? $" (경고 {result.Problems.Count}개, 콘솔 참고)" : "";
-                return $"불러왔습니다: {data.Summary}{warn}";
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[Save] 불러오기 실패: {e.Message}", this);
-                return "불러오기 실패: " + e.Message;
-            }
-        }
-
         private void OnHourPassed(GameTimeStamp _)
         {
             if (AcceptsWorldInput) Settlement.AdvanceHour();
@@ -203,7 +137,7 @@ namespace DesertSettlement.Runtime
         {
             if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement(offerIndex);
             Clock.ResetForNewSettlement();
-            // 새 정착지는 일시정지·1배속으로 시작한다(2026-10-23 플레이 피드백 CK2: 4배속 그대로 시작하면 맵을 보기도 전에 시간이 흐름).
+            // 새 정착지는 일시정지·1배속으로 시작한다(결정 CK2: 4배속 그대로 시작하면 맵을 보기도 전에 시간이 흐름).
             Clock.SetSpeedIndex(timeSettings.DefaultSpeedIndex);
             Clock.SetPaused(true);
             HookSettlement();
@@ -225,32 +159,6 @@ namespace DesertSettlement.Runtime
             Initialized?.Invoke();
         }
 
-        // ───────────── 경매·상점 명령(UI가 호출) ─────────────
-
-        public void SellTo(int bidIndex)
-        {
-            if (Auctions != null && Auctions.IsOpen) Auctions.Sell(bidIndex);
-        }
-
-        public void HoldAuction()
-        {
-            if (Auctions == null || !Auctions.IsOpen) return;
-            Auctions.Hold();
-            Clock.SetPaused(false);
-        }
-
-        public CommandResult BuyEquipment(string id) => Campaign.BuyEquipment(id);
-
-        /// <summary>상점에서 다음 지역 후보(offerIndex)를 골라 들어간다.</summary>
-        public void GoToNextSettlement(int offerIndex = 0)
-        {
-            if (Campaign.State != CampaignState.Shopping) return;
-            BeginSettlement(offerIndex);
-        }
-
-        /// <summary>파산 후(또는 아무 때나) 새 캠페인을 시작한다.</summary>
-        public void RestartCampaign() => Initialize();
-
         /// <summary>Core의 평면 좌표(X, Z)를 이 오브젝트 기준 월드 좌표로 바꾼다.</summary>
         public Vector3 ToWorld(HexPoint point, float height = 0f) =>
             transform.TransformPoint(new Vector3((float)point.X, height, (float)point.Z));
@@ -261,34 +169,5 @@ namespace DesertSettlement.Runtime
             Vector3 local = transform.InverseTransformPoint(world);
             return new HexPoint(local.x, local.z);
         }
-
-        /// <summary>지금 맵 파일의 샘플 배치를 예약한다. 실패한 항목 설명을 돌려준다.</summary>
-        public List<string> RequestSampleLayout()
-        {
-            List<string> failures = Campaign.CurrentMap.RequestSampleLayout(Settlement);
-            foreach (string m in failures) Debug.LogWarning("[GameSession] 샘플 배치 " + m);
-            return failures;
-        }
-
-        private MapDefinition FallbackMap()
-        {
-            var def = new MapDefinition { Id = "inspector", Name = "인스펙터 지형", Radius = mapRadius };
-            foreach (TerrainEntry t in terrain) def.Terrain.Add(new MapTerrainEntry { Q = t.q, R = t.r, Type = t.terrain.ToString() });
-            return def;
-        }
-
-        /// <summary>맵 파일이 없을 때의 대체 지형(맵 1과 같음).</summary>
-        public static List<TerrainEntry> DefaultTestTerrain() => new List<TerrainEntry>
-        {
-            new TerrainEntry(0, 0, TerrainType.WaterSource),
-            new TerrainEntry(-2, 2, TerrainType.WaterSource),
-            new TerrainEntry(2, 0, TerrainType.OreVein),
-            new TerrainEntry(-1, 3, TerrainType.OreVein),
-            new TerrainEntry(2, -1, TerrainType.Bedrock),
-            new TerrainEntry(-2, 0, TerrainType.Bedrock),
-            new TerrainEntry(0, -3, TerrainType.Obstacle),
-            new TerrainEntry(3, -2, TerrainType.Obstacle),
-            new TerrainEntry(-3, 1, TerrainType.Obstacle),
-        };
     }
 }

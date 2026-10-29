@@ -9,5 +9,6 @@
 | `work_items_2026-10-23.md` | 경매 주기·몰아짓기 방지·재해 4종 작업 목록 | 결정 표·`decision_log_auto.md` |
 | `review_2026-10-23.md` + 캡처 폴더 | 1차 전체 재검토(플레이·재미·코드 구조)와 개선 제안 1~7 | `decision_log_auto.md` UX·FB·CL 절 |
 | `playtest_checklist_2026-10-23.md` | 1차 플레이테스트 목록(54개, 모두 확인) | 체크리스트 웹 페이지·이슈 #14 |
+| `review_2026-10-29_maintainability.md` | 유지보수성 검토(어려운 점 세 갈래, 정리 목록 M1~M22) | 이슈 #19~#30(2026-10-30 모두 끝남), 원칙은 `CLAUDE.md`, 구조는 `Docs/code_guide.md` |
 
 문서를 여기로 옮길 때: `git mv`로 옮기고, 이 표에 한 줄 더하고, 다른 문서·코드 주석의 경로를 `Docs/archive/…`로 고친다.

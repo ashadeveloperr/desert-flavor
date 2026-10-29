@@ -216,7 +216,7 @@ namespace DesertSettlement.Core.Economy
         public double ProductionFactor(Facility f)
         {
             if (f == null) return 1;
-            if (f.Kind != BuildingKinds.Farm && f.Kind != BuildingKinds.Quarry && f.Kind != BuildingKinds.Mine) return 1;
+            if (SettlementRules.ResourceOf(f.Kind) == ResourceKind.None) return 1;
             double factor = 1;
             if (Epidemic.Active)
             {

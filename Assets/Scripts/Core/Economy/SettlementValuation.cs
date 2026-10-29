@@ -133,7 +133,7 @@ namespace DesertSettlement.Core.Economy
             bool stoneFromCapacity = false;
             if (s.Rules.StoneMultiplierUsesQuarryCapacity)
             {
-                double capacity = s.OperatingOf(BuildingKinds.Quarry).Sum(q => (s.LevelOf(q).StoneProduction ?? 0) * s.Rules.StoneOutputMultiplier);
+                double capacity = s.OperatingOf(BuildingKinds.Quarry).Sum(q => s.Rules.MaxOutput(q.Kind, s.LevelOf(q)));
                 if (capacity > stone) { stone = capacity; stoneFromCapacity = true; }
             }
             double mfRaw = 1 + (seed.FoodMaxMultiplier - 1) * Math.Min(1, food / seed.FoodProductionAverageForFullBonus);
@@ -207,20 +207,17 @@ namespace DesertSettlement.Core.Economy
                     if (bonus > 0) list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, 0, bonus * progress * ratio));
                 }
 
-                if (f.Kind != BuildingKinds.Farm && f.Kind != BuildingKinds.Quarry && f.Kind != BuildingKinds.Mine) continue;
+                ResourceKind resource = SettlementRules.ResourceOf(f.Kind);
+                if (resource == ResourceKind.None) continue;
                 if (assumed == null) assumed = s.SolveWaterAssumingJobsComplete();
 
                 BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
                 double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(f.Id.ToString()) : 1.0;
-                double perHour = Math.Min(s.Rules.EfficiencyCap, rate * s.FoodCoefficient);
-                // 개발 중 자산은 막 지은 시설이므로 숙성 시작 비율을 곱한다.
-                double amount = perHour * missingHours * progress * ratio * s.Rules.MaturityStartRatio;
-                switch (f.Kind)
-                {
-                    case BuildingKinds.Farm: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, amount * (lv.FoodProduction ?? 0) * s.Rules.FoodOutputMultiplier, 0, 0)); break;
-                    case BuildingKinds.Quarry: list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, amount * (lv.StoneProduction ?? 0) * s.Rules.StoneOutputMultiplier, 0)); break;
-                    case BuildingKinds.Mine: list.Add(new DevelopmentAsset(f.Id, f.Kind, amount * (lv.OreProduction ?? 0) * s.Rules.OreMultiplier, 0, 0, 0)); break;
-                }
+                // 완공 가정 물 배분의 기대 생산 × 실적이 없던 시간 × 진행률 × 비율. 막 지은 시설이므로 숙성 시작 비율을 곱한다.
+                double amount = s.Rules.Efficiency(rate, s.FoodCoefficient) * missingHours * progress * ratio * s.Rules.MaturityStartRatio
+                                * s.Rules.MaxOutput(f.Kind, lv);
+                list.Add(new DevelopmentAsset(f.Id, f.Kind,
+                    resource == ResourceKind.Ore ? amount : 0, resource == ResourceKind.Food ? amount : 0, resource == ResourceKind.Stone ? amount : 0, 0));
             }
             return list;
         }

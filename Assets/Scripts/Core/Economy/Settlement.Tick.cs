@@ -39,23 +39,19 @@ namespace DesertSettlement.Core.Economy
                     upkeep += lv.Upkeep ?? 0;
                     double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(facility.Id.ToString()) : 1.0;
                     double maturity = Rules.Maturity(h - facility.CompletedHour);
-                    double disaster = Disasters?.ProductionFactor(facility) ?? 1; // 전염병 피해(병원 인근은 절반)
-                    double amount;
-                    switch (facility.Kind)
+                    double amount = ProductionPerHour(facility, rate, f);
+                    switch (SettlementRules.ResourceOf(facility.Kind))
                     {
-                        case BuildingKinds.Farm:
-                            amount = (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier * Efficiency(rate, f) * disaster;
+                        case ResourceKind.Food:
                             food += amount;
                             foodValued += amount * maturity;
                             if (rate > 0) wateredFarm = true;
                             break;
-                        case BuildingKinds.Quarry:
-                            amount = (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier * Efficiency(rate, f) * disaster;
+                        case ResourceKind.Stone:
                             stone += amount;
                             stoneValued += amount * maturity;
                             break;
-                        case BuildingKinds.Mine:
-                            amount = (lv.OreProduction ?? 0) * Rules.OreMultiplier * Efficiency(rate, f) * disaster;
+                        case ResourceKind.Ore:
                             ore += amount;
                             oreValued += amount * maturity;
                             break;

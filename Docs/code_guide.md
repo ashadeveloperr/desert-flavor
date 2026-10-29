@@ -93,7 +93,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 ### 새 시설 종류
 1. JSON `buildingLevels`에 레벨표 2. `Core/Economy/FacilityCatalog.cs`에 한 줄(이름·분류·지형·색) — 둘이 어긋나면 설정 검증과 `FacilityCatalogTests`가 실패
 3. (선택) 모양 `Runtime/View/FacilityModels.cs`(없으면 상자)
-4. 생산 시설이면: `Settlement.OutputOf`, `Settlement.Tick.cs`의 생산 switch, `SettlementValuation`(개발 중 자산·채석장 능력), `Disasters.ProductionFactor`의 대상 목록 ⚠
+4. 생산 시설이면: `SettlementRules.ResourceOf`(만드는 자원)와 `MaxOutput`(레벨표 × 배율)에 한 줄씩. 정산(`AdvanceHour`)·화면 예상치(`OutputOf`)·경매 가치(개발 중 자산·채석장 능력)·재해 배율이 모두 이 둘을 쓴다(결정 PR1). 식량·석재·광물이 아닌 새 자원이면 `ResourceKind`, `AdvanceHour`의 자원별 합계, `HourRecord`, 경매 가치까지 손대야 한다
 5. 경매 가치 인프라 보너스가 있으면: `InfraMultipliers`(EconomyConfig) + `SettlementValuation.InfraTable`에 한 줄(운영 중 합계와 공사 중 보너스가 함께 씀, 몇 개든 한 번만 세면 Once)
 
 ### 새 플레이어 명령

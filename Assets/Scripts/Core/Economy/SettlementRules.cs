@@ -196,5 +196,34 @@ namespace DesertSettlement.Core.Economy
 
         public BuildingLevel Level(string kind, int level) =>
             Config.GetLevel(kind, level) ?? throw new ArgumentException($"설정에 {kind} L{level}이 없습니다.");
+
+        // ── 생산(결정 PR1): 생산 시설 목록과 생산 공식은 여기 하나다. 정산·예상치·경매 가치·재해가 모두 이것을 쓴다. ──
+
+        /// <summary>시설 종류가 만드는 자원(농장 식량·채석장 석재·광산 광물). 생산 시설이 아니면 None.</summary>
+        public static ResourceKind ResourceOf(string kind)
+        {
+            switch (kind)
+            {
+                case BuildingKinds.Farm: return ResourceKind.Food;
+                case BuildingKinds.Quarry: return ResourceKind.Stone;
+                case BuildingKinds.Mine: return ResourceKind.Ore;
+                default: return ResourceKind.None;
+            }
+        }
+
+        /// <summary>물·식량 100%일 때 시간당 생산량 = 레벨표 생산량 × 자원별 배율(장비·지역 효과 포함). 생산 시설이 아니면 0.</summary>
+        public double MaxOutput(string kind, BuildingLevel lv)
+        {
+            switch (ResourceOf(kind))
+            {
+                case ResourceKind.Food: return (lv.FoodProduction ?? 0) * FoodOutputMultiplier;
+                case ResourceKind.Stone: return (lv.StoneProduction ?? 0) * StoneOutputMultiplier;
+                case ResourceKind.Ore: return (lv.OreProduction ?? 0) * OreMultiplier;
+                default: return 0;
+            }
+        }
+
+        /// <summary>생산 효율 = 물 공급률 × 식량 계수, 지역·장비의 효율 상한(<see cref="EfficiencyCap"/>)을 넘지 않는다.</summary>
+        public double Efficiency(double waterRate, double foodCoefficient) => Math.Min(EfficiencyCap, waterRate * foodCoefficient);
     }
 }

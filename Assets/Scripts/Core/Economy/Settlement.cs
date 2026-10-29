@@ -107,26 +107,22 @@ namespace DesertSettlement.Core.Economy
             return LastWater?.RateOf(f.Id.ToString()) ?? 0.0;
         }
 
-        /// <summary>생산 효율 = 물 공급률 × 식량 계수, 지역·장비의 효율 상한(고지대 90% 등)을 넘지 않는다.</summary>
-        private double Efficiency(double waterRate, double foodCoefficient) => Math.Min(Rules.EfficiencyCap, waterRate * foodCoefficient);
+        /// <summary>
+        /// 운영 중인 시설의 시간당 생산량 = 최대 생산(<see cref="SettlementRules.MaxOutput"/>) × 효율(물 공급률 × F, 상한) × 재해 배율.
+        /// 정각 정산(<see cref="AdvanceHour"/>)과 화면 예상치(<see cref="OutputOf"/>)가 함께 쓴다. 생산 시설이 아니면 0.
+        /// </summary>
+        private double ProductionPerHour(Facility f, double waterRate, double foodCoefficient) =>
+            Rules.MaxOutput(f.Kind, LevelOf(f)) * Rules.Efficiency(waterRate, foodCoefficient) * (Disasters?.ProductionFactor(f) ?? 1);
 
         /// <summary>시설의 시간당 생산·식량 소비 예상치. 운영 중이 아니면 생산·소비 모두 0.</summary>
         public FacilityOutput OutputOf(Facility f)
         {
             BuildingLevel lv = LevelOf(f);
-            ResourceKind resource;
-            double max;
-            switch (f.Kind)
-            {
-                case BuildingKinds.Farm: resource = ResourceKind.Food; max = (lv.FoodProduction ?? 0) * Rules.FoodOutputMultiplier; break;
-                case BuildingKinds.Quarry: resource = ResourceKind.Stone; max = (lv.StoneProduction ?? 0) * Rules.StoneOutputMultiplier; break;
-                case BuildingKinds.Mine: resource = ResourceKind.Ore; max = (lv.OreProduction ?? 0) * Rules.OreMultiplier; break;
-                default: resource = ResourceKind.None; max = 0; break;
-            }
+            ResourceKind resource = SettlementRules.ResourceOf(f.Kind);
+            double max = Rules.MaxOutput(f.Kind, lv);
             if (!f.IsOperating) return new FacilityOutput(resource, 0, max, 0, 0, FoodCoefficient);
             double rate = WaterRateOf(f);
-            double produced = resource == ResourceKind.None ? 0 : max * Efficiency(rate, FoodCoefficient) * (Disasters?.ProductionFactor(f) ?? 1);
-            return new FacilityOutput(resource, produced, max, lv.FoodUse ?? 0, rate, FoodCoefficient);
+            return new FacilityOutput(resource, ProductionPerHour(f, rate, FoodCoefficient), max, lv.FoodUse ?? 0, rate, FoodCoefficient);
         }
 
         // ───────────────────────── 내부 도우미 ─────────────────────────

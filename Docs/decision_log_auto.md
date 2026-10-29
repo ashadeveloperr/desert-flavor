@@ -749,3 +749,11 @@ D=1 도달은 모두 6번째.
 
 함께: code_guide 4절 '새 스크립트 파일'에 '세션 컴포넌트는 EnsureComponents + 씬 재구성', 7절의 '실행 중 자동으로 붙는 컴포넌트' 함정 삭제, '무엇을 바꾸려면' 표의 모래언덕·강조 행 정리.
 검증: 시뮬레이터 '모든 검증 통과'(출력 #25와 같음), EditMode 181 · PlayMode 10 통과, 컴파일 경고 0. 배치 실행 뒤 원본에서 바뀐 파일은 SampleScene뿐. 화면이 이전과 같은지는 4차 플레이테스트 E절 5번에서 확인.
+
+## 생산 공식 한 곳으로 (2026-10-30 — 이슈 #22, 유지보수성 검토 M6, 사용자: "#22 시작")
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| PR1 | 생산 시설 목록과 생산 공식을 `SettlementRules` 한 곳에: `ResourceOf(kind)`(농장 식량·채석장 석재·광산 광물, 아니면 None), `MaxOutput(kind, level)`(레벨표 생산량 × 자원별 배율), `Efficiency(물, F)`(상한 적용, `Settlement`의 private에서 옮김). 정산(`AdvanceHour`)과 화면 예상치(`OutputOf`)는 `Settlement.ProductionPerHour`(최대 × 효율 × 재해)를 함께 쓰고, 경매 가치(개발 중 자산·채석장 능력)와 재해 배율(`ProductionFactor`의 대상)도 이 함수들을 쓴다 | [자동] | 같은 공식이 네 곳, 생산 시설 목록이 두 곳에 있어 한 곳만 고치면 화면 예상치와 실제가 어긋날 수 있었다. 새 생산 시설은 두 switch에 한 줄씩(code_guide 4절) | `SettlementRules.cs`, `Settlement.cs`, `Settlement.Tick.cs`, `SettlementValuation.cs`, `Disasters.cs` |
+
+검증: 시뮬레이터 출력 전체가 바꾸기 전과 같음(v0.8 회귀값·교차 검증 그대로), `-- savecheck` 통과, EditMode 181 · PlayMode 10 통과, 숙련 봇 `-- mods campaign 0.25 14000 30 smart` 출력도 #19 때와 같음. 시뮬레이터 봇(`SkilledBot`)의 광물량 비교는 게임 규칙이 아니라 봇의 판단용이라 그대로 둠.

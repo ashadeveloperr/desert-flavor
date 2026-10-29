@@ -5,9 +5,10 @@ using DesertSettlement.Core.Progression;
 namespace DesertSettlement.Core.Economy
 {
     /// <summary>
-    /// 플레이어 명령의 공개 진입점(2026-10-23 저장·불러오기, 로드맵 2-①). 실제 처리는 Settlement.cs의 Do… 메서드가 하고,
+    /// 플레이어 명령의 공개 진입점. 실제 처리는 Settlement.Actions.cs의 Do… 메서드가 하고,
     /// 성공한 명령만 <see cref="CommandRecorded"/>로 알린다. 캠페인이 이것을 모아 저장 파일의 명령 기록을 만든다
-    /// (불러오기 = 같은 시드로 명령을 다시 실행, <see cref="SaveGame"/>). Docs/decision_log_auto.md S1~S5.
+    /// (불러오기 = 같은 시드로 명령을 다시 실행, <see cref="SaveGame"/>, 결정 S1~S5).
+    /// 새 명령을 더하면 <see cref="GameCommand"/>의 종류 상수와 <see cref="SaveGame"/>.Apply의 case도 함께 더한다.
     /// </summary>
     public sealed partial class Settlement
     {

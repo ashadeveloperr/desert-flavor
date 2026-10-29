@@ -11,19 +11,14 @@ namespace DesertSettlement.Core.Economy
     /// <summary>
     /// 정착지 하나의 경제 상태와 규칙. 게임 시계의 정각마다 <see cref="AdvanceHour"/>를 한 번 호출한다.
     ///
-    /// 경제 틱 순서 (C1 확정, economy_balance_v0.8.md 209행):
-    ///   1. 이 시각에 끝나는 공사 완료
-    ///   2. 대기열 착공 (FIFO, 작업 슬롯 수까지, 착공 시 석재 차감)
-    ///   3. 물 배분 및 시설 상태 스냅샷
-    ///   4. 생산(물 가동률 × 식량 계수 F) · 고정 식량 소비
-    ///   5. 유지비
-    ///   6. 저장 한도 적용 · 넘친 생산 폐기
-    ///   7. 다음 시간의 F 갱신
-    /// 플레이어 명령(건설 예약·구매·폐쇄 등)은 틱 사이에 즉시 반영되고, 착공은 다음 틱에서 일어난다.
+    /// 경제 틱 순서는 economy_balance_v0.8.md 209행(결정 C1)을 따르고, 그 앞뒤에 재해·시장 단계가 붙는다.
+    /// 실제 순서는 <see cref="AdvanceHour"/>(Settlement.Tick.cs) 본문의 단계 주석과 Docs/code_guide.md 3-2절.
+    /// 플레이어 명령(건설 예약·구매·폐쇄 등)은 틱 사이에 즉시 반영되고, 설정 <c>startJobsOnCommand</c>가 켜져 있으면
+    /// 착공도 명령 순간에 일어난다(진행 중인 시간을 첫 1시간으로 센다, 결정 JQ2). 끄면 다음 틱에서 착공한다(원본 v0.8).
     ///
-    /// 원본 v0.8 시뮬레이터(Tools/desert_balance_sim_v08.py)와 같은 계산을 하며, 회귀값은 EditMode 테스트로 고정돼 있다.
-    /// 파일 나눔(2026-10-24): 상태·조회·내부 도우미 = 이 파일, 명령 처리 = Settlement.Actions.cs, 명령 기록 = Settlement.Commands.cs,
-    /// 경제 틱·작업 큐 = Settlement.Tick.cs, 물 계산 = Settlement.Water.cs, 물탱크 = Settlement.WaterTanks.cs.
+    /// 원본 v0.8 시뮬레이터와 같은 계산을 하며(나중에 넣은 규칙을 끈 상태), 회귀값은 EditMode 테스트와 Tools/SettlementSim으로 고정돼 있다.
+    /// 파일 나눔: 상태·조회·내부 도우미 = 이 파일, 명령 처리(Do*·Can*) = Settlement.Actions.cs, 공개 명령·기록 = Settlement.Commands.cs,
+    /// 경제 틱·작업 큐 = Settlement.Tick.cs, 물 계산 = Settlement.Water.cs, 물탱크 = Settlement.WaterTanks.cs, 구매·판매·시장 가격 = Settlement.Market.cs.
     /// </summary>
     public sealed partial class Settlement
     {
@@ -56,20 +51,6 @@ namespace DesertSettlement.Core.Economy
         /// <summary>가장 최근 틱의 수로망(운영 중인 수로만).</summary>
         public CanalGraph LastCanals { get; private set; }
 
-        public int FoodBought { get; private set; }
-        public int StoneBought { get; private set; }
-        public double FoodSpent { get; private set; }
-        public double StoneSpent { get; private set; }
-        public int FoodSold { get; private set; }
-        public int StoneSold { get; private set; }
-        public double FoodEarned { get; private set; }
-        public double StoneEarned { get; private set; }
-        /// <summary>구매 압력(살 때마다 +1, 매시간 회복). 다음 구매 단가 = 기준가 × 배율^압력. 2026-10-27 이슈 #18.</summary>
-        public double FoodBuyPressure { get; private set; }
-        public double StoneBuyPressure { get; private set; }
-        /// <summary>판매 압력(팔 때마다 +1, 매시간 회복). 판매 단가 = 판매 기준가 × (1 − (압력 ÷ 한도)²).</summary>
-        public double FoodSellPressure { get; private set; }
-        public double StoneSellPressure { get; private set; }
         public double FoodDiscarded { get; private set; }
         public double StoneDiscarded { get; private set; }
         public double TotalFoodShortage { get; private set; }
@@ -189,74 +170,6 @@ namespace DesertSettlement.Core.Economy
             double added = Math.Min(room, Math.Max(0, amount));
             Stone += added;
             StoneDiscarded += Math.Max(0, amount) - added;
-        }
-
-        private int Buy(int units, bool isFood)
-        {
-            if (units <= 0) return 0;
-            double stock = isFood ? Food : Stone;
-            double cap = isFood ? FoodCapacity : StoneCapacity;
-            int count = Math.Min(units, Math.Max(0, (int)(cap - stock)));
-            int bought = 0;
-            for (int i = 0; i < count; i++)
-            {
-                double price = NextPrice(isFood);
-                if (Cash < price) break;
-                Cash -= price;
-                if (isFood) { Food += 1; FoodBought++; FoodBuyPressure += 1; FoodSpent += price; }
-                else { Stone += 1; StoneBought++; StoneBuyPressure += 1; StoneSpent += price; }
-                bought++;
-            }
-            return bought;
-        }
-
-        /// <summary>시장 판매(1단위씩, 판매가 2차 하락). 운영 중인 시장이 있을 때만, 값이 0이 되면 멈춘다. 실제 판매 수를 돌려준다.</summary>
-        private int Sell(int units, bool isFood)
-        {
-            if (units <= 0 || !HasMarket) return 0;
-            int sold = 0;
-            for (int i = 0; i < units; i++)
-            {
-                if ((isFood ? Food : Stone) < 1 - 1e-9) break;
-                double price = NextSellPrice(isFood);
-                if (price <= 1e-9) break;
-                Cash += price;
-                if (isFood) { Food -= 1; FoodSold++; FoodSellPressure += 1; FoodEarned += price; }
-                else { Stone -= 1; StoneSold++; StoneSellPressure += 1; StoneEarned += price; }
-                sold++;
-            }
-            return sold;
-        }
-
-        /// <summary>
-        /// 남은 식량·석재를 지금 판매가 곡선대로 전부 판다(매각 정산, 2026-10-27 이슈 #18). 시장이 없거나 시장 규칙이 없으면 0.
-        /// 플레이어 명령이 아니라 매각의 결과라 명령 기록에 남기지 않는다(불러오기는 매각 명령을 다시 실행해 같은 결과).
-        /// </summary>
-        public double LiquidateStock()
-        {
-            if (Rules.Trade == null || !HasMarket) return 0;
-            double before = Cash;
-            Sell(int.MaxValue, isFood: true);
-            Sell(int.MaxValue, isFood: false);
-            return Cash - before;
-        }
-
-        /// <summary>운영 중인 시장 수(2026-10-27 이슈 #18).</summary>
-        public int MarketCount => OperatingOf(BuildingKinds.Market).Count();
-
-        /// <summary>시장이 있어 판매할 수 있고 상인 할증 없이 살 수 있는지. 시장 규칙이 없으면(원본 v0.8) 언제나 true.</summary>
-        public bool HasMarket => Rules.Trade == null || MarketCount > 0;
-
-        /// <summary>시장 규칙이 있을 때 매시간 구매·판매 압력을 일정 비율(시장 수 배율 적용)로 0을 향해 줄인다.</summary>
-        private void RecoverPrices()
-        {
-            TradeSettings t = Rules.Trade;
-            if (t == null) return;
-            double keep = 1 - Math.Max(0, Math.Min(1, t.RecoveryPerHour * t.RecoveryFactor(MarketCount)));
-            FoodBuyPressure *= keep;
-            StoneBuyPressure *= keep;
-            FoodSellPressure *= keep;
-            StoneSellPressure *= keep;
         }
     }
 }

@@ -287,7 +287,7 @@ namespace DesertSettlement.Core.Config
 
     /// <summary>buildingLevels의 키. 오타 방지를 위해 문자열 대신 이 상수를 쓴다.</summary>
     /// <summary>
-    /// 재해 설정(2026-10-23 확정 규칙, 수치 잠정). Docs/work_items_2026-10-23.md 4번.
+    /// 재해 설정(2026-10-23 확정 규칙, 수치 잠정). Docs/archive/work_items_2026-10-23.md 4번.
     /// 정착지마다 1~2번(가끔 0번), 첫 GraceHours 동안은 없음, 시작 WarningHours 전에 예고, 여러 재해가 겹칠 수 있음.
     /// </summary>
     public sealed class DisasterSettings
@@ -347,7 +347,7 @@ namespace DesertSettlement.Core.Config
 
     /// <summary>
     /// 전염병(사용자 정의 모델): 심각도 S가 천천히 오르고, 피해 = S × (1 − 저항력 R)만큼 생산 시설 효율이 준다.
-    /// R은 피해가 클수록 빨리 오르고, R ≥ S이면 S가 줄어 0이 되면 끝난다(둘 다 100%에 붙어 끝나지 않는 일을 막으려고 ≥). 끝난 뒤 R은 천천히 줄어든다(장비가 준 시작값 아래로는 안 내려감).
+    /// R은 피해가 클수록 빨리 오르고, R ≥ <see cref="SeverityFallResistanceRatio"/> × S이면 S가 줄어 0이 되면 끝난다. 끝난 뒤 R은 천천히 줄어든다(장비가 준 시작값 아래로는 안 내려감).
     /// </summary>
     public sealed class EpidemicSettings
     {
@@ -362,8 +362,9 @@ namespace DesertSettlement.Core.Config
         /// 1이면 예전 규칙(R ≥ S)인데, 그러면 R이 S를 따라잡지 못해 심각도가 100%에 붙었다(2차 플레이테스트).
         /// </summary>
         public double SeverityFallResistanceRatio { get; set; } = 0.7;
-        /// <summary>전염병 중 시간당 저항력 상승 = 기본값 + 이 값 × 현재 피해. B3 결정: 0.04(처음 0.06).</summary>
+        /// <summary>전염병 중 시간당 저항력 상승의 기본값(피해와 상관없이 오르는 몫). 상승 = 이 값 + <see cref="ResistancePerDamage"/> × 현재 피해.</summary>
         public double ResistanceBasePerHour { get; set; } = 0.002;
+        /// <summary>전염병 중 시간당 저항력 상승에서 현재 피해에 곱하는 값(결정 B3).</summary>
         public double ResistancePerDamage { get; set; } = 0.04;
         /// <summary>전염병이 끝난 뒤 시간당 저항력 감소.</summary>
         public double ResistanceDecayPerHour { get; set; } = 0.005;

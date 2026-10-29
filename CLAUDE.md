@@ -3,156 +3,95 @@
 > **가장 먼저 지킬 규칙: 사용자에게 보이는 모든 글은 한국어로 쓴다.** 답변·진행 안내·도구 호출 사이의 짧은 문장·마무리 요약·질문과 선택지·버튼 문구까지 전부. 영어로 쓰지 않는다(코드·커밋 메시지·파일 이름은 예외).
 
 사막 정착지 경영 시뮬레이션(Desert Settlement Simulator) — Unity 3D 헥스타일 기반 정착지 개발·생산망·경매 경영 게임 프로토타입.
-현재 Core에 헥스 그리드·수로 그래프·GameClock·설정 로딩·물 배분·정착지 경제(건설 큐·생산·식량·유지비·가치 평가)까지 구현됐고,
-`SampleScene`에서 임시 그래픽·IMGUI 건설 UI·탑다운 카메라로 플레이할 수 있다.
-경매(입찰자 예고·당일 시세·입찰자 6종(산업가·농장주·유통 사업가·건설업자·수자원 사업자·부동산 개발업자)·긴급 매각·파산)와 캠페인(매각 → 장비 상점 → 다음 정착지: 첫 정착지는 고정 맵 1, 이후 보유 자금 비례 난이도의 BSP 절차 생성 맵)까지 MVP 루프가 돈다.
-구현 결정 기록과 수정 가이드: `Docs/implementation_notes.md`. 진행 중 작업 목록: `Docs/work_items_2026-10-23.md`. 초기 기획 완성까지 남은 작업·순서: `Docs/roadmap_2026-10-23.md`.
-**다른 PC·새 세션에서 이어 갈 때는 먼저 `Docs/handoff.md`를 읽는다**(준비 절차·현재 상태·다음 할 일).
-2026-10-26부터 남은 작업은 GitHub 이슈로 관리한다(origin 개인 포크). 고정된 순서표 이슈 **#14**에 처리 순서와 플레이테스트 기록이 있다: `gh issue view 14 -R ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`.
+헥스 맵·수로 물 배분·건설 큐·생산·식량·경매(입찰자 6종)·재해 4종·시장·캠페인(매각 → 행선지 → 장비 상점 → 다음 정착지, 2번째부터 자금 비례 난이도의 절차 생성 맵)까지 MVP 루프가 돈다.
+그래픽은 기본 도형, UI는 코드로 만든 uGUI다.
+
+**새 세션·다른 PC에서 이어 갈 때는 먼저 `Docs/handoff.md`를 읽는다**(준비 절차·현재 상태·다음 할 일). 남은 작업은 GitHub 이슈로 관리하고, 고정된 순서표 이슈 **#14**에 처리 순서와 플레이테스트 기록이 있다:
+`gh issue view 14 -R ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr --comments`.
+
+## 문서 지도 — 한 사실은 한 곳에
+
+| 알고 싶은 것 | 단일 출처 |
+|---|---|
+| 처음 보는 사람용 개요·실행 방법 | `README.md` |
+| 코드 구조, 한 시간의 흐름, X를 바꾸려면 어디를 고치나, 확인 방법, 함정 | `Docs/code_guide.md` |
+| 지금 수치 | `Assets/Data/Config/economy_balance_v0.8_config.json`, `procedural_map_config.json` (+ 씬 인스펙터) |
+| 무엇을 정했나(한 줄) → 왜 그렇게 정했나(근거·측정·다른 안) | `Docs/implementation_notes.md`(결정 표) → `Docs/decision_log_auto.md`(결정 번호로 찾기) |
+| 할 일·진행·플레이테스트 기록 | GitHub 이슈(#14 순서표) |
+| 지금 상태와 다음 할 일 | `Docs/handoff.md` |
+| 기획 원본 | `Docs/desert_settlement_game_design_checkpoint_2026-10-20.md` > `economy_balance_v0.8.md` > `economy_food_storage_v0.6.md` > `desert_settlement_concept_plan_v4.html`(수로 설명은 오래됨). 이후 바뀐 것은 결정 표가 우선 |
+| 끝난 작업의 기록(고치지 않음) | `Docs/archive/` |
+
+수로는 육각형 **변(Edge)**, 분기점은 **꼭짓점(Vertex)** 기준이다.
+
+## 유지보수 원칙 (2026-10-29, 모든 변경에 적용)
+
+목표: **사용자가 Claude 없이도 코드를 읽고 고칠 수 있는 상태를 유지한다.** 기능을 더할 때마다 이해하기 어려운 곳이 늘지 않게 한다.
+
+**한 사실은 한 곳에**
+- 수치는 설정 JSON(또는 인스펙터)에만 둔다. 문서·주석에는 값을 베끼지 않고 키 이름을 적는다(예: "경매 주기는 `auction.auctionRepeatsGameHours`"). 값을 꼭 적어야 하면 "(지금 48)"처럼 바뀔 수 있음을 드러낸다.
+- 같은 계산을 두 곳에 쓰지 않는다. Runtime은 Core의 조회 메서드(`OutputOf`, `JobHours`, `Can*`)를 부르고, Core 안에서도 같은 공식은 도우미 하나로 모은다.
+- 같은 내용을 여러 문서에 쓰지 않는다. 위 문서 지도의 단일 출처에 쓰고, 다른 곳에서는 링크만 한다.
+
+**주석은 지금의 코드를 설명한다**
+- 주석에는 **무엇을 하는지와 왜 그런지**만 쓴다. 날짜·이슈 번호·"원래 X였다" 같은 연혁은 커밋 메시지와 `decision_log_auto.md`에 둔다. 결정을 가리킬 때는 "(결정 AU1)"처럼 짧게.
+- 코드를 바꾸면 그 코드를 설명하는 주석(클래스 머리 주석의 순서·목록 포함)도 같은 커밋에서 고친다.
+- 공개 타입·메서드에는 한국어 요약 주석을 단다.
+
+**구조**
+- 규칙은 Core(순수 C#), 표시·입력은 Runtime, 조정할 숫자는 설정 JSON·인스펙터.
+- 파일이 약 300줄, 메서드가 약 60줄을 넘으면 나눌지 먼저 검토한다(목적별 partial 파일, 이름 있는 도우미 메서드).
+- 확장 지점은 한 곳에 모은다(예: 시설 종류는 `FacilityCatalog` 한 목록). 빠뜨리면 **오류 없이 조용히 틀어지는 곳**이 생기면 테스트로 막거나, 막을 수 없으면 `code_guide.md` 4절 체크리스트에 ⚠로 적는다.
+- `Runtime/Legacy/`(예전 IMGUI 화면)에는 새 기능을 넣지 않는다.
+- 시뮬레이터의 일회성 측정 모드는 결정이 끝나면 머리 주석에 "결정 완료(결정 번호)"를 적거나 지운다.
+- 큰 구조 변경(동작이 바뀔 수 있는 정리, 파일 대량 이동)은 이슈로 만들어 사용자와 순서를 정한 뒤 한다.
+
+**변경을 마칠 때 체크리스트**(커밋 전)
+1. `dotnet run --project Tools/SettlementSim`과 `bash Tools/unity-tests.sh All` 통과.
+2. 정한 것이 있으면 결정 표에 한 줄 + `decision_log_auto.md`에 근거.
+3. 파일 추가·이동, 흐름·확장 지점 변경이 있으면 `Docs/code_guide.md`를 같은 커밋에서 고친다.
+4. 새 스크립트의 `.meta`, 시뮬레이터가 링크하는 폴더면 `Tools/SettlementSim/SettlementSim.csproj`.
+5. 손댄 파일에서 본 낡은 주석·연혁 주석은 그 자리에서 정리한다(손대지 않은 파일은 일부러 고치지 않는다).
+6. `Docs/handoff.md`에는 지금 상태와 다음 할 일만 남긴다(지난 기록은 이슈 댓글·결정 기록으로).
+
+## 작업 방식 (사용자 선호)
+
+- [미정] 항목은 사용자 결정 없이 확정하지 않는다. 정할 것은 하나씩 설명하고 추천안을 첫 번째로 두고 묻는다.
+- 이슈 하나씩 처리한다: 이슈 읽기 → [질문]을 하나씩 → 구현 → 시뮬레이터·Unity 테스트 → 결정 표·결정 기록 갱신 → 결과 댓글 초안 → 사용자가 요청하면 커밋·푸시·댓글·닫기·#14 체크.
+- 커밋·푸시는 요청받았을 때만, 푸시는 origin(개인 포크)만. upstream(`KooHoo-Dev`)에는 푸시하지 않는다.
+- 밸런스는 바로 고치지 않고 시뮬레이터로 재현·비교해 후보를 표로 보여 준 뒤 고르게 한다.
+- 플레이테스트 결과(확인·문제·메모)는 **반드시 기록**하고(체크리스트 웹 페이지 → #14나 이슈), 다음 체크리스트에는 **고친 부분·새 기능만** 넣는다.
+- Unity 테스트는 `bash Tools/unity-tests.sh`(테스트 전용 사본)로 돌린다. 사용자가 연 에디터를 쓰거나 닫아 달라고 하지 않는다. 원본에 결과를 남겨야 하는 배치 작업(빌드, `-executeMethod`)만 예외이고 그때는 먼저 묻는다.
+- 사용자가 맵 스케치(`Assets/Data/MapSketches/*.json`)로 예시를 주면 JSON을 읽어 정확한 좌표·지형을 확인한다.
 
 ## 환경
 
-- **Unity 버전:** 6000.3.15f1 (revision c1aa84e375f6) — `ProjectSettings/ProjectVersion.txt`
-- **Unity.exe:** `C:\Program Files\Unity\Hub\Editor\6000.3.15f1\Editor\Unity.exe`
-  - 같은 PC에 6000.3.9f1도 설치돼 있으니 혼동 주의. 다른 버전으로 열면 패키지 재해석/업그레이드가 발생한다.
-- **렌더 파이프라인:** URP 17.3.0 (PC / Mobile RP Asset 분리, `Assets/Settings`)
-- **주요 패키지:** Input System 1.19.0, Cinemachine 3.1.7, AI Navigation 2.0.12, ProBuilder 6.0.9,
-  Test Framework 1.6.0, Newtonsoft Json 3.2.2, UniTask(Git URL), Timeline, uGUI, Visual Scripting
-- **플랫폼:** Windows 11. 셸은 PowerShell(기본)과 Git Bash.
-
-## 폴더 구조
-
-```
-Assets/
-  Scenes/SampleScene.unity        # 플레이 씬: 디버그 세션(GameSession·카메라·조명)이 들어 있다 (빌드 설정에 등록된 유일한 씬)
-  Settings/                       # URP 에셋·렌더러·볼륨 프로파일
-  InputSystem_Actions.inputactions
-  Data/Config/economy_balance_v0.8_config.json   # 경제 수치 원본 (TextAsset)
-  Data/Config/procedural_map_config.json        # 절차 맵 난이도 곡선·생성 규칙 수치 (TextAsset)
-  Scripts/
-    Core/     # DesertSettlement.Core — 순수 C# 규칙 (noEngineReferences). Hex/ Canal/ Timing/ Config/
-    Runtime/  # DesertSettlement.Runtime — MonoBehaviour. 루트 = GameSession·입력·카메라·기록, UI/ = 정식 UI, View/ = 맵 표시(시설 모양·색·조명·물길), Legacy/ = 예전 IMGUI 화면(F1), Tools/ = 맵 스케치·디버그 보기
-    Editor/   # DesertSettlement.EditorTools — 에디터 메뉴
-  Tests/EditMode/                 # DesertSettlement.Core.Tests (NUnit)
-Packages/                         # manifest.json, packages-lock.json
-ProjectSettings/
-Docs/                             # 기획 문서 (Assets 밖에 두어 Unity 임포트 제외)
-Tools/
-  desert_balance_sim_v08.py       # 경제 밸런스 시뮬레이터 (Python 표준 라이브러리만)
-  balance_output/                 # 시뮬레이터 결과 (git 무시)
-```
-
-Git 무시: `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/`, `Tools/balance_output/`.
-
-## 주요 스크립트 / 문서
-
-- **`Core/Hex`:** Pointy-top axial `HexCoord`, `HexLayout`(월드 좌표), `HexMap`(반경 3~7), 공유 꼭짓점·변의 정규화 키
-  `VertexId`(타일의 N/S 꼭짓점) / `EdgeId`(타일의 E/SE/SW 변), `HexTopology`(타일↔변↔꼭짓점 조회, 경계 포함).
-- **`Core/Canal/CanalGraph`:** 변 위 수로 설치·제거·레벨·막힌 변(닫힌 수로 표현, 2026-10-23 수문 폐지), 꼭짓점 간 경로 길이(변 개수, 막힌 변 차단), 연결 요소, 순환 감지.
-- **`Core/Water/WaterNetworkSolver`:** 확정 규칙 W1~W6(`Docs/implementation_notes.md`)의 물 배분. 우물 타일 꼭짓점 방출 → 우물별 최단 경로 트리
-  → 시설은 타일 꼭짓점 중 수로가 닿은 점에서 여러 경로·여러 우물로 취수 → 반쪽 변 거리 오름차순(상류 우선)·동순위 수요 비례 progressive filling,
-  변 입구 용량·우물 생산량 제약. 우물과 꼭짓점을 공유한 시설의 거리 0 취수는 용량을 쓰지 않고 `DirectIntakeLoads`(이어 준 수로별, 표시용)로 따로 집계(2026-10-26 WD1). 수치는 `WaterNetworkSettings.FromConfig`. `Tools/SettlementSim`의 프로토타입과 교차 검증된다.
-- **`Core/Timing/GameClock`:** 1배속 하루 180초(설정 JSON, 2026-10-23 흐름 조정. 건설·개량·철거 시간은 `constructionHoursMultiplier` 0.5), 정착지마다 1일차 12:00 시작, 낮 05:00~밤 20:00, 정각/자정/낮밤 전환 이벤트(누락 없이 순서대로). 설정은 `GameTimeSettings`(조명 `DayNightLighting`도 이 값을 따름).
-- **`Core/Config`:** `EconomyConfigLoader.Parse(json)` → `EconomyConfig`(Newtonsoft). 스키마·필수 필드 검증.
-- **시설 종류 목록 `Core/Economy/FacilityCatalog`(2026-10-24):** 이름·도구 막대 분류·지을 수 있는 지형·기본 색. **새 시설 = JSON `buildingLevels` + 이 목록 한 줄**(모양은 선택, `Runtime/View/FacilityModels`).
-- **`Core/Economy/Settlement`:** 정착지 상태(자금·식량·석재·F·시설·작업)와 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄(수로 폐쇄 = 물길 차단)·구매·시장 판매), 파일은 목적별 partial(명령 처리 `Settlement.Actions.cs`, 명령 기록 `.Commands.cs`, 경제 틱·작업 큐 `.Tick.cs`, 물 계산 `.Water.cs`, 물탱크 `.WaterTanks.cs`),
-  `AdvanceHour()` 경제 틱(v0.8 209행 순서, FIFO 2슬롯, 철거는 막힌 작업을 건너뜀). 명령은 순간 착공하고 진행 중인 시간을 첫 1시간으로 센다(2026-10-26 JQ2, 설정 `startJobsOnCommand`, v0.8 회귀 비교는 끔). 규칙 값은 `SettlementRules.FromConfig`, 가치는 `SettlementValuation.Evaluate`.
-  `OutputOf(facility)`로 시간당 생산·소비 예상치. 경매 가치는 가동 숙성(막 지은 생산 시설 70% → 48h 100%)과 석재 배율의 채석장 능력을 반영(2026-10-23, v0.8 회귀 비교 때는 끔). 회귀값(v0.8 스크립트 + 꼭짓점 취수 + 배율 폐기분 포함 + 광물 가치 계수 2.5:
-  첫 경매 133h·현금 540.05·V 1149.63·보류 전략 1959.54)을 테스트와 `Tools/SettlementSim` 교차 검증으로 고정.
-  무료 완공 배치(`SettlementRules.FreeBuilds`, 농장주 혜택)는 `RequestBuild`가 대기열 없이 바로 운영 시설을 만든다. 원본 v0.8 값과 다른 이유는 `Docs/implementation_notes.md` 참고.
-- **`Core/Economy/Disasters`:** `DisasterManager`(캠페인이 정착지마다 붙임) — 재해 일정(시드 결정론, 36h 유예·48h 창(2026-10-26 AU2), 0~2번, 6h 예고, 4종: 전염병·모래폭풍·메뚜기떼·작물 탄저병, 지역 약점별 가중치), 전염병 심각도·저항력, 모래폭풍(수로 손실·공사 속도)·메뚜기떼·탄저병(농장), 병원 반경 1칸 피해 절반, 방역 장비(저항력 상승 속도 ×1.3, `EpidemicResistanceGrowthMultiplier`), 전염병 곡선(R ≥ 0.7 × S이면 감소, 정점 약 31h·35%·약 50h, 2026-10-26 EP1). 수치는 설정 `disasters`. 후보 비교 `-- epidemic sweep`.
-- **시장(2026-10-27 이슈 #18):** 시설 `market`이 있어야 식량·석재 판매(`SellFood`·`SellStone`), 없으면 구매는 상인 ×1.5. 판매가 2차 하락·구매가 복리 상승, 두 압력은 매시간 회복(시장 수 배율). 매각 순간 남은 재고는 판매가로 일괄 매도(`LiquidateStock`). 수치는 JSON `purchase`, 결정 MK1~MK9.
-- **`Core/Auction/AuctionManager`:** 정착지 정각 정산 직후 판정. 경매장 완공 +48h 첫 경매·이후 48h(설정 `auctionRepeatsGameHours`, 2026-10-26 AU1, 이전 72h), 완공·보류 직후 입찰자 예고(입찰자 수 = 경매장 1·2·3개에 2·3·4명, 2026-10-26 AH1),
-  자금 ≤ 0이면 긴급 매각(경매장·광산이 모두 있을 때) 또는 즉시 파산, 음수 24h 지속 시 파산.
-- 배치 모드 CLI는 **에디터가 이 프로젝트를 열고 있으면 바로 종료 코드 1로 끝난다**(`Temp/UnityLockfile`, Unity는 한 프로젝트를 한 프로세스만 연다). 테스트는 **`bash Tools/unity-tests.sh [EditMode|PlayMode|All]`**로 돌린다: 테스트 전용 사본(`.unity-testcopy/`, git 무시)에 작업 트리를 미러 복사하고 그 사본에서 배치 모드로 실행한다. **사용자가 연 에디터에는 손대지 않는다**(열린 에디터에 테스트를 시키는 방식은 작업을 방해해서 2026-10-23 폐기). 에디터를 닫아 달라고 하지 않는다. 가치는 `SettlementValuation.EvaluateFor`(입찰자별·개발 중 자산).
-- **`Core/Progression/Campaign`:** 정착지 연속. 매각 대금 100%, 식량·석재 미이월, 장비 유지(설정 JSON `equipment`, 예: 우물 성능 향상 ×1.1), 다음 맵은 `ChooseNextMap`.
-  절차 맵 설정이 있으면 처음 `fixedMapsBeforeGenerated`(1)개 뒤로는 들어가는 순간의 자금으로 D를 정해 생성(`PreviewNextDifficulty`로 상점에 표시).
-  상점에서 다음 지역 후보 2곳(`NextOffers`, 약점·강점 `RegionModifiers`) 중 고르고, 현장 장비 슬롯 5개(`Loadout`·`SetEquipped`)에 넣은 장비만 효과.
-  장비·모디파이어 효과는 같은 `EconomyEffects` 형식이고 `SettlementRules.ApplyEffects`로 걸린다.
-- **`Core/Progression/ProceduralMapGenerator`:** BSP 절차 맵(채택 이유는 클래스 주석), `DifficultyParams.For(d, curve)`·`FromCash`. 수치는 `ProceduralMapConfig`(JSON).
-  난수는 `DeterministicRandom`(Unity·.NET 같은 수열) — 생성 절차를 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests` 골든 값을 함께 갱신.
-  맵 파일은 `Assets/Data/Maps/*.json`(`MapLoader`).
-- **`Runtime/GameSession`:** 진입점. 설정 로드 → 맵(인스펙터 지형 목록) → `Settlement` → 시계, 정각마다 `AdvanceHour()`.
-- **저장·불러오기(`Core/Progression/SaveGame`):** 시드 + 성공한 플레이어 명령 기록을 저장하고, 같은 시드로 다시 실행해 복원(F5/F9). **새 플레이어 명령을 추가하면 `Settlement.Commands.cs`(기록)와 `SaveGame.Apply`(재실행)에 함께 넣는다.** 확인 `dotnet run --project Tools/SettlementSim -- savecheck`.
-- **`Runtime` 표시·조작:** `SettlementView`(기본 도형 그래픽), `BuildInputController`(Input System 마우스 도구), **정식 UI `Runtime/UI/`(uGUI, `GameUi`가 뿌리, F1로 예전 IMGUI `SettlementHud`·`AuctionPanel`·`GameClockHud`와 전환)**,
-  `StrategyCameraRig`(Cinemachine 3). 전체 구성은 `DebugSessionBuilder.Build`로 만든다. 프로젝트는 **새 Input System 전용**.
-- **맵 스케치 도구:** `Assets/Scenes/MapSketch.unity` + `Runtime/Tools/MapSketch`(데이터·Gizmo 표시) + `Editor/MapSketchEditor`(씬 뷰 칠하기, JSON 저장·불러오기, 생성 맵 미리보기).
-  사용자가 절차 생성 규칙을 설명할 예시 맵을 그리는 용도. 저장 파일은 `Assets/Data/MapSketches/*.json`(캠페인 맵과 같은 `MapDefinition` 형식, `MapLoader.ToJson`).
-  예시를 받으면 JSON을 읽어 정확한 좌표·지형을 확인한다.
-- 씬 재구성: `Unity.exe -batchmode -nographics -quit -projectPath $Proj -executeMethod DesertSettlement.EditorTools.DebugSessionMenu.SetupSampleScene`
-- **`Tools/desert_balance_sim_v08.py`:** v0.8 경제의 결정론적 시간당 시뮬레이션. 우물 1 + 수로 변 3개의 직렬 취수 그래프로
-  시설 레벨표(`LEVELS`), 건설/개량 작업 큐, 식량 계수, 경매 가치를 계산하고 시나리오 테스트(`do_tests`)와
-  민감도 분석(`sensitivity`)을 수행한다. 일반 HexTile/CanalVertex 네트워크 솔버가 **아니다** — Unity 솔버는 분기·공유 변을 별도로 테스트해야 한다.
-- **문서 우선순위:** `Docs/desert_settlement_game_design_checkpoint_2026-10-20.md`(통합 기획서, 현재 기준)
-  > `Docs/economy_balance_v0.8.md` + `economy_balance_v0.8_config.json`(구현용 수치)
-  > `Docs/economy_food_storage_v0.6.md` > `Docs/desert_settlement_concept_plan_v4.html`(구 컨셉, 수로 설명은 오래됨).
-  수로는 육각형 **변(Edge)**, 분기점은 **꼭짓점(Vertex)** 기준.
+- **Unity 6000.3.15f1** (`ProjectSettings/ProjectVersion.txt`). 같은 PC에 6000.3.9f1이 있을 수 있으니 혼동 주의(다른 버전으로 열면 패키지가 업그레이드된다).
+- URP 17.3.0, Input System 1.19.0(**새 Input System 전용**), Cinemachine 3.1.7, Test Framework 1.6.0, Newtonsoft Json 3.2.2, UniTask(Git URL — 첫 실행 때 git이 PATH에 있어야 함).
+- .NET 10 SDK(시뮬레이터), GitHub CLI `gh`(이슈). Python은 필요 없다.
+- Windows. 셸은 PowerShell(기본)과 Git Bash. Git 무시: `Library/ Temp/ Logs/ UserSettings/ Builds/`, `.unity-testcopy/`, `Tools/balance_output/`, 루트 `*.csproj`·`*.sln`.
 
 ## 명령어
 
-PowerShell 기준. `$Unity`와 `$Proj`는 먼저 설정한다.
+```bash
+dotnet run --project Tools/SettlementSim            # Core 규칙 회귀 검증. 마지막 줄 '모든 검증 통과'
+bash Tools/unity-tests.sh All                       # EditMode·PlayMode (EditMode|PlayMode|All, 두 번째 인자 = 테스트 이름 필터)
+bash Tools/unity-tests.sh PlayMode ScreenCaptureTests   # 화면 캡처 → .unity-testcopy/Captures/*.png
+```
+
+- `unity-tests.sh`는 작업 트리를 `.unity-testcopy/`에 미러 복사하고 그 사본에서 배치 모드로 돈다. 종료 코드 0 = 통과, 1 = 실패, 4 = 동기화 실패. 처음 한 번은 임포트로 몇 분. 에디터에서 저장 안 한 변경은 들어가지 않는다. 다른 위치의 Unity는 `UNITY_EXE` 환경 변수.
+- 시뮬레이터 측정 모드(`tune`, `mods`, `savecheck` …)와 병렬 측정 방법은 `Docs/code_guide.md` 6절.
+
+원본 프로젝트에서 직접 도는 배치 작업(**에디터가 이 프로젝트를 열고 있으면 바로 실패**하므로 사용자에게 먼저 묻는다). PowerShell, 저장소 루트에서:
 
 ```powershell
 $Unity = "C:\Program Files\Unity\Hub\Editor\6000.3.15f1\Editor\Unity.exe"
-$Proj  = "C:\Users\vr9chae\Documents\3rd_3D_1-3D-Project-ashadeveloperr"   # 회사 PC 기준. 다른 PC면 이 경로만 바꾼다
+$Proj  = (Resolve-Path .).Path
+& $Unity -batchmode -nographics -quit -projectPath $Proj -logFile "$Proj\Logs\compile.log"            # 컴파일 확인
+& $Unity -batchmode -nographics -quit -projectPath $Proj -executeMethod DesertSettlement.EditorTools.DebugSessionMenu.SetupSampleScene   # 씬 재구성
+& $Unity -batchmode -nographics -quit -projectPath $Proj -buildTarget Win64 -buildWindows64Player "$Proj\Builds\Win64\DesertSettlement.exe" -logFile "$Proj\Logs\build.log"
 ```
 
-**컴파일 확인 (스크립트 에러 체크):**
-```powershell
-& $Unity -batchmode -nographics -quit -projectPath $Proj -logFile "$Proj\Logs\compile.log"
-```
-
-**Windows 64bit 플레이어 빌드** (빌드 설정의 씬 사용, 커스텀 빌드 스크립트 불필요):
-```powershell
-& $Unity -batchmode -nographics -quit -projectPath $Proj -buildTarget Win64 `
-  -buildWindows64Player "$Proj\Builds\Win64\DesertSettlement.exe" -logFile "$Proj\Logs\build.log"
-```
-
-**테스트 실행(권장):** `bash Tools/unity-tests.sh All` — 사본 동기화(robocopy /MIR: Assets·Packages·ProjectSettings) 후 사본에서 아래 CLI를 실행. 종료 코드 0 = 통과, 1 = 실패, 4 = 동기화 실패.
-처음 한 번은 사본 Library 임포트로 몇 분 걸린다. 결과·로그는 `.unity-testcopy/Logs/`. 에디터에서 저장 안 한 변경은 사본에 들어가지 않는다.
-두 번째 인자는 테스트 이름 필터다. **화면 캡처:** `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png`(시작·맵 바깥·공사·운영·개량·밤·경매·행선지·상점·다음 정착지 등, 에디터 없이 모양 확인. `[Explicit]`이라 평소 테스트에서는 안 돈다).
-
-**테스트 실행** (`-runTests`에는 `-quit`을 붙이지 않는다. PowerShell에서 `Start-Process -Wait`는 Unity 자식 프로세스까지 기다려 멈출 수 있으니 `-PassThru` 후 `$p.WaitForExit()`를 쓴다):
-```powershell
-& $Unity -batchmode -nographics -projectPath $Proj -runTests -testPlatform EditMode `
-  -testResults "$Proj\Logs\editmode-results.xml" -logFile "$Proj\Logs\editmode.log"
-& $Unity -batchmode -projectPath $Proj -runTests -testPlatform PlayMode `
-  -testResults "$Proj\Logs\playmode-results.xml" -logFile "$Proj\Logs\playmode.log"
-```
-
-- 종료 코드 0 = 성공. 실패 시 `-logFile`에 지정한 로그를 확인한다.
-- Unity 에디터가 이 프로젝트를 열고 있으면 batch mode가 실패한다(프로젝트 잠금). 테스트는 위 `unity-tests.sh`(사본)로 피한다. 빌드·씬 구성(-executeMethod)은 원본 프로젝트에 결과를 남겨야 하므로 여전히 에디터를 닫아야 한다(사용자에게 먼저 묻는다).
-
-**경제 시뮬레이터:**
-```powershell
-python Tools/desert_balance_sim_v08.py
-```
-- 이 PC에는 Python이 설치돼 있지 않다(`python`은 Microsoft Store 별칭). 대신 아래 C# 시뮬레이터를 쓴다.
-
-**게임 로직 시뮬레이터 (C#, .NET 10 SDK):** Core의 Hex/Canal 소스를 링크하고, 범용 물 배분기 프로토타입과
-v0.8 경제 시뮬레이터 이식본으로 규칙 후보를 비교한다. 원본 v0.8 회귀값을 함께 검증한다.
-```powershell
-dotnet run --project Tools/SettlementSim
-```
-- 결과: 콘솔 + `Tools/balance_output/settlement_sim_report.txt` (git 무시). 실패가 있으면 종료 코드 1.
-- 절차 맵: 생성기는 Core 파일을 링크하고 수치는 `procedural_map_config.json`을 읽는다. `ReferenceBot.cs`(난이도 측정용 기준 플레이: `Single` 우물·광맥 하나, `Multi` 모든 광맥 개발).
-  난이도 곡선 후보 비교는 `dotnet run --project Tools/SettlementSim -- tune [후보 이름…]`(`DifficultyTuning.cs`, 결과 `Tools/balance_output/difficulty_tuning.txt`).
-  모디파이어·장비 측정: `-- mods [D]`, `-- mods campaign [dPerSettlement] [cashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`(`ModifierTuning.cs`, 난이도 기준은 `smart` 숙련 봇). 그 밖에 `-- upgrades`(장비 강화), `-- bidders`(입찰자), `-- savecheck`(저장 재실행), `-- botdiag`(봇 진단), `-- funcheck`(보류·초반 긴장·입찰자 차이), `-- funboost`(재미 보강 후보: 초반 긴장·매각 선택). 몰아짓기·채석장 철거 재현과 대책 비교: `-- exploit [맵 수]`(`ExploitTuning.cs`). 전염병 측정: `-- epidemic [맵 수]`(`EpidemicTuning.cs`).
-  난이도별 예시 맵은 `Tools/balance_output/generated_maps/*.json`(맵 스케치 씬에서 'JSON 불러오기', 또는 인스펙터 '생성 맵 미리보기'로 바로 생성).
-
-## 작업 방식 (사용자 선호, 2026-10-23 정리)
-
-- 사용자에게 보이는 모든 답변은 **한국어**(짧은 답·진행 안내·마무리 요약·버튼까지).
-- 사용자가 직접 고칠 수 있는 구조: 규칙은 Core, 표시는 Runtime, 조정할 숫자는 설정 JSON·인스펙터, 공개 타입에 한국어 주석, 새 시스템마다 `Docs/implementation_notes.md` 갱신.
-- [미정] 항목은 사용자 결정 없이 확정하지 않는다. 정할 것은 하나씩 설명하고 추천안을 첫 번째로 두고 묻는다.
-- 커밋·푸시는 요청받았을 때만, 푸시는 origin(개인 포크)만.
-- Unity 테스트는 `bash Tools/unity-tests.sh`(테스트 전용 사본)로 돌린다. 사용자가 연 에디터를 쓰거나 닫아 달라고 하지 않는다(빌드·`-executeMethod`처럼 원본에 남겨야 하는 작업만 먼저 묻고 예외).
-- 밸런스는 시뮬레이터로 재현·비교한 뒤 제안한다.
-- 플레이테스트 결과(확인·문제·메모)는 **반드시 기록**하고(체크리스트 웹 페이지 → 순서표 이슈나 Docs), 다음 테스트 체크리스트에는 **고친 부분·새 기능만** 넣어 이미 확인한 것을 다시 묻지 않는다(2026-10-26 요청).
-- 이슈 하나씩 처리한다. 구현 전에 이슈의 [질문]을 하나씩 묻고, 끝나면 시뮬레이터·Unity 테스트 → 결정 표 갱신 → 이슈에 결과 댓글 후 닫는다.
-
-## 규칙
-
-- **모든 대답은 한국어로 한다**(사용자 요청, 2026-10-23). 진행 중 짧은 안내 문장도 포함. 코드 식별자·커밋 메시지·파일 이름은 영어로 둬도 된다.
+- `-runTests`를 직접 쓸 때는 `-quit`을 붙이지 않는다. PowerShell `Start-Process -Wait`는 Unity 자식 프로세스까지 기다려 멈출 수 있으니 `-PassThru` 후 `$p.WaitForExit()`.
 
 <!-- 이 아래는 사용자가 직접 추가 -->

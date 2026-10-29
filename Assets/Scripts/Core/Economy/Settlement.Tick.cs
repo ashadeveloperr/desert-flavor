@@ -9,8 +9,7 @@ using DesertSettlement.Core.Water;
 namespace DesertSettlement.Core.Economy
 {
     /// <summary>
-    /// 경제 틱(<see cref="AdvanceHour"/>)과 작업 큐 진행(완공·착공·모래폭풍 지연).
-    /// 2026-10-24 Settlement.cs에서 나눔(검토 개선 7, 동작 변화 없음). 정착지 전체 설명은 Settlement.cs.
+    /// 경제 틱(<see cref="AdvanceHour"/>)과 작업 큐 진행(완공·착공·모래폭풍 지연). 정착지 전체 설명은 Settlement.cs.
     /// </summary>
     public sealed partial class Settlement
     {

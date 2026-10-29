@@ -1,6 +1,6 @@
-# 구현 노트 — 코드 구조와 수정 가이드
+# 구현 노트 — 구현 단계 결정 표
 
-> 기획 문서(`desert_settlement_game_design_checkpoint_2026-10-20.md`)에 없던 **구현 단계 결정**과, 코드를 직접 고칠 때 **어디를 보면 되는지**를 정리한다.
+> 기획 문서(`desert_settlement_game_design_checkpoint_2026-10-20.md`)에 없던 **구현 단계 결정**을 한 줄씩 모은 표다. 코드 구조와 수정 가이드는 `Docs/code_guide.md`.
 
 ## 1. 구현 단계 결정 기록
 
@@ -48,7 +48,7 @@
 | 2026-10-23 | 절차 맵: 난이도 | **현재값(2026-10-23 마감):** D = max(0, (자금 − 1000) / 14000) + **0.25** × 지나온 생성 맵 정착지 수(F5), 37칸당 우물 2 → 1, 광맥 1.5 → 0.9, 장애물 20% → 30%, 생성 맵 운영비 × (1 + 0.5 × D)(H1 → FL3). 수치는 `procedural_map_config.json`의 `difficulty`(설명 `Core/Progression/ProceduralMapConfig.cs`). **아래는 처음 결정 기록:** D = max(0, (자금 − 1000) / 14000) + 0.2 × (지나온 생성 맵 정착지 수), 상한 없음(2026-10-23: 처음 10500 → 장비·모디파이어 도입 후 정착지 항 추가와 함께 14000). 값은 D=0 → D=1 직선, D>1은 같은 기울기로 연장(하한·상한 있음): 37칸(반경 3)당 우물 3 → 1(하한 0.3), 37칸당 광맥 3 → 0.9(하한 0.3) — 둘 다 맵 칸 수 비율만큼 곱하고 맵 전체 최소 1, 장애물 15% → 30%(상한 40%), 가장 가까운 우물–광맥 거리 목표 2 → 4(±1, 상한 = 반경), 반경 3(D<1) → D=1부터 D 1마다 +1(최대 7). 결과: D 0·0.25·0.5·0.75·1 = 광맥 3·2·2·1·1. 조절값은 (당시) 시뮬레이터 프로토타입, 지금은 `procedural_map_config.json`의 `difficulty`. 암반은 지형마다 1(90% 장애물 속). 첫 정착지는 고정 맵 1, 두 번째부터 생성 맵 | [확정, 수치 조정됨(시뮬레이터)] |
 | 2026-10-23 | 절차 맵: 세부 규칙(제안 확정) | 지형 3~6칸, 산맥/고원 50:50(지형마다), 산맥 60° 꺾임 25%, 지형끼리 최소 1칸 간격, 독립 장애물은 맵마다 15%, 광맥 '근처' = 바로 옆·광맥 간 최소 거리 2, 우물 주변 사막 2칸 이상, 순서 장애물 → 암반 → 광맥 → 우물, 생성 후 트인 땅 연결·수로 경로(우물→광맥·암반) 검사, 실패 시 재생성 | [확정] |
 | 2026-10-23 | 절차 맵: 난이도 곡선 목표 | ① 기준 플레이어 = **숙련 다중 봇**(`BotStrategy.Multi`). ② D=1에서 첫 경매 매각 순이익 **겨우 흑자(+300~600)**. ③ 난이도는 **상한 없이 계속** 오른다(D > 1 허용). ④ 광맥 수도 **맵 칸 수에 비례**(우물과 같은 방식). ⑤ 숙련 플레이어가 **6번째 정착지쯤 D=1**에 닿는 속도. ⑥ D > 1에서는 거리·맵 크기, 자원(우물·광맥) 밀도 감소, 장애물 밀도 증가(맵을 막지 않는 한도), **지역 모디파이어**(경제 배율, 예: 무른 지반 = 건설 비용 +25%, 산소가 희박한 고지대 = 시설 최대 효율 90%로 고정)가 모두 더해진다. ⑦ D가 충분히 커지면 숙련자도 **결국 적자**(몇 번째 정착지까지 버티는지가 점수) | [확정, 수치 미정] |
-| 2026-10-23 | 재해·전염병 | 재해: 정착지마다 0~2번(15·55·30%), 첫 48h 없음, 6h 전 예고, 겹침 허용, 평가 창과 겹치면 그대로 손해. 전염병: 피해 = S × (1 − R), R은 피해에 비례해 오르고 R ≥ S면 S 감소 → 0이면 끝, 끝난 뒤 R은 천천히 감소(시작 저항력 효과가 있으면 그 값이 하한). 생산 시설만. 병원: 반경 1칸 피해 절반, 유지비 0.5·식량 없음(B2 결정: 식량 소비가 전염병 중 식량 계수를 깎아 손해를 키움). 방역 장비: 저항력 상승 속도 ×1.5(B1 결정, 처음의 '시작 저항력 +30%'는 거의 면역이라 바꿈). 전염병 세기(B3 결정): 시작 심각도 35%·저항 상승 0.04×피해·S 감소 3%p/h → 약 128h·최대 피해 38%. 수치·밸런스 문제(B1~B3)는 Docs/work_items_2026-10-23.md 4번 | [확정, 수치 잠정, 구현됨] → 전염병 곡선은 2026-10-26 EP1로 바뀜 |
+| 2026-10-23 | 재해·전염병 | 재해: 정착지마다 0~2번(15·55·30%), 첫 48h 없음, 6h 전 예고, 겹침 허용, 평가 창과 겹치면 그대로 손해. 전염병: 피해 = S × (1 − R), R은 피해에 비례해 오르고 R ≥ S면 S 감소 → 0이면 끝, 끝난 뒤 R은 천천히 감소(시작 저항력 효과가 있으면 그 값이 하한). 생산 시설만. 병원: 반경 1칸 피해 절반, 유지비 0.5·식량 없음(B2 결정: 식량 소비가 전염병 중 식량 계수를 깎아 손해를 키움). 방역 장비: 저항력 상승 속도 ×1.5(B1 결정, 처음의 '시작 저항력 +30%'는 거의 면역이라 바꿈). 전염병 세기(B3 결정): 시작 심각도 35%·저항 상승 0.04×피해·S 감소 3%p/h → 약 128h·최대 피해 38%. 수치·밸런스 문제(B1~B3)는 Docs/archive/work_items_2026-10-23.md 4번 | [확정, 수치 잠정, 구현됨] → 전염병 곡선은 2026-10-26 EP1로 바뀜 |
 | 2026-10-26 | 전염병 곡선 재설계(이슈 #1, EP1~EP3) | 2차 플레이테스트 '심각도가 끝없이 오른다': R이 S를 따라잡지 못해 S가 100%에 붙고(실제 피해는 12h 정점 뒤 이미 감소), 피해 0으로 128h까지 남았다. **감소 조건 R ≥ S → R ≥ 0.7 × S**(`severityFallResistanceRatio`), 시작 심각도 35% → **10%**, 상승 1%p → **1.5%p/h** → 정점 31h·최대 피해 35%·50h에 끝(심각도도 최대 57%에서 함께 줄어듦). 방역 장비 **×1.5 → ×1.3**(새 수식에서 ×1.5는 누적 피해 −62%라 예전과 비슷한 −45%로). 알림에 **↑ 확산 중 / ↓ 약해지는 중**(`EpidemicState.Weakening`). 후보 비교·맵 손해는 `Docs/decision_log_auto.md` '전염병 곡선 재설계' | [사용자 결정, 구현됨] |
 | 2026-10-26 | 우물 옆 직접 취수 표시(이슈 #2, WD1·WD2) | 2차 플레이테스트 '우물 옆 시설을 돌리는 수로의 흐름이 0': W2대로 공유 꼭짓점에서 바로 받는 물은 변을 지나지 않아 흐름 0이고 물길 띠도 없었다(수로는 꼭짓점을 물망에 넣는 역할). **계산·용량은 그대로**(v0.8 직렬 배치에서 농장 30을 첫 수로 용량에 넣으면 105 > 100이라 회귀값이 바뀜, 물리적으로도 변에 들어가기 전에 나감). 대신 그 꼭짓점을 이어 준 수로(우물–시설 경계 변 우선)에 **직접 취수량**을 따로 집계(`WaterAllocation.DirectIntakeLoads`): 수로 정보창 '+ 우물 옆 직접 취수 x/h', 수로 물색, 물길 띠. 우물·물탱크(방출 중) 정보창은 '물길 n개' 대신 **경로마다 받은 시설·수로 칸 수·양**(최대 6줄, `WaterRoutes.DeliveriesFrom`) | [사용자 결정, 구현됨] |
 | 2026-10-26 | 철거는 막힌 작업을 건너뜀(이슈 #3, JQ1) | 2차 플레이테스트 '앞 건설이 막히면 슬롯이 남아도 철거까지 대기'. **철거는 석재가 들지 않으므로 앞 작업이 막혀도 빈 슬롯이 있으면 바로 시작**. 건설·개량은 C2 FIFO 그대로(모든 작업 건너뛰기는 값싼 작업이 석재를 먼저 써서 경매장이 늦어짐). 철거 자체가 막히면(저장 한도) 뒤 건설·개량은 지금처럼 기다린다. `Settlement.StartJobs` | [사용자 결정, 구현됨] |
@@ -76,7 +76,7 @@
 | 2026-10-23 | 정식 UI 1차(로드맵 2-②) | uGUI를 코드로 생성(`Runtime/UI/`): 위쪽 자원·시계 띠, 아래 건설 도구 막대(분류별), 왼쪽 알림·작업 대기열, 오른쪽 선택 시설 정보, 가운데 경매·상점·파산 창. F1 = 예전 임시 화면과 전환. 근거 Docs/decision_log_auto.md UI1~UI7 | [자동 결정, 구현됨, 피드백 대기] |
 | 2026-10-23 | 새 툴팁·숙련 봇 | 툴팁을 uGUI로(이름·상태, 핵심 정보 6줄, 건설 가능 여부·비용, UI8). 측정용 숙련 봇(`-- mods campaign … smart`: 개량·보류 판단·병원·재해 장비, O5~O9) — 숙련 봇 기준으로는 후반이 쉬움(결정 필요) | [자동 결정, 구현됨] |
 | 2026-10-23 | 후반 난이도(숙련 봇 기준) | 생성 맵 운영비 × (1 + 0.3 × D) → 2026-10-23 건설 ×0.5 보정으로 **0.5**(FL3), 위쪽 띠에 운영비 배율 표시. 난이도 측정 기준은 숙련 봇(`smart`). 숙련 처음 적자 D3.4~4.6, 덜 숙련 D2.4~4.0. 근거 Docs/decision_log_auto.md H1·H2 | [사용자 결정, 수치 잠정, 구현됨] |
-| 2026-10-23 | 가치 평가 보완(몰아짓기·채석장 철거 방지) | **가동 숙성**: 생산 시설 실적은 완공 직후 70%에서 48시간 동안 100%까지(시간마다, 완공 시각 기준). **석재 배율** = max(24h 평균, 가동 중 채석장 생산 능력). 24h 평가 창 규칙은 그대로. 근거: `-- exploit`(Docs/work_items_2026-10-23.md 3번) | [확정, 수치 잠정, 구현됨] |
+| 2026-10-23 | 가치 평가 보완(몰아짓기·채석장 철거 방지) | **가동 숙성**: 생산 시설 실적은 완공 직후 70%에서 48시간 동안 100%까지(시간마다, 완공 시각 기준). **석재 배율** = max(24h 평균, 가동 중 채석장 생산 능력). 24h 평가 창 규칙은 그대로. 근거: `-- exploit`(Docs/archive/work_items_2026-10-23.md 3번) | [확정, 수치 잠정, 구현됨] |
 | 2026-10-23 | 낮·밤 시각 | 낮 05:00 ~ 밤 20:00(낮 15시간). 기존 6/18. 조명도 시계 설정을 따름 | [확정, 구현됨] |
 | 2026-10-23 | 경매 간격 | **72시간**(기획서 8.3의 4일 → 3일). 첫 경매도 경매장 완공 + 72시간 | [확정, 구현됨] → 2026-10-26 AU1: 48시간 |
 | 2026-10-23 | 지역 모디파이어 | 생성 맵에 붙는 특수 지역 속성(경제 배율). ① **약점 + 강점 혼합**: 난이도가 오를수록 약점 수가 늘고, 강점은 가끔 1개(제안 40%). ② 약점은 **D 0.5부터 1개, D 1마다 +1**(D 1.5 → 2개, 2.5 → 3개…). ③ 약점 6종(시뮬레이터 조정 후 잠정값): 무른 지반(건설 석재 +25%, 사용자 예시), 산소가 희박한 고지대(생산 효율 최대 90%, 사용자 예시), 마른 대수층(우물 방출 −10%), 모래바람 지대(수로 손실 ×1.5), 염분 토양(농장 생산 −25%), 외딴 지역(구매 단가 +50%·유지비 +25%). ④ 강점 3종: 풍부한 광맥(광물 +20%), 비옥한 오아시스(농장 +25%), 단단한 암반(채석장 +30%). ⑤ 세부(제안 확정): 강점 40%, 같은 모디파이어 중복 없음, 두 후보는 같은 D·약점이 겹치지 않게. 목록·수치: `procedural_map_config.json`의 `modifiers` | [확정, 수치 잠정, 구현됨] |
@@ -139,119 +139,7 @@ System.Random 대신 `DeterministicRandom`(SplitMix64)을 써서 Unity와 .NET�
 - W5 농장·우물을 수로로 두르는 자연스러운 배치가 모두 순환 → 금지하면 건설 거부.
 - C2 건너뛰기는 값싼 작업이 석재를 먼저 써서 경매장 완공 8~24시간 지연.
 
-## 2. 코드 구조
+## 2. 코드 구조·수정 가이드
 
-```
-Assets/Scripts/
-  Core/        DesertSettlement.Core — 게임 규칙. 순수 C#, UnityEngine 참조 없음
-    Hex/         HexCoord, HexLayout, HexMap, VertexId/EdgeId, HexTopology
-    Canal/       CanalGraph, CanalSegment
-    Water/       WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과)
-    Economy/     Settlement(건설 큐·경제 틱·명령), SettlementRules(규칙 값), SettlementTypes,
-                 EconomyEffects(장비·모디파이어 공통 효과 묶음),
-                 SettlementValuation(24h 실적 + 개발 중 자산, 입찰자별 가치)
-                 Disasters(DisasterManager: 재해 일정·예고·전염병 S·R·병원 반감)
-    Auction/     AuctionManager(일정·예고·당일 시세·입찰·긴급 매각·파산 판정)
-    Progression/ Campaign(정착지 연속·장비 상점·자금 이월), MapDefinition / MapLoader(고정 맵 파일)
-                 ProceduralMapGenerator(BSP 절차 맵·DifficultyParams·CanalPaths), ProceduralMapConfig(+Loader, 난이도 곡선·생성 규칙),
-                 DeterministicRandom(런타임과 상관없이 같은 시드 = 같은 수열)
-                 RegionModifiers(약점·강점 정의·출현 규칙), RegionOffer(상점의 다음 지역 후보)
-    Timing/      GameClock, GameTimeSettings
-    Config/      EconomyConfig(데이터 클래스), EconomyConfigLoader(읽기·검증)
-  Runtime/     DesertSettlement.Runtime — Unity 컴포넌트(표시·입력·연결)
-    GameSession          진입점. 설정→맵(지형 목록)→Settlement→GameClock, 정각마다 AdvanceHour
-    SettlementView       게임 화면 표시: 지형 타일, 시설 모양(FacilityModels: 기본 도형 조합), 수로(물 흐름 색·레벨 폭, 닫힌 수로 빨강), 예약 표시, 머리 위 글자
-    BuildInputController 마우스 도구 적용(C7): 타일/가장 가까운 변 강조, 클릭·드래그, 불가 이유
-    SettlementHud        자원·도구·구매·작업 대기열·선택 시설 패널(임시 IMGUI)
-    HoverTooltip         마우스가 타일·시설 위에 있으면 커서 옆 정보 팝업(생산·물·소비·유지비·불가 이유)
-    AuctionPanel         경매(입찰자별 총액·현금·혜택·가치 내역, 매각/보류), 매각 후 상점·다음 정착지, 파산 화면
-    FacilityInfo         팝업·HUD·머리 위 글자가 같이 쓰는 한국어 문구(이름·상태·생산 줄·농장 수지 경고)
-    StrategyCameraRig    Cinemachine 탑다운 카메라(C8): WASD·가장자리 이동, 휠 줌, Q/E 회전
-    DebugSessionBuilder  위 구성 한 벌을 코드로 생성(에디터 메뉴·PlayMode 테스트 공용)
-    WorldVisuals, HudInputBlocker  임시 그래픽 도우미, HUD 위 클릭 차단
-    HexMapDebugView      씬 뷰 Gizmo로 타일·꼭짓점·수로 표시(임시)
-    DayNightLighting     시각에 따라 태양 회전·색·밝기
-    GameClockHud         시각·배속 표시와 버튼(임시 IMGUI)
-  Editor/      DesertSettlement.EditorTools — 에디터 메뉴
-    DebugSessionMenu     Tools > Desert Settlement > 디버그 세션 만들기 / SetupSampleScene(batch용)
-    MapSketchEditor      맵 스케치 씬 칠하기·JSON 저장·불러오기, 생성 맵 미리보기(D·시드)
-Assets/Tests/PlayMode/  DesertSettlement.PlayMode.Tests — 디버그 세션 스모크 테스트
-Assets/Tests/EditMode/  DesertSettlement.Core.Tests — Core 단위 테스트
-Assets/Data/Config/     경제 설정 JSON(auction·equipment 항목 포함), 절차 맵 설정 JSON(procedural_map_config.json)
-Assets/Data/Maps/       고정 맵 JSON(지형 + 샘플 배치). 정착지마다 파일명 순서대로 사용
-```
-
-**원칙**
-- 규칙은 Core에, 보여주기는 Runtime에 둔다. Core는 Unity 없이 테스트할 수 있다.
-- 조정할 숫자는 코드에 박지 않는다. 경제 수치는 JSON, 시간·표시 값은 인스펙터에서 바꾼다.
-- [확정] 규칙은 코드에 고정하고, [잠정] 값은 설정으로 뺀다. [미정]은 구현하지 않는다.
-
-## 3. 무엇을 바꾸려면 어디를 고치나
-
-| 바꾸고 싶은 것 | 위치 |
-|---|---|
-| 시설 비용·생산량·유지비·수로 용량 등 경제 수치 | `Assets/Data/Config/economy_balance_v0.8_config.json` (코드 수정 불필요) |
-| 맵 반경, 타일 크기 | 씬의 `GameSession` 인스펙터 → 맵 |
-| 시작 시각, 낮/밤 경계, 배속 목록 | `GameSession` 인스펙터 → 시간 → Time Settings |
-| 하루 길이(1배속 180초, 2026-10-23 FL1. 원래 90초) | JSON `confirmedRules.gameDayRealSecondsAt1x` |
-| 건설·개량·철거 시간 배율(0.5, FL2) | JSON `confirmedRules.constructionHoursMultiplier` (1 = 원본 v0.8, 회귀 검증은 1로 고정) |
-| 태양 색·밝기·일출/일몰 각도 | `DayNightLighting` 인스펙터의 Gradient / Curve |
-| 디버그 표시 색, 꼭짓점·좌표 라벨 표시 | `HexMapDebugView` 인스펙터 |
-| 수로 손실률·레벨별 용량 | JSON `prototype.canalLossPerWholeEdge`, `buildingLevels.canalEdge[].capacityPerHour` |
-| 물 배분 규칙 자체(방출·취수 지점, 우선순위) | `Core/Water/WaterNetworkSolver.cs` — 규칙을 바꾸면 `Tools/SettlementSim` 프로토타입과 EditMode 테스트 기대값도 함께 바꾼다 |
-| 물 배분 규칙 후보를 비교·실험 | `Tools/SettlementSim/WaterSolver.cs`의 옵션(WaterOptions) + `Program.cs` 시나리오, `dotnet run --project Tools/SettlementSim` |
-| 예시 맵 그리기(절차 생성 규칙 설명용) | 메뉴 **Tools > Desert Settlement > 맵 스케치 씬 열기** → `MapSketch` 선택 → 씬 뷰에서 클릭/드래그로 칠하기(1~5 붓, Shift 지우기) → 인스펙터 'JSON으로 저장'(`Assets/Data/MapSketches/`) |
-| 맵 지형·샘플 배치, 맵 추가 | `Assets/Data/Maps/*.json` (새 파일은 `GameSession`의 Maps 목록에 추가하거나 메뉴 '디버그 세션 만들기'를 다시 실행) |
-| 입찰자 성향·혜택, 시세 폭, 긴급 감액, 개발 중 자산 비율, 파산 유예 시간 | 설정 JSON `auction` |
-| 가동 숙성(시작 비율·기간), 석재 배율의 채석장 능력 사용 여부 | 설정 JSON `auctionSeed.maturityStartRatio`·`maturityFullHours`·`stoneMultiplierUsesQuarryCapacity` (계산: `Settlement.AdvanceHour`의 *Valued, `SettlementValuation.EvaluateFor`) |
-| 영구 장비 가격·효과 | 설정 JSON `equipment` |
-| 다음 맵 선택 규칙(고정 맵 몇 개 뒤 생성 맵, 생성 시드) | `Core/Progression/Campaign.cs`의 `ChooseNextMap`·`MapSeed`. 고정 맵 개수는 절차 맵 JSON `fixedMapsBeforeGenerated` |
-| 절차 맵 난이도 곡선(자금 → D, D별 반경·우물·광맥·장애물·거리) | `Assets/Data/Config/procedural_map_config.json`의 `difficulty` (설명: `Core/Progression/ProceduralMapConfig.cs`의 `DifficultyCurve`). 바꾼 뒤 `dotnet run --project Tools/SettlementSim -- tune`으로 곡선 확인 |
-| 절차 맵 생성 규칙 확률·크기(지형 크기, 산맥/고원 비율, 광맥·암반 위치 확률, 우물 간격) | 같은 JSON의 `generator` (`GeneratorRules`) |
-| 생성 절차 자체(BSP·지형 키우기·배치 순서·검사) | `Core/Progression/ProceduralMapGenerator.cs` — 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests.Generate_MatchesSimulatorGoldenMap` 기대값을 갱신 |
-| 생성 맵 눈으로 보기 | 맵 스케치 씬 → `MapSketch` 인스펙터 '생성 맵 미리보기'(난이도 D·시드 → '생성해서 스케치에 그리기') |
-| 절차 맵 끄기(고정 맵만 순환) | `GameSession` 인스펙터의 Procedural Map Config를 비운다 |
-| 지역 모디파이어 목록·수치·출현(약점 시작 D, 간격, 강점 확률), 후보 지역 수 | `procedural_map_config.json`의 `modifiers`, `regionChoices` (효과 항목 설명: `Core/Economy/EconomyEffects.cs`) |
-| 장비 목록·가격·효과 | 경제 설정 JSON `equipment[]` (`effects`는 모디파이어와 같은 형식) |
-| 재해 빈도·유예·예고, 전염병 속도, 병원 반경·반감 | 경제 설정 JSON `disasters` (설명: `Core/Config/EconomyConfig.cs`의 `DisasterSettings`·`EpidemicSettings`). 측정: `dotnet run --project Tools/SettlementSim -- epidemic` |
-| 병원 비용·유지비 | 경제 설정 JSON `buildingLevels.hospital` |
-| 효과가 경제에 걸리는 지점(석재·효율 상한·생산 배율·구매가·유지비·슬롯·저장·수로 손실) | `SettlementRules.ApplyEffects`와 `Settlement`의 `Efficiency`·`AdvanceHour`·`NextPrice`·`Enqueue` |
-| 현장 장비 슬롯 수(확정 5) | `Core/Progression/Campaign.cs`의 `EquipmentSlots` |
-| 모디파이어·장비 수치 측정 | `dotnet run --project Tools/SettlementSim -- mods 1.0`(D별 약점 하나씩·대응 회복률), `-- mods campaign`(Core Campaign 봇 캠페인) |
-| 경매 입찰자·시세 무작위 시드 | `GameSession` 인스펙터 → Campaign Seed |
-| 지형·시설·수로 색, 수로 폭·반짝임, 머리 위 글자 | `SettlementView` 인스펙터 |
-| **새 시설 종류 추가** | ① JSON `buildingLevels`에 레벨표 ② `Core/Economy/FacilityCatalog.cs`에 한 줄(이름·분류·지형·색) ③ (선택) 모양 `Runtime/View/FacilityModels.cs`(없으면 상자) ④ 특별한 효과면 그 규칙 코드. 목록과 JSON이 어긋나면 `FacilityCatalogTests`가 실패 |
-| 시설 이름·도구 막대 분류·지을 수 있는 지형·기본 색 | `Core/Economy/FacilityCatalog.cs` (색만 바꾸려면 `SettlementView` 인스펙터 `facilityColors`로 덮어쓰기) |
-| 시설 모양(부품 위치·크기·재료색·레벨 부품·비계) | `Runtime/View/FacilityModels.cs` |
-| 사막이 푸르러지는 색·속도, 시든 작물 색 | `SettlementView` 인스펙터(`oasis`·`greeningRate`·`witheredCrop`) |
-| 팝업·HUD에 나오는 문구, 지형 한국어 이름, 재해 효과 문구 | `Runtime/View/FacilityInfo.cs` (시설 이름은 `FacilityCatalog`) |
-| 건설 가능 타일 강조 색·투명도·맥동 주기 | `GameSession` 오브젝트의 `BuildableOverlay` 인스펙터 |
-| 밤 밝기(달빛 색·밝기·고도, 환경광 최소) · 시설 등불(색·점광원 밝기·범위·켜지는 시간) | `DayNightLighting` 인스펙터 '밤' · `SettlementView` 인스펙터 '밤 등불'(위치·모양은 `FacilityModels.Lantern`) |
-| 팝업 위치·폭·뜨는 지연 | 정식 UI는 `Runtime/UI/TooltipView.cs`, 예전 화면은 `GameSession` 오브젝트의 `HoverTooltip` 인스펙터 |
-| 카메라 속도·각도·줌 범위·회전 각 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
-| 도구 목록·조작 방식 | `Runtime/BuildInputController.cs`(`BuildTool`, `Apply`), 버튼 배치는 정식 UI `Runtime/UI/BuildBarView.cs`(예전 화면 F1은 `SettlementHud.cs`) |
-| UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme`(색, `Big`·`Title`·`Body`·`Small` 글자 크기) |
-| UI 구역 위치·크기 | 위쪽 띠 `TopBarView`, 도구 막대 `BuildBarView`, 구매·예시 `BuyPanelView`(좁은 화면 축소 `BuildBarView.BottomScale`·`TopBarView.FitToWidth`), 알림 `AlertsView`, 정보창 `InspectorView`, 가운데 창(경매·행선지·상점) `ModalView`·`ModalContent`, 툴팁 `TooltipView` — 모두 `Runtime/UI/` |
-| 시작 카메라 줌·각도 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
-| 시작 자금, 경매 참석 인원 | 경제 설정 JSON `prototype.startingCash`(500), `auction.attendeesMin`·`attendeesMax`(2~3) |
-| 최고 기록(도달 정착지·최대 자금·누적 매각) | `Runtime/RecordBook.cs`, 파일 `Application.persistentDataPath/records.json`(지우면 초기화) |
-| 자금 0 예측 경고(몇 시간 안이면 알릴지) | `Runtime/UI/AlertsView.cs`의 `CashRunsOutIn` |
-| 바꾼 화면을 에디터 없이 보기 | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` → `.unity-testcopy/Captures/*.png` |
-| 실제 공사 시간 계산(레벨표 × 건설 배율, 철거 비율) | `SettlementRules.JobHours` (작업 큐와 화면이 같은 값을 씀) |
-| 철거 환급·철거 시간·광물 배율 | `Core/Economy/SettlementRules.cs`의 `DemolishRefundRatio`, `DemolishHoursRatio`, `OreMultiplier` |
-| 지형별 건설 가능 시설, MVP 금지 시설, 폐쇄 불가 시설 | `SettlementRules`의 `AllowedTerrain`, `DisabledKinds`, `CannotClose` |
-| 경제 틱 순서·생산 공식 | `Core/Economy/Settlement.cs`의 `AdvanceHour` — 바꾸면 `Tools/SettlementSim`의 v0.8 교차 검증이 깨지므로 의도된 변경인지 확인 |
-| JSON에 새 항목 추가 | JSON에 키 추가 → `Core/Config/EconomyConfig.cs`에 같은 이름의 속성 추가 |
-| 설정 검증 규칙 추가 | `Core/Config/EconomyConfigLoader.cs`의 `Validate` |
-| 새 지형 종류 | `Core/Hex/HexMap.cs`의 `TerrainType` (끝에 추가) |
-| 정각·자정·낮밤 전환 시 처리 추가 | `GameSession.Initialize`에서 `Clock.HourPassed` / `DayStarted` / `PhaseChanged` 구독 |
-
-## 4. 확인 방법
-
-1. Unity에서 `SampleScene`을 열고 Play를 누른다(디버그 세션이 이미 들어 있다. 새 씬이라면 메뉴 **Tools > Desert Settlement > 디버그 세션 만들기**). 정착지는 **일시정지로 시작**한다.
-2. 왼쪽 아래 구매·예시 패널의 **샘플 배치**를 누르면 이 맵의 예시(우물·농장·채석장·광산·경매장·수로)가 대기열에 들어간다.
-   직접 지으려면 도구 버튼을 고르고 타일(시설) 또는 변(수로)을 클릭한다. 물길을 막으려면 폐쇄 도구로 수로를 닫는다. 수로는 드래그로 이어 놓을 수 있다.
-3. 오른쪽 위 배속 버튼(1x·2x·4x, 단축키 ` 1 2 3)으로 시간을 돌리며 확인한다: 공사 진행률, 수로의 물 흐름 색, 시설의 물 부족 이유,
-   자원·식량 계수 변화, 경매장 완공 후 첫 경매 예정 시각, 낮/밤 조명. F1은 예전 IMGUI 화면과 전환.
-4. 카메라: WASD/화면 가장자리 이동, 휠 줌, Q/E 회전. 우클릭·Esc는 선택 도구.
-5. 테스트: Window > General > Test Runner > EditMode·PlayMode > Run All, 또는 `bash Tools/unity-tests.sh All`(테스트 전용 사본 `.unity-testcopy/`에서 batch mode로 실행, 열린 에디터와 무관).
+2026-10-29에 `Docs/code_guide.md`로 옮겼다(폴더별 역할, 한 시간의 흐름, 자주 하는 변경 체크리스트, '무엇을 바꾸려면 어디를 고치나' 표, 확인 방법).
+이 문서는 **결정 표만** 둔다: 새 결정은 1절 표에 한 줄, 근거·측정·다른 안은 `Docs/decision_log_auto.md`.

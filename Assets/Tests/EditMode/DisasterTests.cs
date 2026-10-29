@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace DesertSettlement.Core.Tests
 {
-    /// <summary>재해(2026-10-23: 전염병·병원·방역 장비). Docs/work_items_2026-10-23.md 4번.</summary>
+    /// <summary>재해(2026-10-23: 전염병·병원·방역 장비). Docs/archive/work_items_2026-10-23.md 4번.</summary>
     public class DisasterTests
     {
         private static EconomyConfig _config;

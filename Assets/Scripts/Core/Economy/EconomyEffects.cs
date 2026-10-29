@@ -37,7 +37,7 @@ namespace DesertSettlement.Core.Economy
         public double ExtraStorage { get; set; }
         /// <summary>정착지 시작 전염병 저항력(방역 장비 +0.3). 전염병이 끝나 저항력이 줄어도 이 값 아래로는 안 내려간다.</summary>
         public double InitialEpidemicResistance { get; set; }
-        /// <summary>전염병 중 저항력이 오르는 속도 배율(방역 장비 1.5, 2026-10-23 B1 결정). 면역이 아니라 '더 빨리 회복'.</summary>
+        /// <summary>전염병 중 저항력이 오르는 속도 배율(방역 장비, 결정 B1·EP2). 면역이 아니라 '더 빨리 회복'.</summary>
         public double EpidemicResistanceGrowthMultiplier { get; set; } = 1;
         /// <summary>재해 피해 배율(2026-10-23 D3·D5·D6): 1 = 그대로, 0.5 = 절반. 수로 방풍막 = 모래폭풍, 방충망 = 메뚜기떼, 관개 설비 = 탄저병.</summary>
         public double SandstormDamageMultiplier { get; set; } = 1;

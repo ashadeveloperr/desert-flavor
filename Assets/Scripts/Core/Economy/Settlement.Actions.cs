@@ -9,8 +9,8 @@ using DesertSettlement.Core.Water;
 namespace DesertSettlement.Core.Economy
 {
     /// <summary>
-    /// 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄·구매)의 실제 처리(Do*)와 미리 검사(Can*). 기록 래퍼는 Settlement.Commands.cs.
-    /// 2026-10-24 Settlement.cs에서 나눔(검토 개선 7, 동작 변화 없음). 정착지 전체 설명은 Settlement.cs.
+    /// 플레이어 명령(건설·수로·개량·철거·취소·순서 변경·폐쇄·구매·판매)의 실제 처리(Do*)와 미리 검사(Can*).
+    /// 밖에서는 Settlement.Commands.cs의 공개 메서드로만 부른다(그래야 저장 기록과 명령 순간 착공이 따라온다). 정착지 전체 설명은 Settlement.cs.
     /// </summary>
     public sealed partial class Settlement
     {
@@ -198,23 +198,5 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>석재 시장 판매(시장이 있어야 함). 실제 판매 수를 돌려준다.</summary>
         private int DoSellStone(int units) => Sell(units, isFood: false);
-
-        /// <summary>다음 1단위 구매 가격. 시장이 없으면 떠돌이 상인 배율(2026-10-27 이슈 #18).</summary>
-        public double NextPrice(bool food)
-        {
-            PurchasePrice p = food ? Rules.Config.Purchase.Food : Rules.Config.Purchase.Stone;
-            double peddler = HasMarket ? 1 : Rules.Trade.NoMarketPriceMultiplier;
-            return p.BaseCost * Rules.PurchasePriceMultiplier * peddler * Math.Pow(p.IncrementMultiplier, food ? FoodBuyPressure : StoneBuyPressure);
-        }
-
-        /// <summary>다음 1단위 판매 가격. 시장이 없으면(또는 시장 규칙이 없으면) 0.</summary>
-        public double NextSellPrice(bool food)
-        {
-            if (Rules.Trade == null || !HasMarket) return 0;
-            PurchasePrice p = food ? Rules.Config.Purchase.Food : Rules.Config.Purchase.Stone;
-            if (p.SellLimit <= 0) return 0;
-            double x = (food ? FoodSellPressure : StoneSellPressure) / p.SellLimit;
-            return p.BaseCost * p.SellRatio * Math.Max(0, 1 - x * x);
-        }
     }
 }

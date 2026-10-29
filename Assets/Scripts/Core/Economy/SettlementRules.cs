@@ -74,7 +74,7 @@ namespace DesertSettlement.Core.Economy
         public double UpkeepMultiplier { get; set; } = 1.0;
         /// <summary>전염병 저항력의 시작값·하한(방역 장비). 0~1.</summary>
         public double EpidemicResistanceFloor { get; set; }
-        /// <summary>전염병 중 저항력 상승 속도 배율(방역 장비 1.5).</summary>
+        /// <summary>전염병 중 저항력 상승 속도 배율(방역 장비 효과, 값은 설정 JSON <c>equipment</c>).</summary>
         public double EpidemicResistanceGrowthMultiplier { get; set; } = 1.0;
         /// <summary>재해 피해 배율(장비, 2026-10-23). 1 = 그대로.</summary>
         public double SandstormDamageMultiplier { get; set; } = 1.0;

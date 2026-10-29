@@ -79,10 +79,6 @@ namespace DesertSettlement.Runtime
             Ensure<SettlementView>();
             Ensure<HexMapDebugView>();
             Ensure<BuildInputController>();
-            Ensure<SettlementHud>();
-            Ensure<HoverTooltip>();
-            Ensure<AuctionPanel>();
-            Ensure<GameClockHud>();
             Ensure<WaterPathOverlay>();
             Ensure<UI.GameUi>();
             if (go.GetComponent<DayNightLighting>() == null)

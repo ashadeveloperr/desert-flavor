@@ -10,7 +10,7 @@ using static DesertSettlement.Runtime.UI.UiKit;
 
 namespace DesertSettlement.Runtime.UI
 {
-    /// <summary>가운데 창의 내용: 경매·행선지·상점·파산. 예전 임시 화면(AuctionPanel)과 같은 정보를 카드 형태로.</summary>
+    /// <summary>가운데 창의 내용: 경매·행선지·상점·파산(카드 형태).</summary>
     public sealed class ModalContent
     {
         private readonly GameUi _ui;

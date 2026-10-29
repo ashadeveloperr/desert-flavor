@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
@@ -16,8 +15,7 @@ namespace DesertSettlement.Runtime.UI
     }
 
     /// <summary>
-    /// 정식 UI의 뿌리(2026-10-23, Docs/decision_log_auto.md UI1~UI5). 캔버스·이벤트 시스템을 만들고 각 구역을 붙인다.
-    /// F1 = 예전 임시 화면(IMGUI)과 전환(<see cref="HudMode"/>).
+    /// 정식 UI의 뿌리(결정 UI1~UI5). 캔버스·이벤트 시스템을 만들고 각 구역을 붙인다. 키보드 단축키는 <see cref="Hotkeys"/>.
     /// </summary>
     [RequireComponent(typeof(GameSession), typeof(BuildInputController), typeof(SettlementView))]
     public sealed class GameUi : MonoBehaviour
@@ -61,7 +59,7 @@ namespace DesertSettlement.Runtime.UI
             _canvas = go.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             _canvas.sortingOrder = 10;
-            // 2026-10-26 TX1(이슈 #4): 글자·패널을 픽셀 격자에 맞춘다. 끄면 배율(1920×1080 기준 → 실제 화면)·가운데 정렬 때문에
+            // 결정 TX1: 글자·패널을 픽셀 격자에 맞춘다. 끄면 배율(1920×1080 기준 → 실제 화면)·가운데 정렬 때문에
             // 글자가 반 픽셀에 걸려 쌍선형 필터로 번진다.
             _canvas.pixelPerfect = true;
             var scaler = go.AddComponent<CanvasScaler>();
@@ -81,9 +79,8 @@ namespace DesertSettlement.Runtime.UI
 
         private void Update()
         {
-            Keyboard k = Keyboard.current;
-            if (k != null && k.f1Key.wasPressedThisFrame) HudMode.Legacy = !HudMode.Legacy;
-            bool show = _session.IsReady && !HudMode.Legacy;
+            Hotkeys.Handle(this);
+            bool show = _session.IsReady;
             if (_canvas.gameObject.activeSelf != show) _canvas.gameObject.SetActive(show);
             if (show)
             {

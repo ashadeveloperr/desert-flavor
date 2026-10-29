@@ -300,10 +300,9 @@ namespace DesertSettlement.PlayMode.Tests
         }
 
         [UnityTest]
-        public IEnumerator NewUi_ShowsBars_OpensAuctionWindow_AndF1ModeHidesIt()
+        public IEnumerator NewUi_ShowsBars_AndOpensAuctionWindow()
         {
-            // 정식 UI(2026-10-23, Docs/decision_log_auto.md UI1~UI5).
-            HudMode.Legacy = false;
+            // 정식 UI(결정 UI1~UI5).
             GameSession session = Build();
             yield return new WaitForSecondsRealtime(0.3f);
             Transform ui = session.transform.Find("Game UI");
@@ -319,11 +318,6 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.IsTrue(session.Auctions.IsOpen);
             yield return new WaitForSecondsRealtime(0.3f);
             Assert.IsTrue(ui.Find("Modal Shade").gameObject.activeSelf, "경매가 열리면 가운데 창");
-
-            HudMode.Legacy = true;
-            yield return null;
-            Assert.IsFalse(ui.gameObject.activeSelf, "F1 예전 화면 모드에서는 숨는다");
-            HudMode.Legacy = false;
         }
 
         [UnityTest]

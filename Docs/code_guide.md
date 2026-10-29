@@ -39,10 +39,9 @@ Assets/Scripts/
   Runtime/             DesertSettlement.Runtime — MonoBehaviour
     (루트)               GameSession(진입점), BuildInputController(마우스 도구), StrategyCameraRig(카메라),
                          DebugSessionBuilder(씬 구성 한 벌을 코드로), RecordBook(최고 기록), HudInputBlocker(UI 위 클릭 차단)
-    UI/                  정식 화면(uGUI를 코드로 만든다). GameUi가 뿌리, 구역마다 *View 하나, UiKit = 버튼·글자 만드는 도구 + Theme(색·크기)
+    UI/                  정식 화면(uGUI를 코드로 만든다). GameUi가 뿌리, 구역마다 *View 하나, UiKit = 버튼·글자 만드는 도구 + Theme(색·크기), Hotkeys = 단축키 표
     View/                맵 표시: SettlementView(타일·시설·수로·등불), FacilityModels(시설 모양), FacilityInfo(한국어 문구),
                          DayNightLighting, WaterPathOverlay, BuildableOverlay, DesertBackdrop, WorldVisuals(머티리얼·메시 도우미)
-    Legacy/              예전 IMGUI 화면(F1로 전환). 새 기능은 넣지 않는다. 삭제 여부는 사용자 결정 대기
     Tools/               MapSketch(예시 맵 그리기), HexMapDebugView(Gizmo 확인용)
   Editor/              DebugSessionMenu(메뉴·SetupSampleScene), MapSketchEditor
 Assets/Tests/EditMode/ Core 단위 테스트(영역별 파일)       Assets/Tests/PlayMode/ 스모크 테스트·화면 캡처
@@ -155,6 +154,7 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 �
 | 건설 가능 타일 강조 색·주기 · 맵 바깥 모래언덕 | `BuildableOverlay` · `DesertBackdrop` 인스펙터(실행 중 자동으로 붙는다, 7절) |
 | 팝업·정보창 문구, 지형 이름, 재해 문구 | `Runtime/View/FacilityInfo.cs` (시설 이름은 `FacilityCatalog`) |
 | UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme` |
+| 키보드 단축키 | `Runtime/UI/Hotkeys.cs`의 표(카메라 이동·회전은 `StrategyCameraRig`, 도구 해제 Esc는 `BuildInputController`) |
 | UI 구역 위치·크기 | 위쪽 띠 `TopBarView`, 도구 막대 `BuildBarView`, 시장·예시 `BuyPanelView`, 알림 `AlertsView`, 정보창 `InspectorView`, 가운데 창(경매·행선지·상점) `ModalView`·`ModalContent`, 툴팁 `TooltipView` |
 | 도구 목록·조작 방식 | `Runtime/BuildInputController.cs`(`BuildTool`, `Apply`) |
 | 카메라 속도·각도·줌·회전 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
@@ -171,7 +171,7 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 �
 | Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-30: EditMode 181 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
 | 화면 모양(에디터 없이) | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` | `.unity-testcopy/Captures/*.png` |
 | 저장·불러오기 재실행 | `dotnet run --project Tools/SettlementSim -- savecheck` | |
-| 직접 플레이 | `SampleScene` Play → 일시정지로 시작 → 왼쪽 아래 '샘플 배치' → 배속(` 1 2 3) | F1 = 예전 화면, F5/F9 = 저장/불러오기 |
+| 직접 플레이 | `SampleScene` Play → 일시정지로 시작 → 왼쪽 아래 '샘플 배치' → 배속(` 1 2 3) | F5/F9 = 저장/불러오기(단축키 표는 `Runtime/UI/Hotkeys.cs`) |
 
 **시뮬레이터 모드** (`dotnet run --project Tools/SettlementSim -- <모드>`, 결과는 `Tools/balance_output/`, git 무시)
 - 계속 쓰는 것: (없음 = 회귀 검증) · `savecheck` · `tune [후보…]`(난이도 곡선) · `mods [D]`(D별 약점 하나씩·대응 장비 회복률) · `mods campaign …`(Core 캠페인 봇 측정)

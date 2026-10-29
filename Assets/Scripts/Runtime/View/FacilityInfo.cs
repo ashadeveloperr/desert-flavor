@@ -8,8 +8,8 @@ using DesertSettlement.Core.Water;
 namespace DesertSettlement.Runtime
 {
     /// <summary>
-    /// 타일·시설 정보를 사람이 읽는 한국어 문장으로 만든다. 호버 팝업(<see cref="HoverTooltip"/>),
-    /// HUD 선택 패널, 머리 위 글자가 같은 문구를 쓰도록 한곳에 모았다. 표현을 바꾸려면 여기만 고치면 된다.
+    /// 타일·시설 정보를 사람이 읽는 한국어 문장으로 만든다. 툴팁(UI/TooltipView), 정보 패널(UI/InspectorView),
+    /// 머리 위 글자가 같은 문구를 쓰도록 한곳에 모았다. 표현을 바꾸려면 여기만 고치면 된다.
     /// </summary>
     public static class FacilityInfo
     {
@@ -61,7 +61,7 @@ namespace DesertSettlement.Runtime
         }
 
         /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과 한 줄(두 화면 공통).</summary>
-        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영). 2026-10-23 D1~D6. 2026-10-24 예전 화면(SettlementHud)에서 옮김(CL4).</summary>
+        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영, 결정 D1~D6).</summary>
         public static string TimedDisasterText(Settlement s, DisasterEvent e)
         {
             DisasterSettings c = s.Disasters.Settings;

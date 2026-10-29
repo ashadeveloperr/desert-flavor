@@ -724,3 +724,16 @@ D=1 도달은 모두 6번째.
 
 함께: code_guide 4절의 해당 ⚠ 두 곳을 '테스트가 막음'으로 바꾸고, #20에서 놓친 '시뮬레이터는 JSON을 따로 읽는다 ⚠'를 고침. `EconomyEffects.cs` 주석의 낡은 값(우물 성능 향상 1.2 → 지금 1.1 등)을 지우고 값은 설정 JSON을 가리키게 함.
 검증: 시뮬레이터 '모든 검증 통과'(출력 #20과 같음), EditMode 181 · PlayMode 10 통과. 테스트가 실제로 잡는지 테스트 사본에서만 일부러 줄을 빼 확인: `Combine`의 탄저병 줄을 빼면 "Combine에서 BlightDamageMultiplier이 빠짐", `SaveGame.Apply`의 석재 판매 case를 빼면 "sellStone … 알 수 없는 명령"으로 두 테스트 모두 실패.
+
+## 예전 IMGUI 화면 삭제 (2026-10-30 — 이슈 #25, 유지보수성 검토 M12, 사용자: "#25 시작")
+
+조사: 예전 화면(`Runtime/Legacy/` `SettlementHud`·`AuctionPanel`·`GameClockHud`·`HoverTooltip`, F1 전환)의 버튼과 정보를 정식 UI와 하나씩 대조했다. 구매·샘플 배치(`BuyPanelView`), 개량·철거·폐쇄(`InspectorView`), 대기열 순서·취소(`AlertsView`), 경매·보류·장비 구매·강화·장착·새 캠페인(`ModalContent`), 저장·불러오기·일시정지·배속 버튼(`TopBarView`), 툴팁(`TooltipView`)이 모두 정식 UI에 있었다. 시장 판매는 정식 UI에만 있다. 예전 화면에만 있던 것은 **단축키**(F5·F9·`·1·2·3, `GameClockHud.Update`)뿐이었다.
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| HK1 | 단축키는 **`Runtime/UI/Hotkeys.cs`의 표 하나**(키 → 할 일). 정식 UI 뿌리 `GameUi.Update`가 매 프레임 부른다. 카메라 키(WASD·QE)와 Esc는 원래 자리(`StrategyCameraRig`·`BuildInputController`)에 두고 머리 주석에 위치를 적음 | [사용자 결정] | 단축키를 바꿀 때 한 파일만 봄. 컴포넌트가 아니라서 기존 씬에 붙일 필요가 없음(새 컴포넌트는 씬 수정이나 #26 재구성이 필요) | `Hotkeys.cs`, `GameUi.Update` |
+| HK2 | 예전 화면 **삭제**: Legacy 4개 파일(약 600줄), F1 전환(`HudMode`), IMGUI 패널 영역 등록(`HudInputBlocker.SetRects`·`Clear`), `DebugSessionBuilder`의 부착, PlayMode 테스트의 F1 부분 | [사용자 결정] | 화면 두 벌을 고치는 비용과 'F1 화면엔 시장 판매가 없다' 같은 혼동을 없앰. 지운 코드는 git에 남음 | — |
+| HK3 | SampleScene에 저장돼 있던 예전 컴포넌트 4개를 **씬 파일에서 직접 삭제**(컴포넌트 목록 4줄 + 블록 4개, 60줄. 다른 부분은 그대로) | [사용자 결정] | 스크립트만 지우면 씬에 Missing Script가 남음. #26 씬 재구성을 기다리지 않음 | `Assets/Scenes/SampleScene.unity` |
+
+같이 고침: `CLAUDE.md` 원칙 'Legacy에 새 기능을 넣지 않는다' → '화면은 정식 UI 한 벌만, 같은 기능의 화면·입력을 두 곳에 만들지 않는다'. `code_guide.md` 폴더 설명·'무엇을 바꾸려면' 표(키보드 단축키 행)·직접 플레이 안내.
+검증: 시뮬레이터 '모든 검증 통과'(출력 #21과 같음), EditMode 181 · PlayMode 10 통과(F1 테스트는 `NewUi_ShowsBars_AndOpensAuctionWindow`로 줄임), 컴파일 경고 0. 단축키는 자동 테스트가 없어 4차 플레이테스트에서 확인.

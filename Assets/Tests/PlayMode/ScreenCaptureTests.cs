@@ -93,7 +93,6 @@ namespace DesertSettlement.PlayMode.Tests
         [UnityTest]
         public IEnumerator CaptureMainScreens()
         {
-            HudMode.Legacy = false;
             // 빈 테스트 장면에는 태양이 없다(실제 SampleScene에는 있음). 없으면 주변광만 비쳐 색이 회색으로 찍힌다.
             if (Object.FindObjectsByType<Light>(FindObjectsSortMode.None).All(l => l.type != LightType.Directional))
             {

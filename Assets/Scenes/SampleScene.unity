@@ -132,11 +132,7 @@ GameObject:
   - component: {fileID: 169328209}
   - component: {fileID: 169328208}
   - component: {fileID: 169328207}
-  - component: {fileID: 169328206}
-  - component: {fileID: 169328205}
   - component: {fileID: 169328204}
-  - component: {fileID: 169328211}
-  - component: {fileID: 169328212}
   m_Layer: 0
   m_Name: GameSession
   m_TagString: Untagged
@@ -370,34 +366,6 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &169328205
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 169328202}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac44f1102cca36649a69c2864245b292, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.GameClockHud
-  position: {x: 10, y: 10}
---- !u!114 &169328206
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 169328202}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5b9d5595e72e15a479a338cff3127a8b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.SettlementHud
-  leftTop: 110
-  panelWidth: 300
-  buyStep: 10
 --- !u!114 &169328207
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -485,34 +453,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &169328211
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 169328202}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d1055b05a864b8647b3f451737955d84, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.HoverTooltip
-  cursorOffset: {x: 18, y: 18}
-  width: 330
-  delay: 0.15
---- !u!114 &169328212
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 169328202}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 36c13d1423dcbce4c9cd25b066aa7aa6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.AuctionPanel
-  width: 560
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0

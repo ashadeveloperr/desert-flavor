@@ -32,13 +32,13 @@ namespace DesertSettlement.Core.Tests
             _config = EconomyConfigLoader.Parse(File.ReadAllText(path));
         }
 
-        private static Settlement NewSettlement(Action<SettlementRules> tweak = null)
+        private static Settlement NewSettlement(Action<SettlementRules> tweak = null, bool v08Regression = false)
         {
             var map = new HexMap(3);
             map.GetTile(WellTile).Terrain = TerrainType.WaterSource;
             map.GetTile(QuarryTile).Terrain = TerrainType.Bedrock;
             map.GetTile(MineTile).Terrain = TerrainType.OreVein;
-            SettlementRules rules = SettlementRules.FromConfig(_config);
+            SettlementRules rules = v08Regression ? SettlementRules.ForV08Regression(_config) : SettlementRules.FromConfig(_config);
             tweak?.Invoke(rules);
             return new Settlement(map, rules);
         }
@@ -53,17 +53,8 @@ namespace DesertSettlement.Core.Tests
 
             public Script(Action<SettlementRules> tweak = null)
             {
-                // v0.8 이식본과 같은 수치를 비교하는 스크립트라, 원본에 없는 가동 숙성·채석장 능력 규칙(2026-10-23)은 끈다.
-                S = NewSettlement(r =>
-                {
-                    r.MaturityStartRatio = 1;
-                    r.StoneMultiplierUsesQuarryCapacity = false;
-                    r.StartingCash = 1000; // v0.8 원본 시작 자금(게임 값은 2026-10-23 게임성 보강으로 700)
-                    r.ConstructionHoursMultiplier = 1; // v0.8 원본 건설 시간(게임 값은 2026-10-23 흐름 조정 W2로 0.5)
-                    r.StartJobsOnCommand = false; // v0.8 원본은 다음 정각에 착공(게임 값은 2026-10-26 JQ2로 명령 순간)
-                    r.Trade = null; // v0.8 원본은 시장 없이 어디서나 같은 값에 구매(게임 값은 2026-10-27 이슈 #18 시장)
-                    tweak?.Invoke(r);
-                });
+                // v0.8 이식본과 같은 수치를 비교하는 스크립트라, v0.8 뒤에 더한 규칙을 끈 회귀 프리셋으로 돈다.
+                S = NewSettlement(tweak, v08Regression: true);
                 S.JobStarted += job =>
                 {
                     if (_jobNames.TryGetValue(job.Id, out string name) && job.Type == JobType.Build) Ids[name] = job.FacilityId;

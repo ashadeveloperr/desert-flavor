@@ -155,6 +155,23 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
+        /// 원본 v0.8 경제(시뮬레이터의 이식본 <c>EconomySim</c>)와 같은 결과를 내는 규칙(결정 RG1). 회귀 비교 전용이고 게임에서는 쓰지 않는다:
+        /// EditMode <c>SettlementTests</c>의 고정 건설 스크립트와 시뮬레이터 교차 검증이 쓴다. v0.8 뒤에 더한 규칙을 여기서 끈다 —
+        /// 새 규칙을 넣으면 그 규칙을 끄는 값을 여기에 한 줄 더한다(빠뜨리면 회귀값 133h·540.05·1149.63 비교가 깨진다).
+        /// </summary>
+        public static SettlementRules ForV08Regression(EconomyConfig config)
+        {
+            SettlementRules r = FromConfig(config);
+            r.StartingCash = 1000;                       // 원본 시작 자금(게임 값은 결정 FB1)
+            r.MaturityStartRatio = 1;                    // 가동 숙성 없음(경매 직전 몰아짓기 방지 규칙)
+            r.StoneMultiplierUsesQuarryCapacity = false; // 석재 배율에 채석장 능력을 쓰지 않음(채석장 철거 방지 규칙)
+            r.ConstructionHoursMultiplier = 1;           // 원본 건설 시간(게임 값은 결정 FL2)
+            r.StartJobsOnCommand = false;                // 다음 정각에 착공(게임 값은 결정 JQ2: 명령 순간)
+            r.Trade = null;                              // 시장 없이 어디서나 같은 값에 구매, 판매 없음(게임 값은 결정 MK1~MK9)
+            return r;
+        }
+
+        /// <summary>
         /// 장비·지역 모디파이어 효과를 규칙 값에 건다(여러 번 부르면 누적). 정착지를 만들기 전에 호출한다.
         /// 수로 손실은 물 배분 설정에, 작업 슬롯·저장 한도는 해당 값에 더한다.
         /// </summary>

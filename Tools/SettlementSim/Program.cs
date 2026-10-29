@@ -692,17 +692,11 @@ namespace SettlementSim
             map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
             map.GetTile(new HexCoord(2, -1)).Terrain = TerrainType.Bedrock;
             map.GetTile(new HexCoord(2, 0)).Terrain = TerrainType.OreVein;
-            var rules = DesertSettlement.Core.Economy.SettlementRules.FromConfig(config);
+            // 이식본(v0.8)과 비교할 때는 v0.8 뒤에 더한 규칙을 끈 회귀 프리셋(currentRules = 지금 게임 규칙).
+            var rules = currentRules
+                ? DesertSettlement.Core.Economy.SettlementRules.FromConfig(config)
+                : DesertSettlement.Core.Economy.SettlementRules.ForV08Regression(config);
             if (developmentRatio.HasValue) rules.DevelopmentAssetRatio = developmentRatio.Value; // 이식본엔 개발 중 자산이 없으므로 비교 시 0
-            if (!currentRules)
-            {
-                rules.StartingCash = 1000; // v0.8 원본 시작 자금(게임 값은 2026-10-23 게임성 보강으로 700)
-                rules.MaturityStartRatio = 1; // 이식본(v0.8)엔 가동 숙성·채석장 능력 규칙이 없으므로 비교 때는 끈다
-                rules.StoneMultiplierUsesQuarryCapacity = false;
-                rules.ConstructionHoursMultiplier = 1; // 원본 v0.8 건설 시간(게임 값은 2026-10-23 흐름 조정 W2로 0.5)
-                rules.StartJobsOnCommand = false; // 원본 v0.8은 다음 정각에 착공(게임 값은 2026-10-26 JQ2로 명령 순간)
-                rules.Trade = null; // 원본 v0.8은 시장 없이 어디서나 같은 값에 구매(게임 값은 2026-10-27 이슈 #18 시장)
-            }
             var s = new DesertSettlement.Core.Economy.Settlement(map, rules);
 
             var tiles = new Dictionary<string, HexCoord>

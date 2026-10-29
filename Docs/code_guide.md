@@ -121,7 +121,7 @@ Unity가 만드는 `.meta`도 함께 커밋한다(테스트 사본이 만든 `.m
 세션 오브젝트에 붙는 새 컴포넌트(MonoBehaviour)라면 `DebugSessionBuilder.EnsureComponents`에 한 줄 더하고 씬 재구성(`SetupSampleScene`, 에디터를 닫아야 하므로 먼저 묻는다)으로 SampleScene에 넣는다. 다른 컴포넌트의 `Awake`에서 붙이지 않는다(결정 SC1). 씬에 넣지 않으면 플레이해도 그 컴포넌트가 없다.
 
 ### 원본 v0.8 회귀 모드
-v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 넣은 규칙을 끈다: `startJobsOnCommand` false, 가동 숙성 비율 1, `stoneMultiplierUsesQuarryCapacity` false, `constructionHoursMultiplier` 1, 시장 규칙 없음(`Trade == null`이면 시장 없이도 판매 가능으로 취급). EditMode `SettlementTests`의 Script와 시뮬레이터 `RunCoreScript`가 이렇게 돈다. 새 규칙을 넣을 때 **끄는 값**도 정해 두고 여기에 한 줄 더한다.
+v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 `SettlementRules.ForV08Regression(config)`로 규칙을 만든다(결정 RG1). v0.8 뒤에 넣은 규칙(시작 자금·가동 숙성·채석장 능력·건설 시간 배율·명령 순간 착공·시장)을 여기서 끈다. EditMode `SettlementTests`의 Script와 시뮬레이터 `RunCoreScript`가 이것을 쓴다. 새 규칙을 넣을 때 **끄는 값**을 이 프리셋에 한 줄 더한다.
 
 ## 5. 무엇을 바꾸려면 어디를 고치나
 

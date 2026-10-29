@@ -56,9 +56,21 @@ namespace DesertSettlement.Runtime.UI
             return r;
         }
 
+        /// <summary>
+        /// 코드로 만든 글자·버튼 오브젝트의 이름: 종류 + 처음 문구(결정 UK1). 플레이 중 Hierarchy에서 화면 문구로 찾을 수 있다(예: "Button 저장 F5").
+        /// 이름은 만들 때 한 번만 정한다(나중에 바뀌는 글자는 따라가지 않음).
+        /// </summary>
+        private static string NameFor(string kind, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return kind;
+            string plain = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", "").Replace('\n', ' ').Trim();
+            if (plain.Length > 24) plain = plain.Substring(0, 24) + "…";
+            return plain.Length == 0 ? kind : kind + " " + plain;
+        }
+
         public static Text Label(Transform parent, string text, int size = Theme.Body, Color? color = null, TextAnchor align = TextAnchor.MiddleLeft)
         {
-            RectTransform r = Rect("Text", parent);
+            RectTransform r = Rect(NameFor("Text", text), parent);
             var t = r.gameObject.AddComponent<Text>();
             t.font = Font;
             t.fontSize = size;
@@ -73,7 +85,7 @@ namespace DesertSettlement.Runtime.UI
 
         public static UnityEngine.UI.Button Btn(Transform parent, string text, Action onClick, float width = -1, float height = 30, int size = Theme.Body)
         {
-            RectTransform r = Rect("Button", parent);
+            RectTransform r = Rect(NameFor("Button", text), parent);
             var image = r.gameObject.AddComponent<Image>();
             image.color = Theme.ButtonColor;
             var b = r.gameObject.AddComponent<UnityEngine.UI.Button>();

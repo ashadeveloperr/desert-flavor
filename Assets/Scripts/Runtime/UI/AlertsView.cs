@@ -11,7 +11,7 @@ namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
     /// 왼쪽 패널(UI2, Frostpunk 식 알림 목록): 경매 일정·예고 입찰자, 파산 경고, 입찰자 혜택, 재해(예고·진행), 그 아래 작업 대기열.
-    /// 목록은 내용이 바뀔 때만 다시 만든다(UI5).
+    /// 목록은 내용이 바뀔 때만 다시 만든다(UI5). 비교는 그릴 글자·색·버튼 그 자체로 해서, 비교 키에 값을 빠뜨려 갱신이 안 되는 일이 없다(결정 UK2).
     /// </summary>
     public sealed class AlertsView : IUiView
     {
@@ -51,7 +51,7 @@ namespace DesertSettlement.Runtime.UI
             if (s == null || auctions == null) return;
 
             List<(string text, Color color)> alerts = BuildAlerts(s, auctions);
-            string key = string.Join("|", alerts.Select(a => a.text));
+            string key = string.Join("\n", alerts.Select(a => a.text + "#" + ColorUtility.ToHtmlStringRGBA(a.color)));
             if (key != _alertKey)
             {
                 _alertKey = key;
@@ -61,22 +61,29 @@ namespace DesertSettlement.Runtime.UI
 
             _queueTitle.text = $"작업 대기열  {s.JobsInProgress}/{s.Rules.ConstructionSlots} 진행";
             List<ConstructionJob> jobs = s.Jobs.ToList();
-            string qkey = string.Join("|", jobs.Select(j => $"{j.Id}{j.State}{j.DeadlineHour}{(s.Stone + 1e-8 < j.StoneCost ? "!" : "")}"));
+            List<ConstructionJob> queued = jobs.Where(j => j.State == JobState.Queued).ToList();
+            // 줄마다 글자와 버튼을 정하는 값(작업 번호·대기 순서·상태)을 그대로 비교한다.
+            string qkey = string.Join("\n", jobs.Select(j => $"{JobText(s, j)}|{j.Id}|{queued.IndexOf(j)}|{j.State}"));
             if (qkey == _queueKey) return;
             _queueKey = qkey;
             Clear(_queue);
             if (jobs.Count == 0) Label(_queue, "비어 있음 — 아래 도구로 건설을 예약하세요", Theme.Small, Theme.Muted);
-            List<ConstructionJob> queued = jobs.Where(j => j.State == JobState.Queued).ToList();
             foreach (ConstructionJob job in jobs) AddJobRow(s, job, queued.IndexOf(job));
+        }
+
+        /// <summary>대기열 한 줄의 글자: 종류·시설·목표 레벨·상태(완공 시각 / 석재 부족 / 대기).</summary>
+        private static string JobText(Settlement s, ConstructionJob job)
+        {
+            string type = job.Type == JobType.Build ? "건설" : job.Type == JobType.Upgrade ? "개량" : "철거";
+            string state = job.State == JobState.InProgress ? Paint($"~{job.DeadlineHour}h", Theme.Good)
+                : s.Stone + 1e-8 < job.StoneCost ? Paint($"석재 {job.StoneCost:0} 부족", Theme.Warn) : Paint("대기", Theme.Muted);
+            return $"{type} {FacilityInfo.KindName(job.Kind)} L{job.TargetLevel}  {state}";
         }
 
         private void AddJobRow(Settlement s, ConstructionJob job, int queuedIndex)
         {
             HorizontalLayoutGroup row = Row(_queue, 4);
-            string type = job.Type == JobType.Build ? "건설" : job.Type == JobType.Upgrade ? "개량" : "철거";
-            string state = job.State == JobState.InProgress ? Paint($"~{job.DeadlineHour}h", Theme.Good)
-                : s.Stone + 1e-8 < job.StoneCost ? Paint($"석재 {job.StoneCost:0} 부족", Theme.Warn) : Paint("대기", Theme.Muted);
-            Text t = Label(row.transform, $"{type} {FacilityInfo.KindName(job.Kind)} L{job.TargetLevel}  {state}", Theme.Small);
+            Text t = Label(row.transform, JobText(s, job), Theme.Small);
             t.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
             int id = job.Id;
             if (job.State == JobState.Queued && queuedIndex > 0)

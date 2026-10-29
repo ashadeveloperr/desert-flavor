@@ -118,6 +118,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 
 ### 새 스크립트 파일
 Unity가 만드는 `.meta`도 함께 커밋한다(테스트 사본이 만든 `.meta`는 원본으로 되가져온다). 시뮬레이터가 링크하는 폴더(`Tools/SettlementSim/SettlementSim.csproj`)라면 거기에도 추가.
+세션 오브젝트에 붙는 새 컴포넌트(MonoBehaviour)라면 `DebugSessionBuilder.EnsureComponents`에 한 줄 더하고 씬 재구성(`SetupSampleScene`, 에디터를 닫아야 하므로 먼저 묻는다)으로 SampleScene에 넣는다. 다른 컴포넌트의 `Awake`에서 붙이지 않는다(결정 SC1). 씬에 넣지 않으면 플레이해도 그 컴포넌트가 없다.
 
 ### 원본 v0.8 회귀 모드
 v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 넣은 규칙을 끈다: `startJobsOnCommand` false, 가동 숙성 비율 1, `stoneMultiplierUsesQuarryCapacity` false, `constructionHoursMultiplier` 1, 시장 규칙 없음(`Trade == null`이면 시장 없이도 판매 가능으로 취급). EditMode `SettlementTests`의 Script와 시뮬레이터 `RunCoreScript`가 이렇게 돈다. 새 규칙을 넣을 때 **끄는 값**도 정해 두고 여기에 한 줄 더한다.
@@ -151,7 +152,7 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 �
 | 경매 입찰자·시세 시드 | `GameSession` 인스펙터 → Campaign Seed |
 | 지형·시설·수로 색, 수로 폭, 머리 위 글자, 녹지화, 등불 | `SettlementView` 인스펙터 (시설 기본 색은 `FacilityCatalog`, 종류별 덮어쓰기는 `facilityColors`) |
 | 시설 모양(부품 위치·크기·레벨 부품·비계·등불 위치) | `Runtime/View/FacilityModels.cs` |
-| 건설 가능 타일 강조 색·주기 · 맵 바깥 모래언덕 | `BuildableOverlay` · `DesertBackdrop` 인스펙터(실행 중 자동으로 붙는다, 7절) |
+| 건설 가능 타일 강조 색·주기 · 맵 바깥 모래언덕 | `BuildableOverlay` · `DesertBackdrop` 인스펙터(GameSession 오브젝트) |
 | 팝업·정보창 문구, 지형 이름, 재해 문구 | `Runtime/View/FacilityInfo.cs` (시설 이름은 `FacilityCatalog`) |
 | UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme` |
 | 키보드 단축키 | `Runtime/UI/Hotkeys.cs`의 표(카메라 이동·회전은 `StrategyCameraRig`, 도구 해제 Esc는 `BuildInputController`) |
@@ -185,7 +186,6 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 �
 
 ## 7. 알려진 함정
 
-- **실행 중 자동으로 붙는 컴포넌트:** `GameUi`·`WaterPathOverlay`·`BuildableOverlay`·`DesertBackdrop`은 씬에 없고 플레이할 때 다른 컴포넌트의 `Awake`나 `DebugSessionBuilder.EnsureComponents`가 붙인다. 그래서 에디터를 멈춘 상태의 인스펙터에서는 안 보인다.
 - **씬에 남은 옛 값:** 직렬화된 필드는 씬 값이 코드 기본값을 이긴다. 코드에서 기본값을 바꿨는데 화면이 그대로면 씬의 값을 의심한다(씬 재구성: `DebugSessionMenu.SetupSampleScene`, 에디터를 닫아야 하므로 먼저 묻는다).
 - **UI 오브젝트 이름:** 코드로 만든 UI는 Hierarchy에서 이름이 'Text'·'Button'이라 찾기 어렵다. 화면에 보이는 한국어 문구로 `Runtime/UI/`를 검색하는 것이 가장 빠르다.
 - **가운데 창·알림의 다시 그리기:** `ModalView`·`AlertsView`는 상태를 문자열 키로 비교해 바뀌었을 때만 다시 만든다. 새 상태를 화면에 넣었는데 갱신이 안 되면 그 키에 넣었는지 본다.

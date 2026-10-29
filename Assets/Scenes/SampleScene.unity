@@ -133,6 +133,10 @@ GameObject:
   - component: {fileID: 169328208}
   - component: {fileID: 169328207}
   - component: {fileID: 169328204}
+  - component: {fileID: 169328214}
+  - component: {fileID: 169328213}
+  - component: {fileID: 169328212}
+  - component: {fileID: 169328211}
   m_Layer: 0
   m_Name: GameSession
   m_TagString: Untagged
@@ -366,6 +370,11 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  moonColor: {r: 0.55, g: 0.66, b: 1, a: 1}
+  moonIntensity: 0.35
+  moonElevation: 50
+  moonFade: 0.12
+  nightAmbientMin: 0.5
 --- !u!114 &169328207
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -402,8 +411,7 @@ MonoBehaviour:
   boundaryColor: {r: 1, g: 0.45, b: 0.2, a: 1}
   vertexColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
   canalColor: {r: 0.2, g: 0.6, b: 1, a: 1}
-  closedGateColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
-  openGateColor: {r: 0.2, g: 0.85, b: 0.3, a: 1}
+  closedCanalColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
 --- !u!114 &169328209
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -422,21 +430,29 @@ MonoBehaviour:
   bedrock: {r: 0.58, g: 0.56, b: 0.52, a: 1}
   obstacle: {r: 0.3, g: 0.26, b: 0.22, a: 1}
   tileGap: 0.96
-  well: {r: 0.2, g: 0.45, b: 0.95, a: 1}
-  farm: {r: 0.35, g: 0.75, b: 0.3, a: 1}
-  quarry: {r: 0.75, g: 0.72, b: 0.68, a: 1}
-  mine: {r: 0.45, g: 0.3, b: 0.25, a: 1}
-  auctionHall: {r: 0.95, g: 0.75, b: 0.2, a: 1}
-  warehouse: {r: 0.7, g: 0.5, b: 0.3, a: 1}
+  facilityColors: []
   constructing: {r: 0.6, g: 0.6, b: 0.6, a: 1}
   demolishing: {r: 0.85, g: 0.35, b: 0.3, a: 1}
   closedDarken: 0.45
-  canalDry: {r: 0.55, g: 0.5, b: 0.42, a: 1}
+  canalDryColor: {r: 0.38, g: 0.31, b: 0.23, a: 1}
   canalFull: {r: 0.1, g: 0.35, b: 0.95, a: 1}
-  gateOpen: {r: 0.2, g: 0.85, b: 0.3, a: 1}
-  gateClosed: {r: 0.9, g: 0.15, b: 0.15, a: 1}
+  canalClosed: {r: 0.9, g: 0.15, b: 0.15, a: 1}
   planned: {r: 1, g: 1, b: 1, a: 1}
-  canalWidth: 0.08
+  canalThickness: 0.14
+  canalShimmer: 0.18
+  oasis: {r: 0.6, g: 0.72, b: 0.4, a: 1}
+  greeningRate: 0.08
+  witheredCrop: {r: 0.72, g: 0.62, b: 0.32, a: 1}
+  lanternGlow: {r: 2.6, g: 1.7, b: 0.7, a: 1}
+  lanternOff: {r: 0.45, g: 0.38, b: 0.28, a: 1}
+  lanternLightColor: {r: 1, g: 0.72, b: 0.4, a: 1}
+  lanternLightIntensity: 1.6
+  lanternLightRange: 1.3
+  lanternFadeHours: 1
+  lanternLingerHours: 1
+  lanternBreathSeconds: {x: 5, y: 8}
+  lanternBreathMin: 0.7
+  lanternFlicker: 0.03
   showLabels: 1
 --- !u!4 &169328210
 Transform:
@@ -453,6 +469,85 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &169328211
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169328202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29056564f6b5fba4e951cf6a19f69ff4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.UI.GameUi
+  refreshSeconds: 0.2
+--- !u!114 &169328212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169328202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29fcdbf61eaef1a478bdf1fc64c8779d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.DesertBackdrop
+  duneColor: {r: 0.83, g: 0.7, b: 0.49, a: 1}
+  borderColor: {r: 0.36, g: 0.27, b: 0.18, a: 0.35}
+  borderWidth: 0.16
+  baseHeight: -0.004
+  flatTiles: 0.5
+  riseTiles: 2.5
+  nearHeight: 0.8
+  farHeight: 1.5
+  farTiles: 10
+  duneSpacingTiles: 4.5
+  windDegrees: 25
+  extentTiles: 90
+  gridCells: 200
+  seed: 7
+  rippleSpacing: 0.22
+  rippleStrength: 0.045
+  dayHaze: {r: 0.78, g: 0.84, b: 0.9, a: 1}
+  nightHaze: {r: 0.07, g: 0.09, b: 0.16, a: 1}
+  fogStartMarginTiles: 2
+  fogRangeTiles: 40
+--- !u!114 &169328213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169328202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f0e32e080f64ad4a8ac9dd14bb39753, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.BuildableOverlay
+  buildableColor: {r: 0.3, g: 1, b: 0.4, a: 1}
+  waitingColor: {r: 1, g: 0.85, b: 0.25, a: 1}
+  alphaMin: 0.15
+  alphaMax: 0.45
+  periodSeconds: 2
+  inset: 0.82
+  refreshSeconds: 0.2
+--- !u!114 &169328214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 169328202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7edbf698400c6474fbb262d987ee97bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DesertSettlement.Runtime::DesertSettlement.Runtime.WaterPathOverlay
+  routeColor: {r: 0.35, g: 0.95, b: 1, a: 1}
+  blockedColor: {r: 1, g: 0.2, b: 0.2, a: 1}
+  thickness: 0.05
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -806,6 +901,9 @@ MonoBehaviour:
   maxDistance: 24
   zoomStep: 1.2
   zoomSmoothing: 10
+  frameMapOnStart: 1
+  framingDistancePerRing: 4
+  framingShiftTiles: 1
   rotateStep: 60
   rotateSmoothing: 10
 --- !u!1 &832575517

@@ -6,7 +6,7 @@ namespace DesertSettlement.Runtime
 {
     /// <summary>
     /// 플레이 가능한 디버그 세션 한 벌을 코드로 만든다. 에디터 메뉴(디버그 세션 만들기)와 PlayMode 테스트가 함께 쓴다.
-    /// 만드는 것: GameSession(+ 정착지 뷰·Gizmo 뷰·입력·HUD·시계 HUD·낮밤 조명), 카메라 리그 + Cinemachine 카메라,
+    /// 만드는 것: GameSession(+ <see cref="EnsureComponents"/>의 컴포넌트), 카메라 리그 + Cinemachine 카메라,
     /// Main Camera의 CinemachineBrain. 이미 있는 Main Camera·Directional Light는 재사용한다.
     /// </summary>
     public static class DebugSessionBuilder
@@ -61,7 +61,8 @@ namespace DesertSettlement.Runtime
         }
 
         /// <summary>
-        /// 세션 오브젝트에 필요한 컴포넌트 중 빠진 것을 붙인다. 예전에 만든 씬에 새 컴포넌트를 추가할 때도 쓴다.
+        /// 세션 오브젝트에 필요한 컴포넌트 중 빠진 것을 붙인다. 세션 컴포넌트를 붙이는 곳은 여기 하나다(결정 SC1, 실행 중 자동 부착 없음).
+        /// 새 컴포넌트는 여기에 한 줄 더하고 씬 재구성(DebugSessionMenu.SetupSampleScene, 에디터를 닫고)으로 SampleScene에 넣는다.
         /// 붙인 컴포넌트 수를 돌려준다.
         /// </summary>
         public static int EnsureComponents(GameSession session)
@@ -80,6 +81,8 @@ namespace DesertSettlement.Runtime
             Ensure<HexMapDebugView>();
             Ensure<BuildInputController>();
             Ensure<WaterPathOverlay>();
+            Ensure<BuildableOverlay>();
+            Ensure<DesertBackdrop>();
             Ensure<UI.GameUi>();
             if (go.GetComponent<DayNightLighting>() == null)
             {

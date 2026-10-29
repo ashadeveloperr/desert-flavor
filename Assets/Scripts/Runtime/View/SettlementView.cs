@@ -111,8 +111,6 @@ namespace DesertSettlement.Runtime
             _tilesRoot = NewRoot("Tiles");
             _facilitiesRoot = NewRoot("Facilities");
             _plannedRoot = NewRoot("Planned");
-            // 맵 바깥 모래언덕(이슈 #17). 씬을 다시 구성하지 않아도 붙는다.
-            if (GetComponent<DesertBackdrop>() == null) gameObject.AddComponent<DesertBackdrop>();
         }
 
         private void OnEnable()

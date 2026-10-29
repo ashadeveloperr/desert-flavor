@@ -70,10 +70,10 @@ namespace DesertSettlement.Core.Economy
             }
 
             sources = _facilities.Values.Where(x => x.Kind == BuildingKinds.Well && Counts(x))
-                .Select(w => new WaterSource(w.Id.ToString(), w.Tile, (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier)).ToList();
+                .Select(w => new WaterSource(WaterIds.Of(w), w.Tile, (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier)).ToList();
             List<WaterConsumer> consumers = _facilities.Values
                 .Where(x => Counts(x) && !x.Edge.HasValue && (Level(x).WaterDemand ?? 0) > 0)
-                .Select(x => new WaterConsumer(x.Id.ToString(), x.Tile, Level(x).WaterDemand.Value)).ToList();
+                .Select(x => new WaterConsumer(WaterIds.Of(x), x.Tile, Level(x).WaterDemand.Value)).ToList();
 
             return WaterNetworkSolver.Solve(canals, sources, consumers, assumeJobsComplete ? Rules.Water : WaterNow);
         }

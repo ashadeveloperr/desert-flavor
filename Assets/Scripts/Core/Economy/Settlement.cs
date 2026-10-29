@@ -104,7 +104,7 @@ namespace DesertSettlement.Core.Economy
         public double WaterRateOf(Facility f)
         {
             if ((LevelOf(f).WaterDemand ?? 0) <= 0) return 1.0;
-            return LastWater?.RateOf(f.Id.ToString()) ?? 0.0;
+            return LastWater?.RateOf(WaterIds.Of(f)) ?? 0.0;
         }
 
         /// <summary>

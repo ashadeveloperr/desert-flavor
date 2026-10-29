@@ -374,7 +374,7 @@ namespace DesertSettlement.Core.Tests
             double before = s.LastWater.TotalDelivered;
             Assert.IsTrue(s.SetClosed(quarry.Id, true).Success);
             HourRecord r = s.AdvanceHour();
-            Assert.IsFalse(s.LastWater.Consumers.ContainsKey(quarry.Id.ToString()), "폐쇄 시설은 물 수요 없음");
+            Assert.IsFalse(s.LastWater.Consumers.ContainsKey(WaterIds.Of(quarry)), "폐쇄 시설은 물 수요 없음");
             Assert.Less(s.LastWater.TotalDelivered, before);
             Assert.AreEqual(0.0, r.StoneProduced);
 

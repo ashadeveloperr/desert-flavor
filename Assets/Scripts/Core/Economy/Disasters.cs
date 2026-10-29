@@ -102,7 +102,7 @@ namespace DesertSettlement.Core.Economy
             Intensity = intensity;
             Epidemic.Resistance = settlement.Rules.EpidemicResistanceFloor;
 
-            var rng = new DeterministicRandom(unchecked(seed * 13 + 0xD15A));
+            var rng = new DeterministicRandom(SeedSalts.DisasterSchedule(seed));
             int count = PickIndex(settings.EffectiveCountWeights, rng);
             long first = settlement.CurrentHour + settings.GraceHours;
             var starts = Enumerable.Range(0, count).Select(_ => first + rng.Next(Math.Max(1, settings.ScheduleWindowHours))).OrderBy(x => x).ToList();

@@ -55,9 +55,7 @@ namespace DesertSettlement.Runtime
         /// <summary>물 배분 공급원 id를 사람이 읽는 이름으로("우물 #3", "물탱크 #7").</summary>
         public static string SourceName(Settlement s, string sourceId)
         {
-            bool tank = sourceId.StartsWith("tank");
-            string number = tank ? sourceId.Substring(4) : sourceId;
-            return $"{(tank ? "물탱크" : "우물")} #{number}";
+            return $"{(WaterIds.IsTank(sourceId) ? "물탱크" : "우물")} #{WaterIds.NumberOf(sourceId)}";
         }
 
         /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과 한 줄(두 화면 공통).</summary>
@@ -142,7 +140,7 @@ namespace DesertSettlement.Runtime
             lines.Add($"  {label}의 물길 {routes.Count}개 · 합계 {routes.Sum(x => x.Flow.Delivered):0.0}/h (맵에 하늘색 띠)");
             foreach (var (consumerId, flow) in routes.Take(MaxRouteLines))
             {
-                Facility to = int.TryParse(consumerId, out int id) ? s.GetFacility(id) : null;
+                Facility to = WaterIds.TryFacilityId(consumerId, out int id) ? s.GetFacility(id) : null;
                 string name = to != null ? $"{KindName(to.Kind)} #{to.Id}" : consumerId;
                 string how = flow.Distance == 0 ? "옆 꼭짓점에서 바로" : $"수로 {flow.Distance / 2.0:0.#}칸";
                 lines.Add($"    → {name}: {how} → {flow.Delivered:0.0}/h");
@@ -170,7 +168,7 @@ namespace DesertSettlement.Runtime
             if (epidemic != null) lines.Add(epidemic);
 
             WaterAllocation water = s.LastWater;
-            if ((lv.WaterDemand ?? 0) > 0 && water != null && water.Consumers.TryGetValue(f.Id.ToString(), out WaterConsumerResult w))
+            if ((lv.WaterDemand ?? 0) > 0 && water != null && water.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w))
             {
                 lines.Add($"물: {w.Delivered:0.0} / {w.Demand:0} ({w.Rate:P0}), 우물에서 거리 {w.PriorityDistance}");
                 if (w.Shortage != WaterShortageReason.None) lines.Add("물 부족 이유: " + ShortageText(w.Shortage) + (w.Shortage == WaterShortageReason.CanalCapacity ? " (맵에 빨간 띠)" : ""));
@@ -180,12 +178,12 @@ namespace DesertSettlement.Runtime
                         ? $"  물길: {SourceName(s, flow.SourceId)} 옆 꼭짓점에서 바로 → {flow.Delivered:0.0}/h (이어 주는 수로 1개, 하늘색 띠)"
                         : $"  물길: {SourceName(s, flow.SourceId)}에서 수로 {flow.Distance / 2.0:0.#}칸 → {flow.Delivered:0.0}/h");
             }
-            if (lv.WaterSupply.HasValue && water != null && water.SourceReleased.TryGetValue(f.Id.ToString(), out double released))
+            if (lv.WaterSupply.HasValue && water != null && water.SourceReleased.TryGetValue(WaterIds.Of(f), out double released))
             {
                 double supply = (lv.WaterSupply ?? 0) * s.Rules.WellSupplyMultiplier;
                 string bonus = s.Rules.WellSupplyMultiplier > 1.0001 ? $", 장비 ×{s.Rules.WellSupplyMultiplier:0.00}" : "";
                 lines.Add($"방출: {released:0.0} / {supply:0} (식량 계수 영향 없음{bonus})");
-                AddSentRoutes(lines, s, water, f.Id.ToString(), "이 우물");
+                AddSentRoutes(lines, s, water, WaterIds.Of(f), "이 우물");
             }
             if (f.Kind == BuildingKinds.CanalEdge)
             {
@@ -211,7 +209,7 @@ namespace DesertSettlement.Runtime
                     default: lines.Add("지난 시간: 대기 (가득 참·남는 물 없음·하류 부족 없음)"); break;
                 }
                 lines.Add("하류 = 우물에서 오는 물길이 이 탱크를 지나는 시설. 상류 수로를 닫아도 하류로 방출");
-                if (f.TankMode == WaterTankMode.Discharging && water != null) AddSentRoutes(lines, s, water, "tank" + f.Id, "방출");
+                if (f.TankMode == WaterTankMode.Discharging && water != null) AddSentRoutes(lines, s, water, WaterIds.Tank(f.Id), "방출");
             }
 
             FacilityOutput o = s.OutputOf(f);

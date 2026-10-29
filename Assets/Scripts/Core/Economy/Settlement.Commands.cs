@@ -37,7 +37,7 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>변 위 수로 건설 예약.</summary>
         public CommandResult RequestCanal(EdgeId edge) =>
-            Record(DoRequestCanal(edge), new GameCommand { Type = GameCommand.Canal, Q = edge.Owner.Q, R = edge.Owner.R, Index = (int)edge.Side });
+            Record(DoRequestCanal(edge), GameCommand.ForCanal(edge));
 
         public CommandResult RequestUpgrade(int facilityId) =>
             Record(DoRequestUpgrade(facilityId), new GameCommand { Type = GameCommand.Upgrade, Id = facilityId });
@@ -53,7 +53,7 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>대기 중인 작업의 순서를 바꾼다. newQueuedIndex는 '대기 중 작업들' 사이의 위치(0 = 맨 앞).</summary>
         public CommandResult MoveQueuedJob(int jobId, int newQueuedIndex) =>
-            Record(DoMoveQueuedJob(jobId, newQueuedIndex), new GameCommand { Type = GameCommand.Move, Id = jobId, Index = newQueuedIndex });
+            Record(DoMoveQueuedJob(jobId, newQueuedIndex), GameCommand.ForMove(jobId, newQueuedIndex));
 
         /// <summary>시설 폐쇄/재개(수로는 물길 차단/개방). 폐쇄 중에는 물 수요·식량 소비 0, 유지비 일부.</summary>
         public CommandResult SetClosed(int facilityId, bool closed) =>

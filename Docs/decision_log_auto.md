@@ -765,3 +765,13 @@ D=1 도달은 모두 6번째.
 | RG1 | 원본 v0.8과 비교할 때 쓰는 규칙을 `SettlementRules.ForV08Regression(config)` 하나로: 시작 자금 1000, 가동 숙성 없음, 석재 배율에 채석장 능력 안 씀, 건설 시간 배율 1, 다음 정각 착공, 시장 없음. EditMode `SettlementTests`의 Script와 시뮬레이터 `RunCoreScript`가 이것을 쓴다. 개발 중 자산 비율은 비교마다 달라 프리셋 밖에서 정함 | [자동] | 같은 6줄이 두 곳에 있어 새 규칙을 넣을 때 한쪽만 끄기 쉬웠다. 새 규칙은 끄는 값을 프리셋에 한 줄(code_guide 4절) | `SettlementRules.cs` |
 
 검증: 시뮬레이터 출력 전체가 바꾸기 전과 같음(회귀값 133h·540.05·1149.63 그대로), EditMode 181 · PlayMode 10 통과.
+
+## Core 작은 정리 (2026-10-30 — 이슈 #24, 유지보수성 검토 M8~M10)
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| SD1 | 캠페인 시드를 섞는 수(경매 7919, 재해 4421·일정 ×13 + 0xD15A, 맵 ×31 + 104729, 지역 후보 7777)를 `SeedSalts`의 이름 있는 함수로. **값은 그대로** | [자동] | `Campaign`·`DisasterManager`에 흩어져 있었다. 바꾸면 같은 시드로 다른 게임이 나와 저장 파일·골든 값이 깨진다는 것을 한 곳에 적음. 시뮬레이터 측정 모드(`ModifierTuning`)의 같은 숫자는 그 모드 자체의 난수라 그대로 | `Core/Progression/SeedSalts.cs` |
+| SD2 | `GameCommand.Index`(변 방향·새 순서·지역 후보·입찰 번호)를 쓰는 명령은 `ForCanal`·`ForMove`·`ForStart`·`ForSell`로 만들고, `SaveGame.Apply`는 `CanalEdge`·`NewQueuedIndex`·`OfferIndex`·`BidIndex`로 읽는다. 읽기 속성은 `[JsonIgnore]`라 저장 형식은 그대로 | [자동] | 한 칸이 네 가지 뜻이라 만드는 곳과 읽는 곳이 어긋나기 쉬웠다 | `SaveGame.cs`, `Settlement.Commands.cs`, `Campaign.cs` |
+| SD3 | 물 배분 id를 `WaterIds`(`Of(시설)`="12", `Tank(번호)`="tank12", `IsTank`·`TryFacilityId`·`NumberOf`)로 만들고 읽는다. Core 5곳·Runtime 3곳·테스트 2곳의 `Id.ToString()`·`"tank" + id`·`int.Parse`를 바꿈 | [자동] | 같은 문자열 규칙이 여러 곳에서 따로 만들어졌다 | `Core/Economy/WaterIds.cs` |
+
+검증: 시뮬레이터 출력 전체가 바꾸기 전과 같음, `-- savecheck` 통과, EditMode 181 · PlayMode 10 통과(저장·불러오기 테스트 포함).

@@ -18,6 +18,7 @@
     <Compile Include="../../Assets/Scripts/Core/Auction/*.cs" Link="Core/Auction/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Progression/Campaign.cs" Link="Core/Progression/Campaign.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/SaveGame.cs" Link="Core/Progression/SaveGame.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/SeedSalts.cs" Link="Core/Progression/SeedSalts.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/MapDefinition.cs" Link="Core/Progression/MapDefinition.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/MapLoader.cs" Link="Core/Progression/MapLoader.cs" />
     <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfigLoader.cs" Link="Core/Progression/ProceduralMapConfigLoader.cs" />

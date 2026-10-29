@@ -212,7 +212,7 @@ namespace DesertSettlement.Core.Economy
                 if (assumed == null) assumed = s.SolveWaterAssumingJobsComplete();
 
                 BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
-                double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(f.Id.ToString()) : 1.0;
+                double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(WaterIds.Of(f)) : 1.0;
                 // 완공 가정 물 배분의 기대 생산 × 실적이 없던 시간 × 진행률 × 비율. 막 지은 시설이므로 숙성 시작 비율을 곱한다.
                 double amount = s.Rules.Efficiency(rate, s.FoodCoefficient) * missingHours * progress * ratio * s.Rules.MaturityStartRatio
                                 * s.Rules.MaxOutput(f.Kind, lv);

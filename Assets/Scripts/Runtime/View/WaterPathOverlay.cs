@@ -50,9 +50,9 @@ namespace DesertSettlement.Runtime
             if (f != null && !f.Edge.HasValue)
             {
                 WaterAllocation water = s.LastWater;
-                string key = f.Id.ToString();
+                string key = WaterIds.Of(f);
                 IEnumerable<WaterIntakeFlow> flows = f.Kind == BuildingKinds.Well ? WaterRoutes.SentBy(water, key)
-                    : f.Kind == BuildingKinds.WaterTank ? WaterRoutes.SentBy(water, "tank" + key)
+                    : f.Kind == BuildingKinds.WaterTank ? WaterRoutes.SentBy(water, WaterIds.Tank(f.Id))
                     : WaterRoutes.ReceivedBy(water, key);
                 EdgeId? blocked = WaterRoutes.BlockingEdgeOf(water, key);
                 foreach (EdgeId e in WaterRoutes.EdgesOf(flows))

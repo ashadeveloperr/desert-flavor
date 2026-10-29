@@ -319,7 +319,7 @@ namespace DesertSettlement.Runtime
                 float grown = f.CompletedHour < 0 ? 0f
                     : Mathf.Clamp01((float)((s.CurrentHour - f.CompletedHour) / Math.Max(1.0, s.Rules.MaturityFullHours)));
                 float water = 1f;
-                if (f.IsOperating && s.LastWater != null && s.LastWater.Consumers.TryGetValue(f.Id.ToString(), out WaterConsumerResult w))
+                if (f.IsOperating && s.LastWater != null && s.LastWater.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w))
                 {
                     water = Mathf.Clamp01((float)w.Rate);
                 }
@@ -432,7 +432,7 @@ namespace DesertSettlement.Runtime
                     var parts = new List<string>();
                     FacilityOutput o = s.OutputOf(f);
                     if (o.FarmBelowOwnUpkeep) parts.Add($"식량 생산 {o.ProducedPerHour:0.0} < 소비 {o.FoodUsePerHour:0.0}");
-                    if (s.LastWater != null && s.LastWater.Consumers.TryGetValue(f.Id.ToString(), out WaterConsumerResult w) && w.Rate < 0.999)
+                    if (s.LastWater != null && s.LastWater.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w) && w.Rate < 0.999)
                     {
                         parts.Add($"물 {w.Rate:P0} · {FacilityInfo.ShortageText(w.Shortage)}");
                     }

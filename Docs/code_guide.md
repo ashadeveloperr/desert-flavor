@@ -30,10 +30,10 @@ Assets/Scripts/
     Water/               WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과), WaterRoutes(물길 표시용 조회)
     Economy/             Settlement(정착지 하나, partial 6개 — 아래), SettlementRules(규칙 값), SettlementTypes,
                          SettlementValuation(경매 가치), FacilityCatalog(시설 종류 목록), EconomyEffects(장비·모디파이어 효과 묶음),
-                         Disasters(DisasterManager: 재해 일정·전염병)
+                         Disasters(DisasterManager: 재해 일정·전염병), WaterIds(물 배분에 넘기는 id 규칙)
     Auction/             AuctionManager: 경매 일정·예고·입찰·긴급 매각·파산
     Progression/         Campaign(정착지 연속·상점·장비), SaveGame(명령 기록 저장·재실행), MapDefinition/MapLoader(고정 맵),
-                         ProceduralMapGenerator(+Config, BSP 절차 맵), RegionModifiers/RegionOffer(지역 약점·강점), DeterministicRandom
+                         ProceduralMapGenerator(+Config, BSP 절차 맵), RegionModifiers/RegionOffer(지역 약점·강점), DeterministicRandom, SeedSalts(시드 섞는 수)
     Timing/              GameClock(게임 시각·배속·정각 이벤트), GameTimeSettings
     Config/              EconomyConfig(JSON 모양 그대로의 데이터 클래스), EconomyConfigLoader(읽기·검증), JsonKeyCheck(모르는 키 찾기)
   Runtime/             DesertSettlement.Runtime — MonoBehaviour
@@ -189,6 +189,6 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 `SettlementR
 - **씬에 남은 옛 값:** 직렬화된 필드는 씬 값이 코드 기본값을 이긴다. 코드에서 기본값을 바꿨는데 화면이 그대로면 씬의 값을 의심한다(씬 재구성: `DebugSessionMenu.SetupSampleScene`, 에디터를 닫아야 하므로 먼저 묻는다).
 - **UI 오브젝트 이름:** 코드로 만든 UI는 Hierarchy에서 이름이 'Text'·'Button'이라 찾기 어렵다. 화면에 보이는 한국어 문구로 `Runtime/UI/`를 검색하는 것이 가장 빠르다.
 - **가운데 창·알림의 다시 그리기:** `ModalView`·`AlertsView`는 상태를 문자열 키로 비교해 바뀌었을 때만 다시 만든다. 새 상태를 화면에 넣었는데 갱신이 안 되면 그 키에 넣었는지 본다.
-- **시드 상수:** `Campaign`·`DisasterManager`의 시드 섞는 숫자(7919, 4421 등)를 바꾸면 저장 파일과 골든 값이 깨진다.
+- **시드 상수:** `Core/Progression/SeedSalts`의 숫자를 바꾸면 같은 시드로 다른 게임이 나와 저장 파일과 골든 값이 깨진다(결정 SD1).
 - **반투명·발광 머티리얼**은 `WorldVisuals.Unlit`(`Sprites/Default`)로 만든다. URP Lit 반투명을 코드로 켜면 빌드에서 셰이더 변형이 빠질 수 있다.
 - **배치 모드 Unity**는 에디터가 이 프로젝트를 열고 있으면 바로 실패한다. 테스트는 `unity-tests.sh`(사본)로, 빌드·씬 재구성만 원본에서.

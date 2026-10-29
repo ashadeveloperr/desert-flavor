@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
 using DesertSettlement.Core.Hex;
+using Newtonsoft.Json;
 
 namespace DesertSettlement.Core.Progression
 {
     /// <summary>
     /// 성공한 플레이어 명령 하나(저장 파일 한 줄). 어느 정착지의 몇 시간째(<see cref="Hour"/>)에 무엇을 했는지.
-    /// 쓰지 않는 칸은 0/null. 2026-10-23 로드맵 2-①, Docs/decision_log_auto.md S1~S5.
+    /// 쓰지 않는 칸은 0/null(결정 S1~S5). <see cref="Index"/>는 종류마다 뜻이 달라서, 그 칸을 쓰는 명령은 아래 For… 생성 함수로 만들고
+    /// 이름 있는 속성(<see cref="CanalEdge"/>·<see cref="NewQueuedIndex"/>·<see cref="OfferIndex"/>·<see cref="BidIndex"/>)으로 읽는다(결정 SD2, 저장 형식은 그대로).
     /// </summary>
     public sealed class GameCommand
     {
@@ -41,6 +43,22 @@ namespace DesertSettlement.Core.Progression
         public int Id { get; set; }
         public int Index { get; set; }
         public int Amount { get; set; }
+
+        public static GameCommand ForCanal(EdgeId edge) =>
+            new GameCommand { Type = Canal, Q = edge.Owner.Q, R = edge.Owner.R, Index = (int)edge.Side };
+        public static GameCommand ForMove(int jobId, int newQueuedIndex) => new GameCommand { Type = Move, Id = jobId, Index = newQueuedIndex };
+        public static GameCommand ForStart(int settlementNumber, int offerIndex) =>
+            new GameCommand { Type = Start, Settlement = settlementNumber, Index = offerIndex };
+        public static GameCommand ForSell(long hour, int bidIndex) => new GameCommand { Type = Sell, Hour = hour, Index = bidIndex };
+
+        /// <summary>수로 명령의 변(Q·R 타일 + Index 방향).</summary>
+        [JsonIgnore] public EdgeId CanalEdge => EdgeId.Of(new HexCoord(Q, R), (HexDirection)Index);
+        /// <summary>순서 변경 명령의 새 위치('대기 중 작업들' 사이, 0 = 맨 앞).</summary>
+        [JsonIgnore] public int NewQueuedIndex => Index;
+        /// <summary>다음 정착지 출발 명령의 지역 후보 번호.</summary>
+        [JsonIgnore] public int OfferIndex => Index;
+        /// <summary>매각 명령의 입찰 번호.</summary>
+        [JsonIgnore] public int BidIndex => Index;
     }
 
     /// <summary>저장 파일 내용. 캠페인 시드 + 명령 기록 + 저장한 순간의 위치(정착지 번호·시간).</summary>
@@ -118,7 +136,7 @@ namespace DesertSettlement.Core.Progression
         {
             switch (cmd.Type)
             {
-                case GameCommand.Start: c.StartNextSettlement(cmd.Index); return true;
+                case GameCommand.Start: c.StartNextSettlement(cmd.OfferIndex); return true;
                 case GameCommand.BuyEquipment: return c.BuyEquipment(cmd.Kind).Success;
                 case GameCommand.UpgradeEquipment: return c.UpgradeEquipment(cmd.Kind).Success;
                 case GameCommand.Equip: return c.SetEquipped(cmd.Kind, true).Success;
@@ -131,11 +149,11 @@ namespace DesertSettlement.Core.Progression
             switch (cmd.Type)
             {
                 case GameCommand.Build: return s.RequestBuild(cmd.Kind, new HexCoord(cmd.Q, cmd.R)).Success;
-                case GameCommand.Canal: return s.RequestCanal(EdgeId.Of(new HexCoord(cmd.Q, cmd.R), (HexDirection)cmd.Index)).Success;
+                case GameCommand.Canal: return s.RequestCanal(cmd.CanalEdge).Success;
                 case GameCommand.Upgrade: return s.RequestUpgrade(cmd.Id).Success;
                 case GameCommand.Demolish: return s.RequestDemolish(cmd.Id).Success;
                 case GameCommand.Cancel: return s.CancelJob(cmd.Id).Success;
-                case GameCommand.Move: return s.MoveQueuedJob(cmd.Id, cmd.Index).Success;
+                case GameCommand.Move: return s.MoveQueuedJob(cmd.Id, cmd.NewQueuedIndex).Success;
                 case GameCommand.Close: return s.SetClosed(cmd.Id, true).Success;
                 case GameCommand.Open: return s.SetClosed(cmd.Id, false).Success;
                 case GameCommand.BuyFood: return s.BuyFood(cmd.Amount) > 0;
@@ -144,7 +162,7 @@ namespace DesertSettlement.Core.Progression
                 case GameCommand.SellStone: return s.SellStone(cmd.Amount) > 0;
                 case GameCommand.Sell:
                     if (!c.Auctions.IsOpen) return false;
-                    c.Auctions.Sell(cmd.Index);
+                    c.Auctions.Sell(cmd.BidIndex);
                     return true;
                 case GameCommand.Hold:
                     if (!c.Auctions.IsOpen) return false;

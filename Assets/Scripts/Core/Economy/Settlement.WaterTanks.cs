@@ -61,7 +61,7 @@ namespace DesertSettlement.Core.Economy
                 {
                     double missing = r.Demand - r.Delivered;
                     if (missing <= TankEpsilon) continue;
-                    Facility f = GetFacility(int.Parse(r.Id));
+                    Facility f = WaterIds.TryFacilityId(r.Id, out int fid) ? GetFacility(fid) : null;
                     if (f == null || !downstream.IsDownstream(t.Tile, f.Tile)) continue;
                     needs.Add(new WaterConsumer(r.Id, f.Tile, missing));
                 }
@@ -69,7 +69,7 @@ namespace DesertSettlement.Core.Economy
 
                 double offer = Math.Min(t.StoredWater, LevelOf(t).DischargePerHour ?? 0);
                 if (offer <= TankEpsilon) continue;
-                string sourceId = "tank" + t.Id;
+                string sourceId = WaterIds.Tank(t.Id);
                 WaterAllocation pass = WaterNetworkSolver.Solve(canals, new[] { new WaterSource(sourceId, t.Tile, offer) }, needs, remaining);
                 double released = pass.SourceReleased.TryGetValue(sourceId, out double rel) ? rel : 0;
                 if (released <= TankEpsilon) continue;
@@ -87,13 +87,13 @@ namespace DesertSettlement.Core.Economy
                 .Select(w => new WaterSource(w.Id, w.Tile, w.SupplyPerHour - (water.SourceReleased.TryGetValue(w.Id, out double r) ? r : 0)))
                 .Where(w => w.SupplyPerHour > TankEpsilon).ToList();
             if (leftovers.Count == 0) return;
-            var tankConsumers = chargers.Select(t => new WaterConsumer("tank" + t.Id, t.Tile,
+            var tankConsumers = chargers.Select(t => new WaterConsumer(WaterIds.Tank(t.Id), t.Tile,
                 Math.Min(LevelOf(t).ChargePerHour ?? 0, TankCapacityOf(t) - t.StoredWater))).Where(c => c.DemandPerHour > TankEpsilon).ToList();
             if (tankConsumers.Count == 0) return;
             WaterAllocation charge = WaterNetworkSolver.Solve(canals, leftovers, tankConsumers, remaining);
             foreach (Facility t in chargers)
             {
-                if (!charge.Consumers.TryGetValue("tank" + t.Id, out WaterConsumerResult got) || got.Delivered <= TankEpsilon) continue;
+                if (!charge.Consumers.TryGetValue(WaterIds.Tank(t.Id), out WaterConsumerResult got) || got.Delivered <= TankEpsilon) continue;
                 t.StoredWater = Math.Min(TankCapacityOf(t), t.StoredWater + got.Delivered);
                 t.TankMode = WaterTankMode.Charging;
                 t.TankFlowLastHour = got.Delivered;

@@ -107,7 +107,7 @@ namespace DesertSettlement.Core.Progression
             IReadOnlyList<RegionOffer> offers = NextOffers();
             if (offerIndex < 0 || offerIndex >= offers.Count) throw new ArgumentOutOfRangeException(nameof(offerIndex), "없는 지역 후보입니다.");
             RegionOffer offer = offers[offerIndex];
-            _log.Add(new GameCommand { Type = GameCommand.Start, Index = offerIndex, Settlement = SettlementNumber + 1 });
+            _log.Add(GameCommand.ForStart(SettlementNumber + 1, offerIndex));
 
             SettlementNumber++;
             CurrentMap = MapFor(offer);
@@ -123,15 +123,15 @@ namespace DesertSettlement.Core.Progression
             _pendingFreeBuilds.Clear();
 
             Current = new Settlement(CurrentMap.CreateMap(), rules);
-            Auctions = new AuctionManager(Current, _seed + SettlementNumber * 7919);
+            Auctions = new AuctionManager(Current, SeedSalts.Auction(_seed, SettlementNumber));
             // 후반 가속(LD3, 이슈 #12): 생성 맵은 D가 LateStartD를 넘은 만큼 재해가 세진다.
             double disasterIntensity = CurrentGenerated != null ? 1 + _procedural.Difficulty.DisasterLatePerD * _procedural.Difficulty.LateExcess(CurrentGenerated.Params.D) : 1;
-            Disasters = DisasterManager.Attach(Current, _config.Disasters, _seed + SettlementNumber * 4421, CurrentModifiers.Select(m => m.Id), disasterIntensity);
+            Disasters = DisasterManager.Attach(Current, _config.Disasters, SeedSalts.Disasters(_seed, SettlementNumber), CurrentModifiers.Select(m => m.Id), disasterIntensity);
             // 저장 파일 명령 기록(2026-10-23 로드맵 2-①): 정착지 명령·경매 결정을 모은다.
             Current.CommandRecorded += Log;
             Settlement recorded = Current;
             Auctions.Held += () => Log(new GameCommand { Type = GameCommand.Hold, Hour = recorded.CurrentHour });
-            Auctions.Sold += sale => Log(new GameCommand { Type = GameCommand.Sell, Hour = recorded.CurrentHour, Index = IndexOfBid(sale) });
+            Auctions.Sold += sale => Log(GameCommand.ForSell(recorded.CurrentHour, IndexOfBid(sale)));
             Auctions.Sold += OnSold;
             Auctions.Bankrupted += OnBankrupt;
             State = CampaignState.InSettlement;
@@ -195,7 +195,7 @@ namespace DesertSettlement.Core.Progression
             var taken = new HashSet<string>();
             for (int i = 0; i < Math.Max(1, _procedural.RegionChoices); i++)
             {
-                int seed = unchecked(MapSeed(next) + i * 7777);
+                int seed = SeedSalts.RegionOffer(SeedSalts.Map(_seed, next), i);
                 List<RegionModifierDefinition> mods = ScaleWeaknesses(_procedural.Modifiers.Roll(p.D, seed, taken), p.D);
                 foreach (RegionModifierDefinition m in mods.Where(m => m.Kind == RegionModifierKind.Weakness)) taken.Add(m.Id);
                 offers.Add(new RegionOffer { Index = i, Seed = seed, Params = p, Modifiers = mods });
@@ -219,8 +219,6 @@ namespace DesertSettlement.Core.Progression
 
         /// <summary>다음 정착지(첫 후보)의 생성 난이도. 고정 맵 차례면 null.</summary>
         public DifficultyParams PreviewNextDifficulty() => NextOffers()[0].Params;
-
-        private int MapSeed(int settlementNumber) => unchecked(_seed * 31 + settlementNumber * 104729);
 
         public bool Owns(string equipmentId) => _owned.Contains(equipmentId);
 

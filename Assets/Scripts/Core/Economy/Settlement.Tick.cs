@@ -37,7 +37,7 @@ namespace DesertSettlement.Core.Economy
                 {
                     demand += lv.FoodUse ?? 0;
                     upkeep += lv.Upkeep ?? 0;
-                    double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(facility.Id.ToString()) : 1.0;
+                    double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(WaterIds.Of(facility)) : 1.0;
                     double maturity = Rules.Maturity(h - facility.CompletedHour);
                     double amount = ProductionPerHour(facility, rate, f);
                     switch (SettlementRules.ResourceOf(facility.Kind))

@@ -14,7 +14,7 @@ namespace DesertSettlement.Core.Economy
         public readonly string Kind;
         /// <summary>실적 구간에 더할 광물·식량·석재 양(시간 합계).</summary>
         public readonly double Ore, Food, Stone;
-        /// <summary>인프라 배율에 더할 값(공사 중 우물·수로·창고·경매장).</summary>
+        /// <summary>인프라 배율에 더할 값(공사 중인 인프라 시설이 완공되면 늘어날 몫).</summary>
         public readonly double Infra;
 
         public DevelopmentAsset(int id, string kind, double ore, double food, double stone, double infra)
@@ -45,7 +45,7 @@ namespace DesertSettlement.Core.Economy
         public readonly double FoodMultiplier;
         public readonly double StoneMultiplier;
         public readonly double InfraMultiplier;
-        /// <summary>빈 땅 배율(부동산 개발업자, 2026-10-23 로드맵 1-⑥). 다른 입찰자는 1.</summary>
+        /// <summary>빈 땅 배율(부동산 개발업자, 결정 BD3). 다른 입찰자는 1.</summary>
         public readonly double OpenLandMultiplier;
         public readonly double BaseValue;
         /// <summary>가치 V = 광물 기반 가치 × 식량·석재·인프라·빈 땅 배율.</summary>
@@ -74,19 +74,33 @@ namespace DesertSettlement.Core.Economy
     }
 
     /// <summary>
-    /// 경매 가치 평가.
-    /// - 확정: 경매 직전 24게임시간의 실제 생산 실적. 식량·석재는 저장 한도로 폐기된 생산분도 포함(2026-10-22 확정).
-    /// - 개발 중 자산(A3 확정): 공사 중인 시설은 '완공 가정 물 배분'의 기대 생산 × 24시간 × 진행률 × 비율,
-    ///   24시간 안에 완공(또는 개량 완료)한 시설은 실적이 없던 시간 × 현재 기대 생산 × 비율을 더한다.
-    ///   공사 중 우물·수로·창고·경매장은 인프라 보너스 × 진행률 × 비율.
-    /// - 가동 숙성(2026-10-23, 경매 직전 몰아짓기 방지): 생산 시설의 실적은 완공 직후 maturityStartRatio(0.7)로 시작해
-    ///   maturityFullHours(48h) 동안 100%까지 오른다(시간마다 HourRecord.*Valued로 기록). 개발 중 자산에도 시작 비율을 곱한다.
-    /// - 석재 배율(2026-10-23, 다 지은 뒤 채석장 철거 방지): 24h 평균과 가동 중 채석장의 생산 능력 중 큰 값.
-    /// - 입찰자 성향(A2): 광물 가중치, 배율 가중치(1을 넘는 부분에 곱함), 공사 중 시설 종류별 개발 가중치.
-    /// 계수는 설정 auctionSeed / auction의 잠정값.
+    /// 경매 가치 평가. 계수는 설정 auctionSeed·auction.
+    /// - 실적: 경매 직전 평가 창(confirmedRules.auctionHistoryGameHours)의 실제 생산. 식량·석재는 저장 한도로 폐기된 생산분도 포함.
+    /// - 개발 중 자산(결정 A3): 공사 중인 시설은 '완공 가정 물 배분'의 기대 생산 × 평가 창 × 진행률 × auction.developmentAssetRatio,
+    ///   평가 창 안에 완공(또는 개량 완료)한 시설은 실적이 없던 시간 × 현재 기대 생산 × 비율을 더한다.
+    ///   공사 중인 인프라 시설은 완공되면 늘어날 인프라 배율 × 진행률 × 비율(<see cref="InfraTable"/>, 결정 IB1·IB2).
+    /// - 가동 숙성(경매 직전 몰아짓기 방지): 생산 시설의 실적은 완공 직후 auction.maturityStartRatio에서 시작해
+    ///   auction.maturityFullHours 동안 100%까지 오른다(시간마다 HourRecord.*Valued로 기록). 개발 중 자산에도 시작 비율을 곱한다.
+    /// - 석재 배율(다 지은 뒤 채석장 철거 방지): 평가 창 평균과 가동 중 채석장의 생산 능력 중 큰 값.
+    /// - 입찰자 성향(결정 A2): 광물 가중치, 배율 가중치(1을 넘는 부분에 곱함), 공사 중 시설 종류별 개발 가중치.
     /// </summary>
     public static class SettlementValuation
     {
+        /// <summary>
+        /// 인프라 배율을 주는 시설 종류와 설정 auctionSeed.infra의 값. Once면 몇 개를 지어도 한 번만 센다.
+        /// 운영 중 합계와 공사 중 보너스가 이 표 하나를 함께 쓴다 — 새 인프라 시설은 여기에 한 줄만 더한다.
+        /// </summary>
+        private static readonly (string Kind, bool Once, Func<InfraMultipliers, double> Bonus)[] InfraTable =
+        {
+            (BuildingKinds.Well, true, i => i.Well),
+            (BuildingKinds.AuctionHall, true, i => i.AuctionHall),
+            (BuildingKinds.CanalEdge, false, i => i.PerOperationalCanal),
+            (BuildingKinds.Warehouse, false, i => i.PerOperationalWarehouse),
+            (BuildingKinds.Hospital, false, i => i.PerOperationalHospital),
+            (BuildingKinds.WaterTank, false, i => i.PerOperationalWaterTank),
+            (BuildingKinds.Market, false, i => i.PerOperationalMarket),
+        };
+
         /// <summary>중립 기준 가치 V(입찰자 성향 없음).</summary>
         public static ValuationResult Evaluate(Settlement s, long auctionHour) => EvaluateFor(s, auctionHour, BidderProfile.Neutral);
 
@@ -127,16 +141,13 @@ namespace DesertSettlement.Core.Economy
 
             // 인프라: 운영 중 시설 + 공사 중 인프라의 개발 중 자산. 미완공·폐쇄 시설 자체는 보너스 없음.
             InfraMultipliers infra = seed.Infra;
-            double miRaw = 1
-                + (s.OperatingOf(BuildingKinds.Well).Any() ? infra.Well : 0)
-                + (s.OperatingOf(BuildingKinds.AuctionHall).Any() ? infra.AuctionHall : 0)
-                + s.OperatingOf(BuildingKinds.CanalEdge).Count() * infra.PerOperationalCanal
-                + s.OperatingOf(BuildingKinds.Warehouse).Count() * infra.PerOperationalWarehouse
-                + s.OperatingOf(BuildingKinds.Hospital).Count() * infra.PerOperationalHospital
-                + s.OperatingOf(BuildingKinds.WaterTank).Count() * infra.PerOperationalWaterTank
-                + s.OperatingOf(BuildingKinds.Market).Count() * infra.PerOperationalMarket
-                + devInfra;
-            miRaw = Math.Min(infra.Maximum, miRaw);
+            double miRaw = 1;
+            foreach ((string kind, bool once, Func<InfraMultipliers, double> bonus) in InfraTable)
+            {
+                int operating = s.OperatingOf(kind).Count();
+                miRaw += (once ? Math.Min(1, operating) : operating) * bonus(infra);
+            }
+            miRaw = Math.Min(infra.Maximum, miRaw + devInfra);
 
             double mf = 1 + (mfRaw - 1) * bidder.FoodMultiplierWeight;
             double ms = 1 + (msRaw - 1) * bidder.StoneMultiplierWeight;
@@ -177,7 +188,7 @@ namespace DesertSettlement.Core.Economy
                 double missingHours;
                 if (job != null)
                 {
-                    progress = job.Hours > 0 ? Math.Max(0, Math.Min(1, (auctionHour - job.StartedHour) / (double)job.Hours)) : 1;
+                    progress = Progress(job, auctionHour);
                     missingHours = job.Type == JobType.Build ? window : Math.Min(window, Math.Max(0, auctionHour - job.StartedHour));
                 }
                 else if (f.IsOperating && f.ActiveSinceHour > windowStart)
@@ -192,7 +203,7 @@ namespace DesertSettlement.Core.Economy
 
                 if (job != null && job.Type == JobType.Build)
                 {
-                    double bonus = InfraBonus(f.Kind, infra);
+                    double bonus = InfraGainOnCompletion(s, f, progress, auctionHour, infra);
                     if (bonus > 0) list.Add(new DevelopmentAsset(f.Id, f.Kind, 0, 0, 0, bonus * progress * ratio));
                 }
 
@@ -214,17 +225,30 @@ namespace DesertSettlement.Core.Economy
             return list;
         }
 
-        private static double InfraBonus(string kind, InfraMultipliers infra)
+        /// <summary>auctionHour 시점의 공사 진행률(0~1).</summary>
+        private static double Progress(ConstructionJob job, long auctionHour) =>
+            job.Hours > 0 ? Math.Max(0, Math.Min(1, (auctionHour - job.StartedHour) / (double)job.Hours)) : 1;
+
+        /// <summary>
+        /// 공사 중인 시설 f가 완공되면 늘어날 인프라 배율(진행률·비율 곱하기 전). 인프라 시설이 아니면 0.
+        /// 한 번만 세는 종류(우물·경매장)는 같은 종류가 이미 운영 중이면 0이고, 여러 개를 짓는 중이면
+        /// 진행률이 가장 큰 하나(같으면 번호가 작은 것)만 센다 — 착공만 해 두고 가치를 올리는 요령을 막는다(결정 IB2).
+        /// </summary>
+        private static double InfraGainOnCompletion(Settlement s, Facility f, double progress, long auctionHour, InfraMultipliers infra)
         {
-            switch (kind)
-            {
-                case BuildingKinds.Well: return infra.Well;
-                case BuildingKinds.AuctionHall: return infra.AuctionHall;
-                case BuildingKinds.CanalEdge: return infra.PerOperationalCanal;
-                case BuildingKinds.Warehouse: return infra.PerOperationalWarehouse;
-                case BuildingKinds.Hospital: return infra.PerOperationalHospital;
-                default: return 0;
-            }
+            int row = Array.FindIndex(InfraTable, r => r.Kind == f.Kind);
+            if (row < 0) return 0;
+            double bonus = InfraTable[row].Bonus(infra);
+            if (!InfraTable[row].Once) return bonus;
+            if (s.OperatingOf(f.Kind).Any()) return 0;
+            bool leads = s.Jobs
+                .Where(j => j.Type == JobType.Build && j.State == JobState.InProgress && j.Kind == f.Kind && j.FacilityId != f.Id)
+                .All(j =>
+                {
+                    double other = Progress(j, auctionHour);
+                    return other < progress || (other == progress && j.FacilityId > f.Id);
+                });
+            return leads ? bonus : 0;
         }
     }
 }

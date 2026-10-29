@@ -95,7 +95,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 1. JSON `buildingLevels`에 레벨표 2. `Core/Economy/FacilityCatalog.cs`에 한 줄(이름·분류·지형·색) — 둘이 어긋나면 설정 검증과 `FacilityCatalogTests`가 실패
 3. (선택) 모양 `Runtime/View/FacilityModels.cs`(없으면 상자)
 4. 생산 시설이면: `Settlement.OutputOf`, `Settlement.Tick.cs`의 생산 switch, `SettlementValuation`(개발 중 자산·채석장 능력), `Disasters.ProductionFactor`의 대상 목록 ⚠
-5. 경매 가치 인프라 보너스가 있으면: `InfraMultipliers`(EconomyConfig) + `SettlementValuation`의 운영 중 합계 **와** `InfraBonus`(공사 중 자산) ⚠ 두 곳
+5. 경매 가치 인프라 보너스가 있으면: `InfraMultipliers`(EconomyConfig) + `SettlementValuation.InfraTable`에 한 줄(운영 중 합계와 공사 중 보너스가 함께 씀, 몇 개든 한 번만 세면 Once)
 
 ### 새 플레이어 명령
 1. `Settlement.Actions.cs`에 `Can*`(불가 이유)·`Do*` 2. `Settlement.Commands.cs`에 공개 메서드 — 성공하면 반드시 `Record` 호출 ⚠(안 부르면 저장에서 빠지고 순간 착공도 안 됨)
@@ -167,7 +167,7 @@ v0.8 원본 값(첫 경매 133h·V 1149.63 등)과 비교할 때는 나중에 �
 | 무엇 | 명령 | 기준 |
 |---|---|---|
 | Core 규칙·회귀값 | `dotnet run --project Tools/SettlementSim` | 마지막 줄 '모든 검증 통과', 종료 코드 0 |
-| Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-29: EditMode 177 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
+| Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-30: EditMode 178 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
 | 화면 모양(에디터 없이) | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` | `.unity-testcopy/Captures/*.png` |
 | 저장·불러오기 재실행 | `dotnet run --project Tools/SettlementSim -- savecheck` | |
 | 직접 플레이 | `SampleScene` Play → 일시정지로 시작 → 왼쪽 아래 '샘플 배치' → 배속(` 1 2 3) | F1 = 예전 화면, F5/F9 = 저장/불러오기 |

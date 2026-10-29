@@ -121,6 +121,39 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void DevelopmentAssets_InfraUnderConstructionCountsWhatCompletionAdds()
+        {
+            // 결정 IB1·IB2: 공사 중 인프라 보너스 = 완공되면 늘어날 인프라 배율.
+            var map = new HexMap(3);
+            map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
+            var s = new Settlement(map, SettlementRules.FromConfig(_config));
+            List<DevelopmentAsset> Infra(string kind) =>
+                SettlementValuation.DevelopmentAssets(s, s.CurrentHour + 1).Where(d => d.Kind == kind && d.Infra > 0).ToList();
+            void RunUntilIdle()
+            {
+                for (int i = 0; i < 48 && s.Jobs.Any(); i++) s.AdvanceHour();
+                Assert.IsEmpty(s.Jobs);
+            }
+
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.AuctionHall, new HexCoord(1, 0)).Success);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.AuctionHall, new HexCoord(-1, 0)).Success);
+            Assert.AreEqual(2, s.JobsInProgress);
+            Assert.AreEqual(1, Infra(BuildingKinds.AuctionHall).Count, "경매장은 몇 개든 배율이 한 번만 늘어나므로 공사 중에도 하나만 센다");
+            RunUntilIdle();
+
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.WaterTank, new HexCoord(0, 1)).Success);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Market, new HexCoord(0, -1)).Success);
+            Assert.AreEqual(2, s.JobsInProgress);
+            Assert.AreEqual(1, Infra(BuildingKinds.WaterTank).Count, "공사 중 물탱크도 인프라 보너스");
+            Assert.AreEqual(1, Infra(BuildingKinds.Market).Count, "공사 중 시장도 인프라 보너스");
+            RunUntilIdle();
+
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.AuctionHall, new HexCoord(1, -1)).Success);
+            Assert.AreEqual(1, s.JobsInProgress);
+            Assert.IsEmpty(Infra(BuildingKinds.AuctionHall), "경매장이 이미 운영 중이면 하나 더 지어도 배율이 그대로라 0");
+        }
+
+        [Test]
         public void BiddersWeighTheSameSettlementDifferently()
         {
             (Settlement s, AuctionManager _) = NewRun();

@@ -117,7 +117,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 테스트 기대값이 여러 곳에 있다: `AuctionCampaignTests`, `DebugSessionSmokeTests`(샘플 배치 기준 시각), `SettlementTests`(v0.8 스크립트는 예전 착공 기준).
 
 ### 새 스크립트 파일
-Unity가 만드는 `.meta`도 함께 커밋한다(테스트 사본이 만든 `.meta`는 원본으로 되가져온다). 시뮬레이터가 링크하는 폴더(`Tools/SettlementSim/SettlementSim.csproj`)라면 거기에도 추가.
+Unity가 만드는 `.meta`도 함께 커밋한다(테스트 사본이 만든 `.meta`는 원본으로 되가져온다). 시뮬레이터는 Core 폴더(Timing 제외)를 폴더 단위로 링크하므로 Core 안의 새 파일은 따로 할 일이 없다. Core에 새 폴더를 만들면 `Tools/SettlementSim/SettlementSim.csproj`에 한 줄 더한다.
 세션 오브젝트에 붙는 새 컴포넌트(MonoBehaviour)라면 `DebugSessionBuilder.EnsureComponents`에 한 줄 더하고 씬 재구성(`SetupSampleScene`, 에디터를 닫아야 하므로 먼저 묻는다)으로 SampleScene에 넣는다. 다른 컴포넌트의 `Awake`에서 붙이지 않는다(결정 SC1). 씬에 넣지 않으면 플레이해도 그 컴포넌트가 없다.
 
 ### 원본 v0.8 회귀 모드
@@ -180,10 +180,10 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 - `mods campaign [정착지당 D 증가] [cashPerD] [정착지 수] [smart] [nodisaster] [vaccine] [upgrade] [upkeep=k] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`
   — 난이도 기준은 `smart`(숙련 봇). `halls=k` 봇이 경매장 k개, `late=…`는 후반 가속 값 덮어쓰기(모두 0 = 가속 없음), `trade=off` 시장 규칙 없음, `market=0`·`sell=0` 봇이 시장을 안 짓거나 안 팖.
   기준 측정: `mods campaign 0.25 14000 30 smart`(결과 해석은 `Docs/handoff.md` 3절)
-- 결정이 끝난 측정(다시 잴 일이 있을 때만): `exploit`, `epidemic`, `funcheck`, `funboost`, `bidders`, `upgrades`, `botdiag` — 일부는 예전 규칙(72h 경매 등)을 전제로 한다
+- 결정이 끝난 측정(다시 잴 일이 있을 때만, 머리 주석에 '결정 완료'): `exploit`, `epidemic`, `funboost`, `bidders`. 진단 도구: `botdiag`(측정 봇 보완용). 예전 72h 경매를 전제한 `funcheck`·`upgrades`는 지웠다(결정 SM1)
 - 여러 후보를 동시에 재려면 `dotnet build Tools/SettlementSim -c Release` 뒤 `dotnet Tools/SettlementSim/bin/Release/net10.0/SettlementSim.dll mods campaign …`을 병렬로. 콘솔 출력은 cp949라 Git Bash에서는 `iconv -f cp949 -t utf-8`
 - 설정 값을 바꿔 비교 측정할 때는 JSON을 바꾼 뒤 **반드시 되돌린다**(`git diff Assets/Data/Config/`)
-- `Tools/desert_balance_sim_v08.py`는 원본 v0.8 기준 기록이다. 같은 계산이 C# `EconomySim.cs`로 옮겨져 있어 실행할 필요는 없다
+- 원본 v0.8 Python 스크립트는 지웠다(결정 SM2, git 기록에 있음). 같은 계산이 C# `EconomySim.cs`에 있고 회귀값도 거기서 검증한다
 
 ## 7. 알려진 함정
 

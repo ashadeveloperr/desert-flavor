@@ -4,6 +4,7 @@ using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
+    // 진단 도구(결정 SM1): 측정 봇을 보완할 때 다시 쓴다(handoff '다음에 할 일'의 측정 봇 보완).
     // 로드맵 2-④ 봇 보완: dotnet run --project Tools/SettlementSim -- botdiag
     // `-- tune`과 같은 맵(D마다 24장)에서 다중 봇이 첫 경매에 못 닿는 맵을 골라, 실패 이유와 그때의 정착지 상태를 보여 준다.
     public static partial class Program

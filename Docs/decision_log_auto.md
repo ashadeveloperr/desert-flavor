@@ -801,3 +801,12 @@ D=1 도달은 모두 6번째.
 | TD2 | 일부러 고정하는 v0.8 회귀값을 `V08Golden`에 이유와 함께 모음(첫 경매 133h, 경매장 37h, 현금 540.05, 광산 물 0.7885, V 1149.63, 즉시 매각 1747.16, 보류 1959.54 등). 설정에서 나오는 기대값(경매 간격 `auctionRepeatsGameHours`, 경매장 1개 입찰자 수 `attendeesWithOneAuctionHall`)은 숫자 대신 설정에서 읽음 | [자동] | 설정 숫자를 바꿔도 테스트를 여기저기 고치지 않아도 되고, 진짜로 고정한 값만 한 곳에 남는다 | `TestData.cs`, `SettlementTests`, `AuctionCampaignTests` |
 
 검증: EditMode 181 · PlayMode 10 통과, 컴파일 경고 0.
+
+## 시뮬레이터·도구 정리 (2026-10-30 — 이슈 #30, 유지보수성 검토 M20~M22)
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| SM1 | 결정이 끝난 측정 모드: 예전 72h 경매를 전제한 `funcheck`(보류·초반 긴장·입찰자 차이)·`upgrades`(L3 개량, 133h 뒤 72h 보류)는 **삭제**. `exploit`(가치 평가 보완)·`epidemic`(B1~B3·EP1~EP3)·`funboost`(FB1~FB4)·`bidders`(BD1~BD6)는 머리 주석에 **'결정 완료(결정 번호)'**, `botdiag`는 측정 봇 보완 때 다시 쓰는 진단 도구로 표시 | [사용자 결정] | 지금 규칙과 다른 전제로 돌면 틀린 결과를 줄 수 있다. 근거·측정은 이 문서와 git에 남음. 다른 안: 모두 삭제 / 모두 표시만 | `Tools/SettlementSim/` |
+| SM2 | `Tools/desert_balance_sim_v08.py` **삭제** | [사용자 결정] | 같은 계산이 C# 이식본 `EconomySim.cs`에 있고 회귀값도 거기서 검증한다. git 기록에 남음. 다른 안: Docs/archive로 이동 | — |
+| SM3 | 시뮬레이터 csproj가 Core의 `Progression`도 **폴더 단위**로 링크(이전에는 파일 11개 나열). Core 안 새 파일은 저절로 들어가고, 새 Core 폴더만 한 줄 | [자동] | 새 파일을 빠뜨려 시뮬레이터 빌드가 깨지는 일을 막음. Newtonsoft가 들어와(#20) `SaveGameJson`까지 함께 컴파일된다 | `SettlementSim.csproj` |
+검증: 시뮬레이터 출력 전체가 바꾸기 전과 같음, `-- savecheck` 통과, EditMode 181 · PlayMode 10 통과.

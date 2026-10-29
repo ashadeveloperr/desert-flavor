@@ -11,6 +11,7 @@ using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
+    // 결정 완료(결정 B1~B3·EP1~EP3). 다시 잴 일이 있을 때만 쓴다(결정 SM1).
     // 작업 목록 4번(전염병·병원·방역 장비) 측정: dotnet run --project Tools/SettlementSim -- epidemic [맵 수]
     // 같은 맵·다중 봇 건설 목록으로 '재해 없음 / 전염병 1회(유예 직후 시작) / + 방역 장비 / + 병원(첫 광산 옆)'을 돌려
     // 매각 후 순이익(경매 직전 현금 + 중립 V × 1.05 − 2000) 중앙값과 전염병 지속·최대 피해를 비교한다.

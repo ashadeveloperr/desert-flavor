@@ -8,6 +8,7 @@ using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
+    // 결정 완료(결정 BD1~BD6). 다시 잴 일이 있을 때만 쓴다(결정 SM1).
     // 로드맵 1-⑥ 입찰자 6종 측정: dotnet run --project Tools/SettlementSim -- bidders [맵 수]
     // 다중 봇이 첫 경매까지 운영한 정착지에서 입찰자마다 '현금 입찰 / 중립 가치'(시세 제외, 현금 비율 포함) 중앙값과,
     // 6명이 모두 왔을 때 현금이 가장 큰 입찰자가 되는 비율을 본다. 목표: 특정 입찰자가 늘 이기지 않고, 평균 현금 입찰이 기존 2종과 비슷.

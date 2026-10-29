@@ -31,11 +31,9 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "exploit") return ExploitTuning(args.Skip(1).ToArray());
             // dotnet run --project Tools/SettlementSim -- epidemic : 전염병·병원·방역 장비 측정(EpidemicTuning.cs).
             if (args.Length > 0 && args[0] == "epidemic") return EpidemicTuning(args.Skip(1).ToArray());
-            if (args.Length > 0 && args[0] == "upgrades") return UpgradeTuning(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "bidders") return BidderTuning(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "savecheck") return SaveCheck(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "botdiag") return BotDiagnose(args.Skip(1).ToArray());
-            if (args.Length > 0 && args[0] == "funcheck") return FunCheck(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "funboost") return FunBoost(args.Skip(1).ToArray());
 
             EconomyRegression();

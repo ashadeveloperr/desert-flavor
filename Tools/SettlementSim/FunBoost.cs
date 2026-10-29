@@ -9,6 +9,7 @@ using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
+    // 결정 완료(결정 FB1~FB4). 다시 잴 일이 있을 때만 쓴다(결정 SM1).
     // 재미 보강 후보 측정(2026-10-24, Docs/archive/review_2026-10-23.md 개선 제안 4): dotnet run --project Tools/SettlementSim -- funboost
     // 1) 초반 긴장: 후보 규칙별로 숙련 봇·기준 봇 캠페인(5시드) 첫 4정착지의 순이익·적자·'아슬아슬'(정착지 중 최저 자금 < 100)·
     //    그리고 25정착지까지의 처음 적자 D(후반이 같이 어려워지지 않는지)

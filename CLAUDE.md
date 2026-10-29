@@ -50,7 +50,7 @@
 1. `dotnet run --project Tools/SettlementSim`과 `bash Tools/unity-tests.sh All` 통과.
 2. 정한 것이 있으면 결정 표에 한 줄 + `decision_log_auto.md`에 근거.
 3. 파일 추가·이동, 흐름·확장 지점 변경이 있으면 `Docs/code_guide.md`를 같은 커밋에서 고친다.
-4. 새 스크립트의 `.meta`, 시뮬레이터가 링크하는 폴더면 `Tools/SettlementSim/SettlementSim.csproj`.
+4. 새 스크립트의 `.meta`. Core에 새 폴더를 만들었으면 `Tools/SettlementSim/SettlementSim.csproj`에 한 줄(폴더 단위 링크라 새 파일은 저절로 들어간다).
 5. 손댄 파일에서 본 낡은 주석·연혁 주석은 그 자리에서 정리한다(손대지 않은 파일은 일부러 고치지 않는다).
 6. `Docs/handoff.md`에는 지금 상태와 다음 할 일만 남긴다(지난 기록은 이슈 댓글·결정 기록으로).
 

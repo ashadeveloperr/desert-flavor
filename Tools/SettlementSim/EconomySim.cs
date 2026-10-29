@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SettlementSim
 {
-    // Tools/desert_balance_sim_v08.py 의 C# 이식. 규칙 후보 비교를 위해 일부 처리를 옵션으로 뺐다.
+    // 원본 v0.8 경제 Python 스크립트(desert_balance_sim_v08.py, 결정 SM2로 삭제 — git 기록에 있음)의 C# 이식. 규칙 후보 비교를 위해 일부 처리를 옵션으로 뺐다.
     // 원본과 같은 옵션(V08 순서·FIFO·직렬 물 모델)이면 원본 회귀값과 같아야 한다.
 
     public enum TickOrder { V08CompleteFirst, CheckpointCompleteAtEnd }

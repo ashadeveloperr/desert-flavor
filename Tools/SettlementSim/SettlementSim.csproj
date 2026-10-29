@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Unity 밖에서 게임 로직을 시뮬레이션하는 콘솔 도구. Core의 Hex/Canal/Water/Economy 소스를 그대로 링크해 쓴다. -->
+  <!-- Unity 밖에서 게임 로직을 시뮬레이션하는 콘솔 도구. Core 폴더(Timing 제외)의 소스를 폴더 단위로 그대로 링크해 쓴다(결정 SM3: 새 파일도 저절로 들어간다). -->
   <!-- 실행: dotnet run (프로젝트 경로 Tools/SettlementSim) -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -16,17 +16,7 @@
     <Compile Include="../../Assets/Scripts/Core/Config/*.cs" Link="Core/Config/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Economy/*.cs" Link="Core/Economy/%(Filename)%(Extension)" />
     <Compile Include="../../Assets/Scripts/Core/Auction/*.cs" Link="Core/Auction/%(Filename)%(Extension)" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/Campaign.cs" Link="Core/Progression/Campaign.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/SaveGame.cs" Link="Core/Progression/SaveGame.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/SeedSalts.cs" Link="Core/Progression/SeedSalts.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/MapDefinition.cs" Link="Core/Progression/MapDefinition.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/MapLoader.cs" Link="Core/Progression/MapLoader.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfigLoader.cs" Link="Core/Progression/ProceduralMapConfigLoader.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/DeterministicRandom.cs" Link="Core/Progression/DeterministicRandom.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapConfig.cs" Link="Core/Progression/ProceduralMapConfig.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/ProceduralMapGenerator.cs" Link="Core/Progression/ProceduralMapGenerator.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/RegionModifiers.cs" Link="Core/Progression/RegionModifiers.cs" />
-    <Compile Include="../../Assets/Scripts/Core/Progression/RegionOffer.cs" Link="Core/Progression/RegionOffer.cs" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/*.cs" Link="Core/Progression/%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <!-- 게임과 같은 JSON 파서·검증(설정·맵 로더). Unity 패키지 com.unity.nuget.newtonsoft-json 3.2.2 = Newtonsoft.Json 13.0.2. -->

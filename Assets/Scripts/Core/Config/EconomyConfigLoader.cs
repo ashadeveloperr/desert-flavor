@@ -168,6 +168,7 @@ namespace DesertSettlement.Core.Config
                 if (labor.LeavePerHour <= 0 || labor.LeavePerHour > 1) problems.Add("labor.leavePerHour는 0 초과 1 이하여야 합니다.");
                 if (labor.ReturnPerHour <= 0 || labor.ReturnPerHour > 1) problems.Add("labor.returnPerHour는 0 초과 1 이하여야 합니다.");
                 if (labor.FreeHouses < 0 || labor.CrewPerConstructionSlot < 0) problems.Add("labor.freeHouses·crewPerConstructionSlot은 음수일 수 없습니다.");
+                if (labor.StartGraceHours < 0) problems.Add("labor.startGraceHours는 음수일 수 없습니다.");
                 if (config.BuildingLevels.TryGetValue(BuildingKinds.House, out List<BuildingLevel> houses) && houses != null)
                 {
                     for (int i = 0; i < houses.Count; i++)

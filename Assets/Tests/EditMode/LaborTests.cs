@@ -61,8 +61,8 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void HouseWithoutWater_ResidentsLeaveSlowly_AndReturnSlowerWhenWatered()
         {
-            // 떠남·복귀 기본 속도만 본다: 생활 수준(이주 배율, FoodGoodsTests)은 끈다.
-            Settlement s = NewSettlement(c => c.Living = null, r => r.FreeBuilds[BuildingKinds.Well] = 1);
+            // 떠남·복귀 기본 속도만 본다: 생활 수준(이주 배율, FoodGoodsTests)과 시작 유예(StartGrace_ 테스트)는 끈다.
+            Settlement s = NewSettlement(c => { c.Living = null; c.Labor.StartGraceHours = 0; }, r => r.FreeBuilds[BuildingKinds.Well] = 1);
             s.RequestBuild(BuildingKinds.House, HouseTile);
             s.RequestBuild(BuildingKinds.Well, WellTile);
             Facility house = s.FacilityAt(HouseTile);
@@ -81,6 +81,32 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(1.0, s.HouseWaterRate(house), 1e-9, "우물 옆 꼭짓점에서 물을 받는다");
             Assert.AreEqual(Math.Min(cap, before + Labor(s).ReturnPerHour * cap), house.Residents, 1e-9, "정원 × returnPerHour씩 돌아온다");
             Assert.Less(Labor(s).ReturnPerHour, Labor(s).LeavePerHour, "돌아오는 속도가 더 느리다(결정)");
+        }
+
+        [Test]
+        public void StartGrace_HouseWithoutWater_KeepsResidentsAndLiving_UntilGraceEnds()
+        {
+            // 결정 BQ3: 정착지 시작 후 startGraceHours 동안은 주택 물 부족을 떠남·생활 수준에 세지 않는다.
+            const double grace = 3;
+            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = grace);
+            s.RequestBuild(BuildingKinds.House, HouseTile);
+            Facility house = s.FacilityAt(HouseTile);
+            double cap = Capacity(s);
+
+            s.AdvanceHours((int)grace - 1);
+            Assert.AreEqual(0, s.HouseWaterRate(house), 1e-9, "수로가 없어 물은 오지 않는다");
+            Assert.AreEqual(1, s.StartGraceHoursLeft, 1e-9);
+            Assert.IsFalse(s.IsLeaving(house), "유예 중에는 떠나는 중으로 보이지 않는다");
+            s.AdvanceHour();
+            Assert.AreEqual(cap, house.Residents, 1e-9, "유예 동안 아무도 떠나지 않는다");
+            Assert.AreEqual(1, s.LastLiving.Supply, 1e-9, "물 부족을 생활 수준 부족으로 세지 않는다");
+            Assert.GreaterOrEqual(s.LivingStandard, 0);
+
+            Assert.AreEqual(0, s.StartGraceHoursLeft, 1e-9);
+            Assert.IsTrue(s.IsLeaving(house), "유예가 끝나면 떠나는 중");
+            s.AdvanceHour();
+            Assert.Less(house.Residents, cap, "유예가 끝나면 떠나기 시작한다");
+            Assert.Less(s.LivingTarget, 0, "물 부족이 생활 수준 목표를 음수로 만든다");
         }
 
         [Test]
@@ -207,9 +233,9 @@ namespace DesertSettlement.Core.Tests
         public void Valuation_AddsPopulationValue_AndHouseInfraByOccupancy()
         {
             // 결정 CL1·CL2: 주민 가치 = 사는 인원 × 1인 가치 × 입찰자 가중치, 주택은 거주율만큼 인프라 배율.
-            Settlement s = NewSettlement();
+            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 0);
             s.RequestBuild(BuildingKinds.House, HouseTile);
-            s.AdvanceHour(); // 물이 없어 조금 떠난다 → 거주율 < 1
+            s.AdvanceHour(); // 물이 없어 조금 떠난다(시작 유예 없음) → 거주율 < 1
             Facility house = s.FacilityAt(HouseTile);
             double occupancy = house.Residents / Capacity(s);
             Assert.Less(occupancy, 1);

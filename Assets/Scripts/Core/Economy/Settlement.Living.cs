@@ -10,7 +10,8 @@ namespace DesertSettlement.Core.Economy
     /// 생활 수준(−100~100, 결정 LS1~LS7)과 향신료(결정 SP1~SP3). 노동력이나 생활 수준 설정이 없으면 0에 머문다.
     /// - 매시간 먹고 마신 재화로 목표를 정한다: 등급 점수(<c>goods.*.standardPoints</c>)를 먹은 양으로 평균 × 상위 재화 종류 수 배율 × 향신료.
     ///   상위 재화를 먹은 만큼 향신료가 함께 들고, 채운 비율만큼 목표에 (1 + spiceBonus)까지 곱한다.
-    /// - 식량 충족률·주택 물 공급률 중 낮은 쪽이 모자라면 목표는 음수(상위 재화 보너스 없음). 아무 일 없으면 목표 0.
+    /// - 식량 충족률·주택 물 공급률 중 낮은 쪽이 모자라면 목표는 음수(상위 재화 보너스 없음). 시작 유예 중에는 물 부족을 세지 않는다(결정 BQ3).
+    ///   아무 일 없으면 목표 0.
     /// - 지금 값은 목표를 향해 시간당 risePerHour(오를 때)·fallPerHour(내릴 때)씩 움직인다.
     /// - 효과: 이주 속도(<see cref="LeaveFactor"/>·<see cref="ReturnFactor"/>), 생산 효율(<see cref="LivingProductivity"/>), 경매 가치(입찰자 livingStandardWeight).
     /// 정착지 전체 설명은 Settlement.cs.
@@ -55,16 +56,16 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
-        /// <summary>생산 효율 배율: 1 + productionAtMax × 생활 수준 ÷ 100(±10%).</summary>
+        /// <summary>생산 효율 배율: 1 + productionAtMax × 생활 수준 ÷ 100(±productionAtMax).</summary>
         public double LivingProductivity => Living == null ? 1 : 1 + Living.ProductionAtMax * LivingShare;
 
-        /// <summary>주택 물 공급률의 주민 가중 평균(주민이 없으면 1).</summary>
+        /// <summary>주민이 느끼는 주택 물 공급률의 주민 가중 평균(주민이 없으면 1, 시작 유예 중이면 1).</summary>
         private double ResidentWaterRate(WaterAllocation water)
         {
             double people = 0, served = 0;
             foreach (Facility h in _facilities.Values.Where(f => IsHouse(f) && HasResidents(f)))
             {
-                double rate = Rules.Labor.WaterPerResidentPerHour <= 0 ? 1 : water.RateOf(WaterIds.Of(h));
+                double rate = FeltWaterRate(h, water);
                 people += h.Residents;
                 served += h.Residents * rate;
             }

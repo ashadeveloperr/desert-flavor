@@ -38,6 +38,25 @@ namespace SettlementSim
             ["living2"] = c => { c.Living.ProductionAtMax = 0.2; c.Living.RisePerHour = 3; },
             ["living3"] = c => { c.Living.ProductionAtMax = 0.3; c.Living.RisePerHour = 3; c.Living.DiversityMultipliers = new List<double> { 0.6, 0.8, 0.9, 1.0, 1.0 }; },
             ["goods2"] = c => { foreach (GoodsSettings g in c.Goods.Values) g.SellPrice *= 1.5; },
+            // 밸런스 QA 후보(`-- qa marginal … lab=…`): 물 쓰는 식품 시설의 물 절반, 생활 수준 빨리 오름, 술 원료 절반·판매가 1.5배, 제분소 약하게.
+            // wethalf·drinkcheap·bread13은 결정 BQ1·BQ2·BQ4로 JSON에 반영됐다(wethalf·drinkcheap은 지금 값에서 한 번 더 바꾸고, bread13은 지금 값 그대로).
+            ["wethalf"] = c =>
+            {
+                foreach (string k in new[] { BuildingKinds.Orchard, BuildingKinds.Pasture, BuildingKinds.HerbFarm })
+                    Levels(c, k, (lv, i) => lv.WaterDemand = Math.Round((lv.WaterDemand ?? 0) * 0.5));
+            },
+            ["rise5"] = c => c.Living.RisePerHour = 5,
+            ["drinkcheap"] = c =>
+            {
+                Levels(c, BuildingKinds.Brewery, (lv, i) => lv.InputPerOutput = 0.5);
+                Levels(c, BuildingKinds.Winery, (lv, i) => lv.InputPerOutput = 0.75);
+            },
+            ["drinkprice"] = c => { c.Goods["beer"].SellPrice *= 1.5; c.Goods["wine"].SellPrice *= 1.5; },
+            ["bread13"] = c => c.Goods["bread"].FoodValue = 1.3,                                  // 빵 식량 효율 1.5 → 1.3
+            ["bread2"] = c => c.Goods["bread"].SellPrice = 2.0,                                   // 빵 판매가 2.5 → 2
+            ["millin12"] = c => Levels(c, BuildingKinds.Mill, (lv, i) => lv.InputPerOutput = 1.2), // 빵 1개에 곡물 1.2
+            ["millslow"] = c => Levels(c, BuildingKinds.Mill, (lv, i) => lv.GoodsProduction = Math.Round((lv.GoodsProduction ?? 0) * 0.75, 2)),
+            ["millcost"] = c => Levels(c, BuildingKinds.Mill, (lv, i) => { lv.Stone = Math.Round((lv.Stone ?? 0) * 1.5); lv.Upkeep *= 2; }),
             ["lean"] = c =>                                                               // 필요 인원 더 적게(우물 1 · 농장·채석장 2/3/4 · 광산 4/6/8)
             {
                 Levels(c, BuildingKinds.Well, (lv, i) => lv.Workers = 1);

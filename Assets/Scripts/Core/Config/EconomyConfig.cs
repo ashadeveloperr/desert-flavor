@@ -101,6 +101,11 @@ namespace DesertSettlement.Core.Config
         public double CrewPerConstructionSlot { get; set; }
         /// <summary>주민 1명이 한 시간에 마시는 기호품(맥주·와인 합, 결정 FD3). 없어도 배고프지 않고 생활 수준만 덜 오른다.</summary>
         public double DrinkPerResidentPerHour { get; set; }
+        /// <summary>
+        /// 정착지 시작 유예(시간, 결정 BQ3): 정착지가 시작된 뒤 이 시간 동안은 주택 물 부족을 떠남·생활 수준에 세지 않는다.
+        /// 첫 주택은 무료로 바로 차지만 우물·수로는 몇 시간 뒤에 이어지기 때문. 0이면 유예 없음.
+        /// </summary>
+        public double StartGraceHours { get; set; }
     }
 
     /// <summary>

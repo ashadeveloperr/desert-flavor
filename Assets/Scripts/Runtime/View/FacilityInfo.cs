@@ -163,7 +163,7 @@ namespace DesertSettlement.Runtime
             return $"일손: {People(assigned)} / {People(need)}명{rank}{pri}";
         }
 
-        /// <summary>주택 줄(결정 LB1~): 주민·물·식량과 떠나는 중/돌아오는 중. 주택이 아니면 null.</summary>
+        /// <summary>주택 줄(결정 LB1~): 주민·물·식량과 떠나는 중/돌아오는 중/시작 유예(결정 BQ3). 주택이 아니면 null.</summary>
         public static string HouseLine(Settlement s, Facility f)
         {
             if (f.Kind != BuildingKinds.House || !s.Rules.LaborOn) return null;
@@ -171,6 +171,7 @@ namespace DesertSettlement.Runtime
             double food = s.FoodSatisfaction;
             double water = s.HouseWaterRate(f);
             string trend = s.IsLeaving(f) ? " — ⚠ 떠나는 중"
+                : water < 0.999 && s.StartGraceHoursLeft > 0 ? $" — 개척 유예 {s.StartGraceHoursLeft:0}시간: 물이 없어도 아직 떠나지 않음"
                 : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating ? " — 돌아오는 중" : "";
             return $"주민: {People(f.Residents)} / {People(cap)}명 (물 {water:P0} · 식량 {food:P0}){trend}";
         }

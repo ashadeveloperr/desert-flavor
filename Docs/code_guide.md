@@ -69,7 +69,7 @@ GameSession.Update → GameClock.Advance(실제 초 × 배속)
        5. 인원 배치(AssignLabor: 공사 → 우선 고용 → 물 100% → 물 일부)  6. 물 배분(SolveWater, 우물 방출 × 배치율, 주택 취수, 물탱크 충전·방출 포함)
        7. 생산: 1차 재화(곡물·과일·향신료)·석재·광물(물 가동률 × 일손 × 재해 × 생활 수준)·유지비  8. 먹기·마시기(Eat·Drink: 재고 있는 재화끼리 가중치 비율)
        9. 가공(Process: 목축지·제분소·양조장·포도주 공방이 먹고 남은 원료로)  10. 유지비 차감  11. 식품 창고 넘침(보관 순위 낮은 재화부터 버림)·석재 한도
-       12. 생활 수준(UpdateLiving: 향신료 소비, 목표, 이동)  13. 주민 떠남·돌아옴(UpdateResidents, 생활 수준이 속도를 바꿈)  14. 기록(HourRecord)
+       12. 생활 수준(UpdateLiving: 향신료 소비, 목표, 이동)  13. 주민 떠남·돌아옴(UpdateResidents, 생활 수준이 속도를 바꿈, 시작 유예 중엔 주택 물 부족을 안 셈 — FeltWaterRate)  14. 기록(HourRecord)
        15. 시장 가격 회복  16. 재해 EndHour(전염병 새 환자·회복, 아픈 주민은 다음 시간 배치에서 빠짐)  17. CurrentHour + 1
   → HourSettled 이벤트 → AuctionManager.OnHourSettled: 경매 예고·개최·긴급 매각·파산 판정
 ```
@@ -186,7 +186,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 무엇 | 명령 | 기준 |
 |---|---|---|
 | Core 규칙·회귀값 | `dotnet run --project Tools/SettlementSim` | 마지막 줄 '모든 검증 통과', 종료 코드 0 |
-| Unity 테스트 | `bash Tools/unity-tests.sh All` | 2026-10-30: EditMode 181 · PlayMode 10 통과(캡처 1개는 `[Explicit]`이라 건너뜀) |
+| Unity 테스트 | `bash Tools/unity-tests.sh All` | 실패 0(지금 테스트 수는 `Docs/handoff.md` 1절, 캡처 1개는 `[Explicit]`이라 건너뜀) |
 | 새 EditMode 테스트 | 설정·맵은 `TestData`(경로·불러오기 한 곳), 설정에서 나오는 기대값은 설정에서 읽고, 일부러 고정하는 회귀값만 `V08Golden`에(결정 TD1·TD2) |
 | 화면 모양(에디터 없이) | `bash Tools/unity-tests.sh PlayMode ScreenCaptureTests` | `.unity-testcopy/Captures/*.png` |
 | 저장·불러오기 재실행 | `dotnet run --project Tools/SettlementSim -- savecheck` | |
@@ -197,6 +197,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 - `mods campaign [정착지당 D 증가] [cashPerD] [정착지 수] [smart] [nodisaster] [vaccine] [upgrade] [upkeep=k] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`
   — 난이도 기준은 `smart`(숙련 봇). `halls=k` 봇이 경매장 k개, `late=…`는 후반 가속 값 덮어쓰기(모두 0 = 가속 없음), `trade=off` 시장 규칙 없음, `market=0`·`sell=0` 봇이 시장을 안 짓거나 안 팖.
   기준 측정: `mods campaign 0.25 14000 30 smart`(결과 해석은 `Docs/handoff.md` 3절)
+- 새 시스템 밸런스 QA `qa [static|marginal] [D마다 맵 수] [water2] [lab=후보]`(`BalanceQa.cs`): `static` = 시설 L1~L3 수치표(순 식량 가치·판매 부가가치·일손당·물당)와 재화별 시장 최대 수입, `marginal` = 생성 맵마다 봇 계획 뒤 시설(+ 주택)·우물 개량을 더 해서 첫 경매 최종 자금을 같은 맵끼리 비교(재화 먹기·팔기, 생활 효과 끈 갈래, 기준 갈래의 생활 수준·물 여유 진단). `water2` = 우물·수로 ×2(물 경쟁 없이 시설 자체의 값), `lab=` = `LaborCandidates`의 후보를 모든 갈래에 건다
 - 결정이 끝난 측정(다시 잴 일이 있을 때만, 머리 주석에 '결정 완료'): `exploit`, `funboost`, `bidders`. 전염병 후보 비교 `epidemic [맵 수]`·`epidemic sweep`(감염·회복 모형, 결정 EV7), 노동력 `labor`(진단·`sample`)와 `mods campaign … lab=후보`(결정 LB13). 진단 도구: `botdiag`(측정 봇 보완용). 예전 72h 경매를 전제한 `funcheck`·`upgrades`는 지웠다(결정 SM1)
 - 여러 후보를 동시에 재려면 `dotnet build Tools/SettlementSim -c Release` 뒤 `dotnet Tools/SettlementSim/bin/Release/net10.0/SettlementSim.dll mods campaign …`을 병렬로. 콘솔 출력은 cp949라 Git Bash에서는 `iconv -f cp949 -t utf-8`
 - 설정 값을 바꿔 비교 측정할 때는 JSON을 바꾼 뒤 **반드시 되돌린다**(`git diff Assets/Data/Config/`)

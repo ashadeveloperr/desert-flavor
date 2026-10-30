@@ -10,6 +10,7 @@ namespace DesertSettlement.Core.Economy
     /// 주택·노동력(결정 LB1~). 노동력 규칙이 꺼져 있으면(<see cref="SettlementRules.Labor"/> null, 원본 v0.8) 아무 일도 하지 않는다.
     /// - 주택에 주민이 산다: 완공(개량 완료) 즉시 정원이 차고, 물(그 주택의 수로 공급률)·식량(정착지 전체 충족률)이 모자라면
     ///   목표 인원(정원 × 둘 중 작은 값)까지 서서히 떠나고, 충분해지면 더 천천히 돌아온다(<see cref="UpdateResidents"/>).
+    ///   정착지 시작 유예(<c>labor.startGraceHours</c>, 결정 BQ3) 동안은 물 부족을 세지 않는다(<see cref="FeltWaterRate"/>).
     /// - 매시간 배치(<see cref="AssignLabor"/>): 공사(대기열 순서, 기본 인부 먼저) → 우선 고용 목록 → 물 100% 시설(완공 순) → 물이 일부만 오는 시설(완공 순).
     ///   물 0% 시설에는 자동 배치하지 않는다. 공사가 먼저라 남는 사람이 없으면 시설은 배치 순서의 역순으로 비게 된다.
     /// - 생산 = 최대 × 물 공급률 × 배치율, 우물 방출 × 배치율, 공사는 모인 비율만큼 느리게(<see cref="SlowJobs"/>).
@@ -92,10 +93,20 @@ namespace DesertSettlement.Core.Economy
             return LastWater?.RateOf(WaterIds.Of(house)) ?? 0;
         }
 
+        /// <summary>정착지 시작 유예가 남은 시간(결정 BQ3). 노동력이 꺼져 있거나 유예가 끝났으면 0.</summary>
+        public double StartGraceHoursLeft => Rules.LaborOn ? Math.Max(0, Rules.Labor.StartGraceHours - CurrentHour) : 0;
+
+        /// <summary>
+        /// 주민이 느끼는 주택 물 공급률: 물을 쓰지 않는 설정이거나 시작 유예 중이면 1, 아니면 그 물 배분의 공급률(배분이 없으면 0).
+        /// 떠남(<see cref="UpdateResidents"/>)·생활 수준 부족(<see cref="ResidentWaterRate"/>)·떠나는 중 표시가 함께 쓴다.
+        /// </summary>
+        private double FeltWaterRate(Facility house, WaterAllocation water) =>
+            Rules.Labor.WaterPerResidentPerHour <= 0 || StartGraceHoursLeft > 0 ? 1 : water?.RateOf(WaterIds.Of(house)) ?? 0;
+
         /// <summary>주택 주민이 떠나는 중인지(최근 물 공급률·식량 충족률로 본 목표보다 많음).</summary>
         public bool IsLeaving(Facility house) =>
             Rules.LaborOn && IsHouse(house) && HasResidents(house)
-            && house.Residents > HouseCapacity(house) * Math.Min(HouseWaterRate(house), FoodSatisfaction) + 1e-6;
+            && house.Residents > HouseCapacity(house) * Math.Min(FeltWaterRate(house, LastWater), FoodSatisfaction) + 1e-6;
 
         /// <summary>배치 순서를 정할 때 보는 물 공급률: 직전 물 배분 기준. 물을 쓰지 않거나(우물) 아직 배분 기록이 없으면(막 가동) 1.</summary>
         private double OrderWaterRate(Facility f)
@@ -169,8 +180,7 @@ namespace DesertSettlement.Core.Economy
                     continue;
                 }
                 double cap = HouseCapacity(house);
-                double waterRate = l.WaterPerResidentPerHour <= 0 ? 1 : water.RateOf(WaterIds.Of(house));
-                double target = cap * Math.Min(waterRate, foodRatio);
+                double target = cap * Math.Min(FeltWaterRate(house, water), foodRatio);
                 if (house.Residents > target) house.Residents = Math.Max(target, house.Residents - l.LeavePerHour * LeaveFactor * cap);
                 else if (house.State == FacilityState.Operating) house.Residents = Math.Min(target, house.Residents + l.ReturnPerHour * ReturnFactor * cap);
             }

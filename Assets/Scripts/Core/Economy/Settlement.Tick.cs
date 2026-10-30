@@ -93,13 +93,14 @@ namespace DesertSettlement.Core.Economy
             Cash -= upkeep;
             if (Cash < 0 && FirstInsolvencyHour == null) FirstInsolvencyHour = h;
 
-            // 저장: 소비 먼저, 넘치면 보관 순위가 낮은 재화부터 버린다. 경매 실적(FoodValid)은 버려진 식량 가치를 뺀다.
+            // 저장: 소비 먼저, 넘치면 보관 순위가 낮은 재화부터 시장에 자동 판매하고 남는 몫은 버린다(결정 AS1). FoodValid·StoneValid는 버려진 몫만 뺀다.
             double stoneCap = StoneCapacity;
-            double foodValid = Math.Max(0, food - DiscardOverflow());
+            double foodValid = Math.Max(0, food - SellOrDiscardOverflow());
 
             double stoneOverflow = Math.Max(0, Stone + stone - stoneCap);
-            double stoneValid = Math.Max(0, stone - stoneOverflow);
-            StoneDiscarded += stoneOverflow;
+            double stoneDiscardedBefore = StoneDiscarded;
+            SellOrDiscardStone(stoneOverflow);
+            double stoneValid = Math.Max(0, stone - (StoneDiscarded - stoneDiscardedBefore));
             Stone = Math.Min(stoneCap, Stone + stone);
 
             TotalFoodShortage += deficit;
@@ -130,7 +131,10 @@ namespace DesertSettlement.Core.Economy
                 EpidemicSickShare = Disasters?.Epidemic.SickShare ?? 0,
                 Residents = Residents, WorkersAssigned = LastLabor.Assigned, WorkersNeeded = LastLabor.Needed,
                 LivingStandard = LivingStandard, LivingTarget = LivingTarget,
+                AutoSaleIncome = _autoIncomeSinceRecord, Discarded = _discardedSinceRecord,
             };
+            _autoIncomeSinceRecord = 0;
+            _discardedSinceRecord = 0;
             _history.Add(record);
             RecoverPrices();         // 시장 가격 회복(2026-10-27 이슈 #18)
             Disasters?.EndHour(h); // 전염병 새 환자·회복(주민 떠남·돌아옴을 반영한 뒤)

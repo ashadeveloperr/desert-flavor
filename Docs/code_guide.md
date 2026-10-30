@@ -68,7 +68,7 @@ GameSession.Update → GameClock.Advance(실제 초 × 배속)
        1. 재해 BeginHour(예고·시작·끝)  2. 인원 배치(공사 몫) → 공사 지연(모래폭풍·공사 인원 부족)  3. 끝난 공사 완료  4. 대기열 착공(슬롯·석재)
        5. 인원 배치(AssignLabor: 공사 → 우선 고용 → 물 100% → 물 일부)  6. 물 배분(SolveWater, 우물 방출 × 배치율, 주택 취수, 물탱크 충전·방출 포함)
        7. 생산: 1차 재화(곡물·과일·향신료)·석재·광물(물 가동률 × 일손 × 재해 × 생활 수준)·유지비  8. 먹기·마시기(Eat·Drink: 재고 있는 재화끼리 가중치 비율)
-       9. 가공(Process: 목축지·제분소·양조장·포도주 공방이 먹고 남은 원료로)  10. 유지비 차감  11. 식품 창고 넘침(보관 순위 낮은 재화부터 버림)·석재 한도
+       9. 가공(Process: 목축지·제분소·양조장·포도주 공방이 먹고 남은 원료로)  10. 유지비 차감  11. 식품 창고 넘침(보관 순위 낮은 재화부터 시장에 자동 판매, 못 팔면 버림 — SellOrDiscardOverflow)·석재 한도(같은 규칙)
        12. 생활 수준(UpdateLiving: 향신료 소비, 목표, 이동)  13. 주민 떠남·돌아옴(UpdateResidents, 생활 수준이 속도를 바꿈, 시작 유예 중엔 주택 물 부족을 안 셈 — FeltWaterRate)  14. 기록(HourRecord)
        15. 시장 가격 회복  16. 재해 EndHour(전염병 새 환자·회복, 아픈 주민은 다음 시간 배치에서 빠짐)  17. CurrentHour + 1
   → HourSettled 이벤트 → AuctionManager.OnHourSettled: 경매 예고·개최·긴급 매각·파산 판정
@@ -156,7 +156,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 시작 자금 · 경매 입찰자 수 | JSON `prototype.startingCash` · `auction.attendeesWithOneAuctionHall`·`attendeesMin`·`attendeesMax` |
 | 입찰자 성향·혜택, 시세 폭, 긴급 감액, 개발 중 자산 비율, 파산 유예, 경매 주기 | JSON `auction` |
 | 가동 숙성, 석재 배율의 채석장 능력 사용 | JSON `auctionSeed.maturityStartRatio`·`maturityFullHours`·`stoneMultiplierUsesQuarryCapacity` |
-| 시장(판매 한도·가격 회복·상인 배율) | JSON `purchase`(시장 가격 계산은 `Settlement.cs` 아래쪽) |
+| 시장(판매 한도·가격 회복·상인 배율) · 넘침 자동 판매 | JSON `purchase`·`goods`(가격·판매·넘침 자동 판매 계산은 `Settlement.Market.cs`) |
 | 영구 장비 목록·가격·효과 | JSON `equipment[]` (`effects`는 모디파이어와 같은 형식, 설명 `Core/Economy/EconomyEffects.cs`) |
 | 현장 장비 슬롯 수 · 다음 맵 선택(고정 맵 몇 개 뒤 생성) | `Campaign.EquipmentSlots` · `Campaign.ChooseNextMap`, 절차 맵 JSON `fixedMapsBeforeGenerated` |
 | 절차 맵 난이도 곡선 · 생성 규칙 확률·크기 | `procedural_map_config.json`의 `difficulty` · `generator` — 바꾼 뒤 `-- tune`. 이 JSON 값은 코드 기본값과 같아야 한다(`ProceduralMapTests.Config_JsonMatchesCodeDefaults`) |

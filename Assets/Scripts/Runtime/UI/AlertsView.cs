@@ -98,6 +98,11 @@ namespace DesertSettlement.Runtime.UI
                 colors.Add(FacilityInfo.GoodsColor(g));
                 if (n >= 0.05) lines.Add($"{Paint("■", FacilityInfo.GoodsColor(g))} {GoodsCatalog.Name(g)} {n:0} ({n / Math.Max(1e-9, s.PantryUsed):P0})");
             }
+            // 창고·석재 한도를 넘은 몫(결정 AS1~AS3): 최근 24시간 자동 판매 수입과 팔지 못해 버린 양.
+            var recent = s.History.Skip(Math.Max(0, s.History.Count - 24)).ToList();
+            double autoIncome = recent.Sum(r => r.AutoSaleIncome), discarded = recent.Sum(r => r.Discarded);
+            if (autoIncome >= 0.5) lines.Add(Paint($"넘친 몫 자동 판매 +{autoIncome:0} (24h)", Theme.Good));
+            if (discarded >= 0.5) lines.Add(Paint($"넘친 몫 버림 {discarded:0} (24h, {(s.HasMarket ? "판매가 바닥" : "시장 없음")})", Theme.Danger));
             _pie.Set(shares, colors);
             _legend.text = lines.Count == 0 ? Paint("비어 있음", Theme.Muted) : string.Join("\n", lines);
 

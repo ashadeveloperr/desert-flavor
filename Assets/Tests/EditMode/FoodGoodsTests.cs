@@ -9,7 +9,7 @@ namespace DesertSettlement.Core.Tests
 {
     /// <summary>
     /// 식품 다양화(결정 FD1~FD9)·생활 수준(LS1~LS7)·향신료(SP1~SP3): 가중치 비율로 함께 먹기, 주민이 먼저 먹고 남은 원료로 가공,
-    /// 창고가 넘치면 하위 재화부터 버림, 재화 판매, 순 식량 가치, 생활 수준 목표·종류 배율·향신료·부족, 이주 배율.
+    /// 창고가 넘치면 하위 재화부터 자동 판매(시장이 있을 때, AS1)·버림, 재화 판매, 순 식량 가치, 생활 수준 목표·종류 배율·향신료·부족, 이주 배율.
     /// 시설 물은 끄고(설정 사본) 무료 완공으로 세워 재화 규칙만 본다.
     /// </summary>
     public class FoodGoodsTests
@@ -112,6 +112,28 @@ namespace DesertSettlement.Core.Tests
             Assert.Greater(s.DiscardedOf(Goods.Grain), 0, "곡물(보관 순위 0)부터 버린다");
             Assert.AreEqual(0, s.DiscardedOf(Goods.Fruit), 1e-12, "과일은 곡물이 남아 있는 동안 지킨다");
             Assert.LessOrEqual(s.PantryUsed, s.FoodCapacity + 1e-9);
+            Assert.AreEqual(0, s.AutoSaleIncome, 1e-12, "시장이 없으면 자동 판매하지 않는다(결정 AS1)");
+        }
+
+        [Test]
+        public void Overflow_AutoSellsLowestKeepRankFirst_WhenMarketExists()
+        {
+            // 결정 AS1~AS3: 시장이 있으면 넘친 몫을 버리지 않고, 손으로 팔 때와 같은 판매가 곡선으로 판다(곡물부터).
+            Settlement s = Town(BigOrchard, r => { r.BaseFoodStorage = 48; r.StarterFood = 48; }, (BuildingKinds.Orchard, A), (BuildingKinds.Market, B));
+            HourRecord h = s.AdvanceHour();
+            double sold = s.AutoSoldOf(Goods.Grain);
+            Assert.Greater(sold, 0, "곡물(보관 순위 0)부터 판다");
+            Assert.AreEqual(0, s.AutoSoldOf(Goods.Fruit), 1e-12, "과일은 곡물이 남아 있는 동안 지킨다");
+            Assert.AreEqual(0, s.FoodDiscarded, 1e-12, "판매가가 남아 있으면 버리지 않는다");
+            Assert.LessOrEqual(s.PantryUsed, s.FoodCapacity + 1e-9);
+
+            // 압력 0에서 x만큼 팔면 수입 = 기준가 × (x − x³ ÷ (3 × 한도²)) — 1단위씩 파는 손 판매와 같은 곡선.
+            PurchasePrice p = s.Rules.Config.Purchase.Food;
+            double expected = p.BaseCost * p.SellRatio * (sold - sold * sold * sold / (3 * p.SellLimit * p.SellLimit));
+            Assert.AreEqual(expected, h.AutoSaleIncome, 1e-9, "이 시간 기록에 자동 판매 수입");
+            Assert.AreEqual(expected, s.AutoSaleIncome, 1e-9);
+            Assert.Less(s.NextSellPrice(Goods.Grain), p.BaseCost * p.SellRatio, "판매 압력이 올라 손 판매가도 내려간다");
+            Assert.AreEqual(0, h.Discarded, 1e-12);
         }
 
         [Test]
@@ -121,8 +143,10 @@ namespace DesertSettlement.Core.Tests
             noMarket.AdvanceHours(8);
             Assert.AreEqual(0, noMarket.SellGoods(Goods.Fruit, 5), "시장이 없으면 판매 불가");
 
-            Settlement s = Town(BigOrchard, null, (BuildingKinds.Orchard, A), (BuildingKinds.Market, B));
+            // 창고를 크게 잡아 넘침 자동 판매(Overflow_AutoSells… 테스트)가 끼지 않게 한다.
+            Settlement s = Town(BigOrchard, r => r.BaseFoodStorage = 1000, (BuildingKinds.Orchard, A), (BuildingKinds.Market, B));
             s.AdvanceHours(8);
+            Assert.AreEqual(0, s.AutoSaleIncome, 1e-12);
             double first = s.NextSellPrice(Goods.Fruit), cash = s.Cash;
             Assert.AreEqual(5, s.SellGoods(Goods.Fruit, 5));
             Assert.Greater(s.Cash, cash);

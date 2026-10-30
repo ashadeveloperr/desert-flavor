@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace DesertSettlement.Core.Tests
 {
-    /// <summary>시장(2026-10-27 이슈 #18, MK1~MK8): 상인 구매·판매 2차 하락·가격 회복·시장 수 배율·매각 일괄 매도.</summary>
+    /// <summary>시장(MK1~MK8·AS1~AS3): 상인 구매·판매 2차 하락·가격 회복·시장 수 배율·매각 일괄 매도·넘친 석재 자동 판매.</summary>
     public class MarketTests
     {
         private static EconomyConfig _config;
@@ -139,6 +139,42 @@ namespace DesertSettlement.Core.Tests
             s.AdvanceHour();
             Assert.AreEqual(2 * Math.Pow(1.02, 5), s.NextPrice(true), 1e-9, "회복 없음");
             Assert.AreEqual(0, s.SellFood(5), "판매 없음");
+        }
+
+        [Test]
+        public void StoneRefundOverflow_AutoSellsWithMarket_AndIsDiscardedWithout()
+        {
+            // 결정 AS1~AS3: 취소로 돌려받은 석재가 한도를 넘으면 시장이 있을 때 판매가 곡선으로 자동 판매, 없으면 버림.
+            foreach (int markets in new[] { 1, 0 })
+            {
+                Settlement s = NewSettlement(markets);
+                CommandResult build = s.RequestBuild(BuildingKinds.Warehouse, new HexCoord(1, -1));
+                Assert.IsTrue(build.Success);
+                ConstructionJob job = s.GetJob(build.JobId);
+                Assert.AreEqual(JobState.InProgress, job.State, "명령 순간 착공으로 석재를 썼다");
+                s.BuyStone((int)Math.Round(s.StoneCapacity - s.Stone));
+                Assert.AreEqual(s.StoneCapacity, s.Stone, 1e-9, "석재 창고를 다시 채움");
+
+                double refund = job.StoneCost * s.Rules.CancelRefundRatio, cash = s.Cash, discarded = s.StoneDiscarded;
+                Assert.IsTrue(s.CancelJob(job.Id).Success);
+                Assert.AreEqual(s.StoneCapacity, s.Stone, 1e-9);
+                if (markets > 0)
+                {
+                    PurchasePrice p = _config.Purchase.Stone;
+                    double expected = p.BaseCost * p.SellRatio * (refund - refund * refund * refund / (3 * p.SellLimit * p.SellLimit));
+                    Assert.AreEqual(refund, s.StoneAutoSold, 1e-9, "넘친 환급 석재를 판다");
+                    Assert.AreEqual(cash + expected, s.Cash, 1e-9, "손 판매와 같은 곡선의 값");
+                    Assert.AreEqual(discarded, s.StoneDiscarded, 1e-12, "버리지 않는다");
+                    Assert.AreEqual(expected, s.AdvanceHour().AutoSaleIncome, 1e-9, "명령 순간의 자동 판매도 다음 시간 기록에 들어간다");
+                }
+                else
+                {
+                    Assert.AreEqual(0, s.StoneAutoSold, 1e-12);
+                    Assert.AreEqual(cash, s.Cash, 1e-9);
+                    Assert.AreEqual(discarded + refund, s.StoneDiscarded, 1e-9, "시장이 없으면 버린다");
+                    Assert.AreEqual(refund, s.AdvanceHour().Discarded, 1e-9, "버린 양도 다음 시간 기록에 들어간다");
+                }
+            }
         }
     }
 }

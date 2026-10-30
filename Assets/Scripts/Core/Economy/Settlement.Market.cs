@@ -9,6 +9,8 @@ namespace DesertSettlement.Core.Economy
     /// - 구매: 살 때마다 구매 압력 +1, 단가 = 기준가 × 배율^압력. 운영 중인 시장이 없으면 떠돌이 상인 배율이 붙는다.
     /// - 판매: 시장이 있어야 한다. 팔 때마다 판매 압력 +1, 단가 = 판매 기준가 × (1 − (압력 ÷ 한도)²).
     /// - 두 압력은 매시간(<see cref="RecoverPrices"/>, 경제 틱 끝) 일정 비율로 0을 향해 줄고, 시장이 많을수록 빨리 준다.
+    /// - 넘침 자동 판매(결정 AS1~AS3): 식품 창고·석재 한도를 넘는 몫은 시장이 있으면 같은 판매가 곡선으로 저절로 팔고,
+    ///   시장이 없거나 값이 바닥이면 버린다(<see cref="AutoSellGoods"/>·<see cref="AutoSellStone"/>). 명령이 아닌 정산 규칙이라 저장 기록에 남지 않는다.
     /// - 시장 규칙이 없으면(<c>Rules.Trade == null</c>, 원본 v0.8 회귀 비교) 시장 없이도 상인 할증 없이 산다.
     /// 플레이어 명령 진입점(<c>BuyFood</c>·<c>SellFood</c> …)은 Settlement.Commands.cs, Do*는 Settlement.Actions.cs.
     /// </summary>
@@ -144,6 +146,86 @@ namespace DesertSettlement.Core.Economy
             foreach (Goods g in GoodsCatalog.All) SellOther(g, int.MaxValue);
             Sell(int.MaxValue, isFood: false);
             return Cash - before;
+        }
+
+        // ── 넘침 자동 판매(결정 AS1~AS3) ──
+
+        /// <summary>넘침 자동 판매로 번 돈 합(이 정착지, 통계·화면).</summary>
+        public double AutoSaleIncome { get; private set; }
+        /// <summary>넘침 자동 판매로 판 재화(재화별)·석재 양.</summary>
+        public double AutoSoldOf(Goods g) => _autoSold[(int)g];
+        public double StoneAutoSold { get; private set; }
+        private readonly double[] _autoSold = new double[GoodsCatalog.All.Length];
+
+        // 다음 시간 기록(HourRecord)에 넣을 몫: 정산 중 자동 판매와 명령 순간(철거·취소 석재 환급)의 자동 판매·버림을 함께 센다.
+        private double _autoIncomeSinceRecord, _discardedSinceRecord;
+
+        /// <summary>
+        /// 판매가 곡선(기준가 × (1 − (압력 ÷ 한도)²))에서 압력 pressure부터 amount를 연속으로 팔 때 실제로 판 양과 수입.
+        /// 곡선을 압력 구간에서 적분하고, 압력이 한도에 닿으면(값 0) 더 팔지 않는다. 1단위씩 파는 손 판매와 같은 곡선이다.
+        /// </summary>
+        private static (double Sold, double Income) SellAlongCurve(double basePrice, double limit, double pressure, double amount)
+        {
+            if (basePrice <= 0 || limit <= 0 || amount <= 1e-12 || pressure >= limit) return (0, 0);
+            double end = Math.Min(pressure + amount, limit);
+            double sold = end - pressure;
+            double income = basePrice * (sold - (end * end * end - pressure * pressure * pressure) / (3 * limit * limit));
+            return (sold, Math.Max(0, income));
+        }
+
+        /// <summary>
+        /// 재화 amount(창고에서 넘친 몫)를 시장에 자동으로 판다. 시장이 없거나 시장 규칙이 없거나 값이 바닥이면 덜 판다.
+        /// 재고에서 판 양만큼 빼고 판매 압력을 올린다. 판 양을 돌려준다.
+        /// </summary>
+        private double AutoSellGoods(Goods g, double amount)
+        {
+            if (Rules.Trade == null || !HasMarket) return 0;
+            amount = Math.Min(amount, _stock[(int)g]);
+            double sold, income;
+            if (g == Goods.Grain)
+            {
+                PurchasePrice p = Rules.Config.Purchase.Food;
+                (sold, income) = SellAlongCurve(p.BaseCost * p.SellRatio, p.SellLimit, FoodSellPressure, amount);
+                FoodSellPressure += sold;
+            }
+            else
+            {
+                GoodsSettings s = GoodsCatalog.Settings(Rules.Config, g);
+                (sold, income) = SellAlongCurve(s.SellPrice, s.SellLimit, _goodsSellPressure[(int)g], amount);
+                _goodsSellPressure[(int)g] += sold;
+            }
+            _stock[(int)g] -= sold;
+            _autoSold[(int)g] += sold;
+            AddAutoIncome(income);
+            return sold;
+        }
+
+        /// <summary>석재 amount(한도에서 넘친 몫)를 시장에 자동으로 판다. 석재 재고는 건드리지 않는다(넘친 몫은 아직 창고 밖). 판 양을 돌려준다.</summary>
+        private double AutoSellStone(double amount)
+        {
+            if (Rules.Trade == null || !HasMarket) return 0;
+            PurchasePrice p = Rules.Config.Purchase.Stone;
+            (double sold, double income) = SellAlongCurve(p.BaseCost * p.SellRatio, p.SellLimit, StoneSellPressure, amount);
+            StoneSellPressure += sold;
+            StoneAutoSold += sold;
+            AddAutoIncome(income);
+            return sold;
+        }
+
+        private void AddAutoIncome(double income)
+        {
+            Cash += income;
+            AutoSaleIncome += income;
+            _autoIncomeSinceRecord += income;
+        }
+
+        /// <summary>석재 한도를 넘는 몫: 자동 판매하고 남은 것은 버린다(정산·석재 환급 공통).</summary>
+        private void SellOrDiscardStone(double overflow)
+        {
+            if (overflow <= 1e-12) return;
+            double discarded = overflow - AutoSellStone(overflow);
+            StoneDiscarded += discarded;
+            _discardedSinceRecord += discarded;
         }
 
         /// <summary>시장 규칙이 있을 때 매시간 구매·판매 압력을 일정 비율(시장 수 배율 적용)로 0을 향해 줄인다.</summary>

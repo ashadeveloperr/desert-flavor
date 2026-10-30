@@ -194,6 +194,11 @@ namespace DesertSettlement.Core.Economy
         public double LivingStandard, LivingTarget;
         /// <summary>기호품 수요와 마신 양(주민 × 1인당).</summary>
         public double DrinkDemand, Drunk;
+        /// <summary>
+        /// 지난 기록 뒤 창고·석재 한도를 넘어 자동 판매로 번 돈과 버린 양(재화 단위 + 석재, 결정 AS1~AS3).
+        /// 정산 중 넘침과 그 사이 명령(철거·취소 석재 환급)의 넘침을 함께 센다.
+        /// </summary>
+        public double AutoSaleIncome, Discarded;
     }
 
     /// <summary>

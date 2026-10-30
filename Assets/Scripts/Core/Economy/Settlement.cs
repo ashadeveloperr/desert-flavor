@@ -177,7 +177,7 @@ namespace DesertSettlement.Core.Economy
             double room = Math.Max(0, StoneCapacity - Stone);
             double added = Math.Min(room, Math.Max(0, amount));
             Stone += added;
-            StoneDiscarded += Math.Max(0, amount) - added;
+            SellOrDiscardStone(Math.Max(0, amount) - added); // 넘친 몫은 자동 판매, 못 팔면 버림(결정 AS1)
         }
     }
 }

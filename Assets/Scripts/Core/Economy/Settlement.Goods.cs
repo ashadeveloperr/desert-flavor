@@ -10,7 +10,8 @@ namespace DesertSettlement.Core.Economy
     /// - 먹기(<see cref="Eat"/>): 재고가 있는 식량끼리 소비 가중치 비율로 식량 수요를 나눠 먹고, 모자란 몫은 다른 식량이 채운다. 실제 소비량 = 맡은 몫 ÷ 식량 효율.
     /// - 마시기: 기호품도 같은 방식(1인당 수요, 없어도 배고프지 않음).
     /// - 가공(<see cref="Process"/>): 주민이 먼저 먹고 남은 원료로 목축지·제분소·양조장·포도주 공방이 만든다(시설 번호 순).
-    /// - 넘침(<see cref="DiscardOverflow"/>): 창고가 넘치면 보관 순위가 낮은 재화(곡물 → 과일 → 빵·맥주 → 고기·와인·향신료)부터 버린다.
+    /// - 넘침(<see cref="SellOrDiscardOverflow"/>): 창고가 넘치면 보관 순위가 낮은 재화(곡물 → 과일 → 빵·맥주 → 고기·와인·향신료)부터
+    ///   시장에 자동으로 팔고(결정 AS1, 시장이 있을 때), 팔지 못한 몫은 버린다.
     /// 원본 v0.8(곡물만)과 같은 결과가 나오도록 곡물 하나일 때는 예전 '식량' 계산과 같다. 정착지 전체 설명은 Settlement.cs.
     /// </summary>
     public sealed partial class Settlement
@@ -106,19 +107,22 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 창고가 넘치면 보관 순위가 낮은 재화부터 버린다(같은 순위는 재화 순서). 버린 식량 가치(곡물 1 기준)를 돌려준다.
+        /// 창고가 넘치면 보관 순위가 낮은 재화부터(같은 순위는 재화 순서) 넘친 몫을 시장에 자동으로 팔고(결정 AS1),
+        /// 시장이 없거나 값이 바닥이라 팔지 못한 몫은 버린다. 버린 식량 가치(곡물 1 기준)를 돌려준다.
         /// </summary>
-        private double DiscardOverflow()
+        private double SellOrDiscardOverflow()
         {
             double over = PantryUsed - FoodCapacity;
             double lostFood = 0;
             foreach (Goods g in GoodsCatalog.All.OrderBy(x => SettingsOf(x).KeepRank).ThenBy(x => (int)x))
             {
                 if (over <= 1e-12) break;
-                double drop = Math.Min(over, _stock[(int)g]);
+                double take = Math.Min(over, _stock[(int)g]);
+                double drop = take - AutoSellGoods(g, take);
                 _stock[(int)g] -= drop;
                 _discarded[(int)g] += drop;
-                over -= drop;
+                _discardedSinceRecord += drop;
+                over -= take;
                 lostFood += drop * (GoodsCatalog.IsFood(g) ? Math.Max(Rules.FoodValue(g), 0) : 0);
             }
             return lostFood;

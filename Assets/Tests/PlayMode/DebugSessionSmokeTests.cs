@@ -226,8 +226,8 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.IsEmpty(session.RequestSampleLayout(), "샘플 배치가 모두 예약돼야 한다");
             session.Clock.AdvanceGameHours(60);
             Assert.AreEqual(60, s.CurrentHour);
-            Assert.AreEqual(21, s.AuctionHallCompletedHour, "건설 시간 ×0.5(2026-10-23 FL2, 원본 37h) + 명령 순간 착공(2026-10-26 JQ2, 이전 22h)");
-            Assert.AreEqual(8, s.Facilities.Count(f => f.IsOperating), "우물·농장·채석장·광산·경매장 + 수로 3");
+            Assert.AreEqual(33, s.AuctionHallCompletedHour, "주택 3채를 먼저 짓고 공사 인원이 드는 샘플 배치(결정 LB8·LB14) — 시뮬레이터 `-- labor sample`");
+            Assert.AreEqual(12, s.Facilities.Count(f => f.IsOperating), "주택 3·우물·농장·채석장·광산·경매장 + 수로 4");
 
             yield return null;
             yield return null;
@@ -250,10 +250,10 @@ namespace DesertSettlement.PlayMode.Tests
                 "물이 흐르는 수로 옆 사막이 푸르게 바뀐다(SG4): 지형 색이 아닌 타일이 있어야 한다");
 
             FastForwardToAuction(session);
-            Assert.IsTrue(session.Auctions.IsOpen, "69h 정기 경매(경매장 21h + 48h, 2026-10-26 AU1)");
-            Assert.AreEqual(69, s.CurrentHour);
+            Assert.IsTrue(session.Auctions.IsOpen, "81h 정기 경매(경매장 33h + 48h, 2026-10-26 AU1)");
+            Assert.AreEqual(81, s.CurrentHour);
             session.Clock.AdvanceGameHours(10);
-            Assert.AreEqual(69, s.CurrentHour, "경매 중에는 정산하지 않는다");
+            Assert.AreEqual(81, s.CurrentHour, "경매 중에는 정산하지 않는다");
 
             // 몇 프레임 실시간으로 돌려도 에러가 없어야 한다(경매 패널·HUD·입력·카메라·조명).
             for (int i = 0; i < 10; i++) yield return null;

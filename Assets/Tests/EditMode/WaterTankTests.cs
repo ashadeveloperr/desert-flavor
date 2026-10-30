@@ -45,6 +45,7 @@ namespace DesertSettlement.Core.Tests
             rules.FreeBuilds[BuildingKinds.Farm] = 2;
             rules.FreeBuilds[BuildingKinds.WaterTank] = 1;
             rules.StartJobsOnCommand = false; // 수로 완공 시각을 고정(10시간 뒤 탱크가 아직 차는 중이어야 충전 확인이 됨)
+            rules.Labor = null;               // 물탱크 규칙만 본다: 우물·농장이 사람 없이 돌게(노동력은 LaborTests)
             var s = new Settlement(map, rules);
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Well, WellTile).Success);
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, DownFarmTile).Success);

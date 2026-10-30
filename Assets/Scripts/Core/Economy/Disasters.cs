@@ -33,17 +33,29 @@ namespace DesertSettlement.Core.Economy
         public DisasterState State { get; internal set; }
     }
 
-    /// <summary>전염병 진행 상태(심각도 S, 저항력 R).</summary>
+    /// <summary>
+    /// 전염병 진행 상태(결정 EV1~). 정착지 주민 전체를 걸릴 수 있음·아픔·면역으로 나눠 센다(주택별이 아니라 합).
+    /// 아픈 주민은 일하지 못하고, 병상만큼 병원에 들어가 빨리 회복한다. 면역은 전염병이 끝나도 남는다.
+    /// </summary>
     public sealed class EpidemicState
     {
         public bool Active { get; internal set; }
-        /// <summary>심각도 0~1.</summary>
-        public double Severity { get; internal set; }
-        /// <summary>저항력 0~1.</summary>
-        public double Resistance { get; internal set; }
-        /// <summary>이번 시간 생산 시설 효율 감소 = S × (1 − R). 병원 인근은 이 값 × HospitalDamageFactor.</summary>
-        public double Damage => Active ? Severity * (1 - Resistance) : 0;
-        /// <summary>심각도가 줄어드는 중인지(정점을 지남). 마지막 시간 갱신 기준, 화면의 '약해지는 중' 표시용.</summary>
+        /// <summary>주민 수(마지막 갱신 기준).</summary>
+        public double Residents { get; internal set; }
+        /// <summary>아픈 주민(집 + 병원).</summary>
+        public double Sick { get; internal set; }
+        /// <summary>그중 병원 병상에 든 환자(병상 수까지).</summary>
+        public double Hospitalized { get; internal set; }
+        /// <summary>면역인 주민(회복했거나 방역 장비).</summary>
+        public double Immune { get; internal set; }
+        /// <summary>걸릴 수 있는 주민 = 주민 − 아픔 − 면역.</summary>
+        public double Susceptible => Math.Max(0, Residents - Sick - Immune);
+        /// <summary>아픈 주민 비율(0~1).</summary>
+        public double SickShare => Residents > 1e-9 ? Sick / Residents : 0;
+        /// <summary>지난 시간 새 환자·회복한 주민.</summary>
+        public double NewCasesLastHour { get; internal set; }
+        public double RecoveredLastHour { get; internal set; }
+        /// <summary>회복이 새 환자보다 많아 줄어드는 중인지(정점을 지남). 화면의 '약해지는 중' 표시용.</summary>
         public bool Weakening { get; internal set; }
     }
 
@@ -52,10 +64,12 @@ namespace DesertSettlement.Core.Economy
     /// 수치(유예·창·예고·전염병 속도)는 설정 JSON <c>disasters</c>(<see cref="DisasterSettings"/>·<see cref="EpidemicSettings"/>).
     /// - 일정: 정착지 시작 시각 + GraceHours 뒤 ScheduleWindowHours 안에서, CountWeights 확률로 0~2번(겹칠 수 있음). 같은 시드 = 같은 일정.
     /// - 예고: 시작 WarningHours 전에 Warned 이벤트.
-    /// - 전염병: 시작하면 심각도 InitialSeverity. 매시간 피해 = S × (1 − R)만큼 생산 시설(농장·채석장·광산) 효율을 낮추고(병원 인근 1칸은 절반),
-    ///   R은 피해에 비례해 오르며(방역 장비는 이 속도에 배율), R ≥ SeverityFallResistanceRatio × S이면 S가 줄어 0이 되면 끝난다(결정 EP1).
-    ///   끝난 뒤 R은 천천히 줄되 시작 저항력 효과(InitialEpidemicResistance)가 있으면 그 아래로는 안 내려간다.
-    ///   전염병 중 새 전염병이 시작되면 같은 전염병으로 이어진다(심각도는 큰 쪽).
+    /// - 전염병(결정 EV1~EV7): 주민 사이에 퍼지는 감염·회복 모형. 시작하면 걸릴 수 있는 주민의 InitialInfectedShare가 아프고,
+    ///   매시간 새 환자 = 전파율 × 걸릴 수 있는 주민 × 아픈 주민 ÷ 주민, 회복 = 병상에 든 환자 × 병원 회복률 + 집의 환자 × 집 회복률.
+    ///   아픈 주민은 일하지 못한다(<see cref="Settlement"/>의 인원 배치가 뺀다). 아픈 비율이 EndBelowSickShare 아래로 내려가면 끝난다.
+    ///   면역은 같은 정착지 안에 남고, 다음 전염병이 시작될 때 ImmunityCarryover만큼만 이어진다. 방역 장비는 처음부터 면역인 주민 비율.
+    ///   새로 들어온 주민은 걸릴 수 있고, 떠나는 주민은 아픔·면역 비율대로 떠난다. 죽는 주민은 없다.
+    ///   전염병 중 새 전염병이 시작되면 같은 전염병으로 이어진다.
     /// - 모래폭풍·메뚜기떼·탄저병(2026-10-23 D1~D7): 시드로 정한 길이 동안 효과(수로 손실·공사 속도, 농장 생산·식량 재고, 농장 생산). 장비가 피해를 줄인다.
     ///   같은 종류가 겹치면 효과는 한 번(더 늦게 끝나는 쪽까지). 지역 약점이 있으면 종류 가중치가 바뀐다(RegionWeightMultipliers).
     /// 수치는 설정 JSON의 disasters.
@@ -76,7 +90,7 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>
         /// 재해 세기 배수(2026-10-27 LD3, 이슈 #12 후반 가속, 1 = 설정 그대로). 정해진 길이 재해(모래폭풍·메뚜기떼·탄저병)의 지속 시간,
-        /// 메뚜기떼 식량 손실·농장 피해, 탄저병 농장 피해, 모래폭풍 수로 손실 증가분·공사 감속, 전염병 심각도 상승 속도에 곱한다(피해는 최대 100%).
+        /// 메뚜기떼 식량 손실·농장 피해, 탄저병 농장 피해, 모래폭풍 수로 손실 증가분·공사 감속, 전염병 전파율에 곱한다(피해는 최대 100%).
         /// </summary>
         public double Intensity { get; private set; } = 1;
 
@@ -100,7 +114,6 @@ namespace DesertSettlement.Core.Economy
             _settlement = settlement;
             _settings = settings;
             Intensity = intensity;
-            Epidemic.Resistance = settlement.Rules.EpidemicResistanceFloor;
 
             var rng = new DeterministicRandom(SeedSalts.DisasterSchedule(seed));
             int count = PickIndex(settings.EffectiveCountWeights, rng);
@@ -194,36 +207,66 @@ namespace DesertSettlement.Core.Economy
                 if (Epidemic.Active && _currentEpidemic != null)
                 {
                     // 진행 중인 전염병과 합쳐진다: 이 일정은 바로 앞 전염병에 흡수됐다고 보고 같은 시각에 끝난 것으로 기록.
-                    Epidemic.Severity = Math.Max(Epidemic.Severity, _settings.Epidemic.InitialSeverity);
                     e.State = DisasterState.Ended;
                     e.EndHour = e.StartHour;
                     Started?.Invoke(e);
                     Ended?.Invoke(e);
                     return;
                 }
+                SyncResidents();
+                Epidemic.Immune *= _settings.Epidemic.ImmunityCarryover; // 지난 전염병의 면역은 일부만 남는다(결정 EV4)
+                ApplyImmuneFloor();
+                Epidemic.Sick = Epidemic.Susceptible * Math.Min(1, _settings.Epidemic.InitialInfectedShare);
+                Epidemic.Hospitalized = Math.Min(Epidemic.Sick, HospitalBeds);
+                Epidemic.NewCasesLastHour = Epidemic.Sick;
+                Epidemic.RecoveredLastHour = 0;
                 Epidemic.Active = true;
                 Epidemic.Weakening = false;
-                Epidemic.Severity = _settings.Epidemic.InitialSeverity;
                 _currentEpidemic = e;
             }
             Started?.Invoke(e);
         }
 
+        /// <summary>운영 중인 병원 병상 합(레벨표 <c>beds</c>).</summary>
+        public double HospitalBeds => _settlement.OperatingOf(BuildingKinds.Hospital).Sum(h => _settlement.LevelOf(h).Beds ?? 0);
+
+        /// <summary>지금 일하지 못하는 아픈 주민(전염병 중). 인원 배치가 주민에서 뺀다.</summary>
+        public double SickResidents => Epidemic.Active ? Math.Min(Epidemic.Sick, _settlement.Residents) : 0;
+
         /// <summary>
-        /// 시설이 이번 시간 받는 생산 배율(1 = 피해 없음). 생산 시설만.
-        /// 전염병: 1 − 피해(병원 인근은 피해 절반). 농장은 메뚜기떼·탄저병 배율도 곱한다(장비가 피해를 줄임).
+        /// 주민 수 변화를 반영한다: 늘어난 주민은 걸릴 수 있음, 줄어든 주민은 아픔·면역 비율대로 떠난다.
+        /// </summary>
+        private void SyncResidents()
+        {
+            double now = _settlement.Residents;
+            double before = Epidemic.Residents;
+            if (now < before - 1e-12 && before > 1e-12)
+            {
+                double keep = now / before;
+                Epidemic.Sick *= keep;
+                Epidemic.Immune *= keep;
+            }
+            Epidemic.Residents = now;
+            Epidemic.Sick = Math.Min(Epidemic.Sick, now);
+            Epidemic.Immune = Math.Min(Epidemic.Immune, now - Epidemic.Sick);
+        }
+
+        /// <summary>방역 장비: 아프지 않은 주민 중 이 비율은 처음부터 면역(회복으로 얻은 면역이 더 크면 그쪽, 결정 EV5).</summary>
+        private void ApplyImmuneFloor()
+        {
+            double floor = _settlement.Rules.EpidemicImmuneShare * Math.Max(0, Epidemic.Residents - Epidemic.Sick);
+            Epidemic.Immune = Math.Max(Epidemic.Immune, Math.Min(floor, Epidemic.Residents - Epidemic.Sick));
+        }
+
+        /// <summary>
+        /// 시설이 이번 시간 받는 생산 배율(1 = 피해 없음). 농장만 메뚜기떼·탄저병 배율(장비가 피해를 줄임).
+        /// 전염병은 생산 배율이 아니라 아픈 주민이 일하지 못하는 것으로 나타난다(결정 EV2).
         /// </summary>
         public double ProductionFactor(Facility f)
         {
             if (f == null) return 1;
             if (SettlementRules.ResourceOf(f.Kind) == ResourceKind.None) return 1;
             double factor = 1;
-            if (Epidemic.Active)
-            {
-                double damage = Epidemic.Damage;
-                if (IsNearHospital(f)) damage *= _settings.Epidemic.HospitalDamageFactor;
-                factor *= Math.Max(0, 1 - damage);
-            }
             if (f.Kind == BuildingKinds.Farm)
             {
                 SettlementRules r = _settlement.Rules;
@@ -246,40 +289,41 @@ namespace DesertSettlement.Core.Economy
         /// <summary>이번 시간 공사(건설·개량·철거) 진행 속도(모래폭풍 중 0.5). 평소 1.</summary>
         public double ConstructionSpeed => IsActive(Sandstorm) ? Math.Max(0.1, 1 - (1 - _settings.Sandstorm.ConstructionSpeed) * Intensity) : 1;
 
-        /// <summary>가동 중인 병원 반경(설정 hospitalRadius, 기본 1칸) 안에 있는지. 병원이 여럿이어도 절반은 한 번.</summary>
-        public bool IsNearHospital(Facility f) =>
-            !f.Edge.HasValue && _settlement.OperatingOf(BuildingKinds.Hospital).Any(hp => hp.Tile.DistanceTo(f.Tile) <= _settings.Epidemic.HospitalRadius);
-
-        /// <summary>정착지가 매시간 정산을 마칠 때 부른다: 심각도·저항력 갱신, 끝남 처리.</summary>
+        /// <summary>
+        /// 정착지가 매시간 정산을 마칠 때 부른다(주민 떠남·돌아옴 뒤): 주민 수를 맞추고, 전염병 중이면 새 환자·회복을 한 시간만큼 진행한다.
+        /// 아픈 비율이 EndBelowSickShare 아래로 내려가면 남은 환자는 회복한 것으로 보고 끝낸다.
+        /// </summary>
         internal void EndHour(long h)
         {
+            SyncResidents();
+            if (!Epidemic.Active) return;
             EpidemicSettings p = _settings.Epidemic;
-            double floor = _settlement.Rules.EpidemicResistanceFloor;
-            if (Epidemic.Active)
+            ApplyImmuneFloor();
+            double n = Epidemic.Residents;
+            double beds = HospitalBeds;
+            double inHospital = Math.Min(Epidemic.Sick, beds);
+            double newCases = n > 1e-9 ? Math.Min(Epidemic.Susceptible, p.TransmissionPerHour * Intensity * Epidemic.Susceptible * Epidemic.Sick / n) : 0;
+            double recovered = Math.Min(Epidemic.Sick,
+                inHospital * p.HospitalRecoveryPerHour + (Epidemic.Sick - inHospital) * p.HomeRecoveryPerHour);
+            Epidemic.Sick = Math.Max(0, Epidemic.Sick + newCases - recovered);
+            Epidemic.Immune = Math.Min(n - Epidemic.Sick, Epidemic.Immune + recovered);
+            Epidemic.Hospitalized = Math.Min(Epidemic.Sick, beds);
+            Epidemic.NewCasesLastHour = newCases;
+            Epidemic.RecoveredLastHour = recovered;
+            Epidemic.Weakening = recovered > newCases;
+            if (Epidemic.SickShare < p.EndBelowSickShare || n <= 1e-9)
             {
-                double damage = Epidemic.Damage;
-                double growth = (p.ResistanceBasePerHour + p.ResistancePerDamage * damage) * _settlement.Rules.EpidemicResistanceGrowthMultiplier;
-                Epidemic.Resistance = Math.Min(1, Epidemic.Resistance + growth);
-                Epidemic.Weakening = Epidemic.Resistance >= p.SeverityFallResistanceRatio * Epidemic.Severity;
-                Epidemic.Severity = Epidemic.Weakening
-                    ? Math.Max(0, Epidemic.Severity - p.SeverityFallPerHour)
-                    : Math.Min(1, Epidemic.Severity + p.SeverityRisePerHour * Intensity);
-                if (Epidemic.Severity <= 1e-9)
+                Epidemic.Immune = Math.Min(n, Epidemic.Immune + Epidemic.Sick);
+                Epidemic.Sick = 0;
+                Epidemic.Hospitalized = 0;
+                Epidemic.Active = false;
+                if (_currentEpidemic != null)
                 {
-                    Epidemic.Active = false;
-                    Epidemic.Severity = 0;
-                    if (_currentEpidemic != null)
-                    {
-                        _currentEpidemic.State = DisasterState.Ended;
-                        _currentEpidemic.EndHour = h;
-                        Ended?.Invoke(_currentEpidemic);
-                        _currentEpidemic = null;
-                    }
+                    _currentEpidemic.State = DisasterState.Ended;
+                    _currentEpidemic.EndHour = h;
+                    Ended?.Invoke(_currentEpidemic);
+                    _currentEpidemic = null;
                 }
-            }
-            else
-            {
-                Epidemic.Resistance = Math.Max(floor, Epidemic.Resistance - p.ResistanceDecayPerHour);
             }
         }
     }

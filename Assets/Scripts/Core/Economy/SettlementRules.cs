@@ -70,12 +70,15 @@ namespace DesertSettlement.Core.Economy
         /// null이면 원본 v0.8(어디서나 같은 값에 구매, 판매 없음, 회복 없음) — 회귀 비교용.
         /// </summary>
         public TradeSettings Trade { get; set; }
+        /// <summary>
+        /// 주택·노동력(결정 LB1~). null이면 원본 v0.8(시설이 식량을 먹고 식량 계수 F가 효율에 곱해짐, 주택 없음) — 회귀 비교용.
+        /// 켜져 있으면 F는 1로 고정되고 효율 자리에 배치율(배치 ÷ 필요 인원)이 들어간다.
+        /// </summary>
+        public LaborSettings Labor { get; set; }
         /// <summary>유지비 배율.</summary>
         public double UpkeepMultiplier { get; set; } = 1.0;
-        /// <summary>전염병 저항력의 시작값·하한(방역 장비). 0~1.</summary>
-        public double EpidemicResistanceFloor { get; set; }
-        /// <summary>전염병 중 저항력 상승 속도 배율(방역 장비 효과, 값은 설정 JSON <c>equipment</c>).</summary>
-        public double EpidemicResistanceGrowthMultiplier { get; set; } = 1.0;
+        /// <summary>처음부터 면역인 주민 비율(방역 장비, 결정 EV5). 0~1.</summary>
+        public double EpidemicImmuneShare { get; set; }
         /// <summary>재해 피해 배율(장비, 2026-10-23). 1 = 그대로.</summary>
         public double SandstormDamageMultiplier { get; set; } = 1.0;
         public double LocustDamageMultiplier { get; set; } = 1.0;
@@ -129,13 +132,14 @@ namespace DesertSettlement.Core.Economy
             if (config == null) throw new ArgumentNullException(nameof(config));
             ConfirmedRules c = config.ConfirmedRules;
             PrototypeSettings p = config.Prototype;
-            return new SettlementRules(config)
+            var rules = new SettlementRules(config)
             {
                 ConstructionSlots = c.ConstructionSlots,
                 CancelRefundRatio = c.PostStartCancelStoneRefundRatio,
                 ConstructionHoursMultiplier = c.ConstructionHoursMultiplier > 0 ? c.ConstructionHoursMultiplier : 1,
                 StartJobsOnCommand = c.StartJobsOnCommand,
                 Trade = config.Purchase?.Trade,
+                Labor = config.Labor,
                 StartingCash = p.StartingCash,
                 StarterStone = p.SiteStarterStone,
                 StarterFood = p.SiteStarterFood,
@@ -152,6 +156,9 @@ namespace DesertSettlement.Core.Economy
                 StoneMultiplierUsesQuarryCapacity = config.AuctionSeed?.StoneMultiplierUsesQuarryCapacity ?? false,
                 Water = WaterNetworkSettings.FromConfig(config),
             };
+            // 주택은 닫지 않는다(결정 LB8): 닫으면 물이 끊겨 주민이 떠날 뿐이라 철거와 다르지 않다.
+            rules.CannotClose.Add(BuildingKinds.House);
+            return rules;
         }
 
         /// <summary>
@@ -168,8 +175,22 @@ namespace DesertSettlement.Core.Economy
             r.ConstructionHoursMultiplier = 1;           // 원본 건설 시간(게임 값은 결정 FL2)
             r.StartJobsOnCommand = false;                // 다음 정각에 착공(게임 값은 결정 JQ2: 명령 순간)
             r.Trade = null;                              // 시장 없이 어디서나 같은 값에 구매, 판매 없음(게임 값은 결정 MK1~MK9)
+            r.Labor = null;                              // 주택·노동력 없음: 시설 foodUse와 식량 계수 F(게임 값은 결정 LB1~)
             return r;
         }
+
+        /// <summary>주택·노동력 규칙이 켜져 있는지(<see cref="Labor"/>).</summary>
+        public bool LaborOn => Labor != null;
+
+        /// <summary>건설 슬롯 수 × 슬롯당 기본 인부(공사 전용, 떠나지 않음). 노동력이 꺼져 있으면 0.</summary>
+        public double BaseCrew => LaborOn ? ConstructionSlots * Labor.CrewPerConstructionSlot : 0;
+
+        /// <summary>이 시설 종류가 운영에 사람을 쓰는지(레벨표에 <c>workers</c>가 있음). 노동력이 꺼져 있으면 false.</summary>
+        public bool NeedsWorkers(string kind) => LaborOn && (Config.GetLevel(kind, 1)?.Workers ?? 0) > 0;
+
+        /// <summary>작업 하나에 필요한 인원: 건설·개량은 목표 레벨, 철거는 L1의 <c>buildWorkers</c>. 노동력이 꺼져 있으면 0.</summary>
+        public double JobWorkers(JobType type, string kind, int targetLevel) =>
+            LaborOn ? Config.GetLevel(kind, type == JobType.Demolish ? 1 : targetLevel)?.BuildWorkers ?? 0 : 0;
 
         /// <summary>
         /// 장비·지역 모디파이어 효과를 규칙 값에 건다(여러 번 부르면 누적). 정착지를 만들기 전에 호출한다.
@@ -188,8 +209,7 @@ namespace DesertSettlement.Core.Economy
             ConstructionSlots += e.ExtraConstructionSlots;
             BaseFoodStorage += e.ExtraStorage;
             BaseStoneStorage += e.ExtraStorage;
-            EpidemicResistanceFloor = Math.Min(1, EpidemicResistanceFloor + e.InitialEpidemicResistance);
-            EpidemicResistanceGrowthMultiplier *= e.EpidemicResistanceGrowthMultiplier;
+            EpidemicImmuneShare = Math.Min(1, EpidemicImmuneShare + e.EpidemicImmuneShare);
             SandstormDamageMultiplier *= e.SandstormDamageMultiplier;
             LocustDamageMultiplier *= e.LocustDamageMultiplier;
             BlightDamageMultiplier *= e.BlightDamageMultiplier;
@@ -240,7 +260,10 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
-        /// <summary>생산 효율 = 물 공급률 × 식량 계수, 지역·장비의 효율 상한(<see cref="EfficiencyCap"/>)을 넘지 않는다.</summary>
-        public double Efficiency(double waterRate, double foodCoefficient) => Math.Min(EfficiencyCap, waterRate * foodCoefficient);
+        /// <summary>
+        /// 생산 효율 = 물 공급률 × 일손, 지역·장비의 효율 상한(<see cref="EfficiencyCap"/>)을 넘지 않는다.
+        /// 일손은 노동력이 켜져 있으면 시설의 배치율(배치 ÷ 필요 인원), 꺼져 있으면(원본 v0.8) 식량 계수 F.
+        /// </summary>
+        public double Efficiency(double waterRate, double workforce) => Math.Min(EfficiencyCap, waterRate * workforce);
     }
 }

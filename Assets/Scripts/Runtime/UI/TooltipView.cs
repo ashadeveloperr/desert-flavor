@@ -104,6 +104,15 @@ namespace DesertSettlement.Runtime.UI
                     int free = s.FreeBuildsRemaining(kind);
                     string cost = free > 0 ? "무료 완공" : lv != null ? $"석재 {lv.Stone:0} · {s.Rules.JobHours(lv.Hours)}시간 · 유지비 {lv.Upkeep:0.00}/h" : "";
                     lines.Add(Paint($"✓ {input.ToolLabel} 건설 가능  {cost}", Theme.Good));
+                    // 노동력(결정 LB1~): 공사 인원·운영 인원·주택 정원.
+                    if (lv != null && s.Rules.LaborOn)
+                    {
+                        var labor = new List<string>();
+                        if (free <= 0 && (lv.BuildWorkers ?? 0) > 0) labor.Add($"공사 {FacilityInfo.People(lv.BuildWorkers.Value)}명");
+                        if ((lv.Workers ?? 0) > 0) labor.Add($"운영 {FacilityInfo.People(lv.Workers.Value)}명");
+                        if ((lv.Residents ?? 0) > 0) labor.Add($"주민 {FacilityInfo.People(lv.Residents.Value)}명 입주 · 수로 물 필요");
+                        if (labor.Count > 0) lines.Add(Paint("  " + string.Join(" · ", labor), Theme.Muted));
+                    }
                 }
             }
             return string.Join("\n", lines);

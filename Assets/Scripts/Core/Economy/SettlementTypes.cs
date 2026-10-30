@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DesertSettlement.Core.Hex;
 
 namespace DesertSettlement.Core.Economy
@@ -63,6 +64,8 @@ namespace DesertSettlement.Core.Economy
         public WaterTankMode TankMode { get; internal set; }
         /// <summary>물탱크가 지난 시간에 충전(+) 또는 방출(−)한 양.</summary>
         public double TankFlowLastHour { get; internal set; }
+        /// <summary>주택에 사는 주민 수(주택만 의미 있음, 결정 LB1~). 소수로 서서히 늘고 준다(화면은 반올림).</summary>
+        public double Residents { get; internal set; }
 
         public bool IsOperating => State == FacilityState.Operating;
         public override string ToString() => $"#{Id} {Kind} L{Level} {State} @{(Edge.HasValue ? Edge.ToString() : Tile.ToString())}";
@@ -87,8 +90,10 @@ namespace DesertSettlement.Core.Economy
         public long StartedHour { get; internal set; } = -1;
         /// <summary>이 게임 시간이 시작될 때 완료된다.</summary>
         public long DeadlineHour { get; internal set; } = -1;
-        /// <summary>모래폭풍 지연 누적(1이 되면 완공이 한 시간 늦어짐).</summary>
+        /// <summary>모래폭풍·공사 인원 부족 지연 누적(1이 되면 완공이 한 시간 늦어짐).</summary>
         internal double DelayCarry { get; set; }
+        /// <summary>아직 완공 시각에 반영되지 않은 지연(0~1시간). 진행률 표시가 한 시간씩 뒤로 튀지 않게 더해 쓴다.</summary>
+        public double PendingDelayHours => DelayCarry;
 
         public override string ToString() => $"Job#{Id} {Type} {Kind} L{TargetLevel} {State}";
     }
@@ -123,29 +128,35 @@ namespace DesertSettlement.Core.Economy
     }
 
     /// <summary>
-    /// 시설 하나의 시간당 생산·소비 예상치(가장 최근 물 배분과 현재 식량 계수 F 기준).
+    /// 시설 하나의 시간당 생산·소비 예상치(가장 최근 물 배분·인원 배치 기준).
     /// 실제 정산은 다음 정각의 <see cref="Settlement.AdvanceHour"/>에서 일어나므로 약간 다를 수 있다.
     /// </summary>
     public readonly struct FacilityOutput
     {
         public readonly ResourceKind Resource;
-        /// <summary>지금 상태의 시간당 생산량 = 최대 × 물 가동률 × F.</summary>
+        /// <summary>지금 상태의 시간당 생산량 = 최대 × 물 가동률 × 일손.</summary>
         public readonly double ProducedPerHour;
-        /// <summary>물 100%·F 100%일 때의 시간당 생산량.</summary>
+        /// <summary>물 100%·일손 100%일 때의 시간당 생산량.</summary>
         public readonly double MaxPerHour;
-        /// <summary>운영 중일 때의 고정 식량 소비(가동률과 무관).</summary>
+        /// <summary>이 시설 몫의 식량 소비: 노동력이 켜져 있으면 배치된 인원이 먹는 양, 꺼져 있으면 시설의 고정 소비(원본 v0.8).</summary>
         public readonly double FoodUsePerHour;
         public readonly double WaterRate;
-        public readonly double FoodCoefficient;
+        /// <summary>일손: 노동력이 켜져 있으면 배치율(배치 ÷ 필요 인원, 사람이 필요 없으면 1), 꺼져 있으면 식량 계수 F.</summary>
+        public readonly double Workforce;
+        /// <summary>배치된 인원과 필요 인원(노동력이 꺼져 있거나 사람이 필요 없으면 0).</summary>
+        public readonly double WorkersAssigned, WorkersNeeded;
 
-        public FacilityOutput(ResourceKind resource, double produced, double max, double foodUse, double waterRate, double f)
+        public FacilityOutput(ResourceKind resource, double produced, double max, double foodUse, double waterRate, double workforce,
+            double workersAssigned = 0, double workersNeeded = 0)
         {
             Resource = resource;
             ProducedPerHour = produced;
             MaxPerHour = max;
             FoodUsePerHour = foodUse;
             WaterRate = waterRate;
-            FoodCoefficient = f;
+            Workforce = workforce;
+            WorkersAssigned = workersAssigned;
+            WorkersNeeded = workersNeeded;
         }
 
         public bool IsProducer => Resource != ResourceKind.None;
@@ -165,7 +176,36 @@ namespace DesertSettlement.Core.Economy
         public double FoodDemand, FoodDeficit, Upkeep;
         /// <summary>가동 숙성을 반영한 생산(경매 가치가 쓴다). 숙성이 꺼져 있으면 *Produced와 같다.</summary>
         public double OreValued, FoodValued, StoneValued;
-        /// <summary>이 시간 전염병 피해(병원 반감 전). 0 = 없음.</summary>
-        public double EpidemicDamage;
+        /// <summary>이 시간 아픈 주민 비율(전염병, 결정 EV1, 일하지 못한 몫). 0 = 없음.</summary>
+        public double EpidemicSickShare;
+        /// <summary>노동력(결정 LB1~): 정산 뒤 주택 주민 합, 이 시간 공사·시설에 배치된 인원(기본 인부 포함), 필요 인원 합. 꺼져 있으면 0.</summary>
+        public double Residents, WorkersAssigned, WorkersNeeded;
+    }
+
+    /// <summary>
+    /// 한 시간의 인원 배치(결정 LB1~). 공사(대기열 순서) → 우선 고용 목록 → 물 100% 시설(완공 순) → 물이 일부만 오는 시설(완공 순).
+    /// 기본 인부는 공사에만, 주민은 공사의 남은 몫과 시설에 배치된다.
+    /// </summary>
+    public sealed class LaborAssignment
+    {
+        /// <summary>주택 주민 합.</summary>
+        public double Residents;
+        /// <summary>그중 아파서 일하지 못하는 주민(전염병).</summary>
+        public double Sick;
+        /// <summary>기본 인부(공사 전용).</summary>
+        public double Crew;
+        /// <summary>작업 id → 배치 인원(기본 인부 + 주민).</summary>
+        public readonly Dictionary<int, double> Jobs = new Dictionary<int, double>();
+        /// <summary>시설 id → 배치 인원.</summary>
+        public readonly Dictionary<int, double> Facilities = new Dictionary<int, double>();
+        /// <summary>공사·시설이 필요로 하는 인원 합.</summary>
+        public double Needed;
+        /// <summary>배치된 인원 합(기본 인부 포함).</summary>
+        public double Assigned;
+        /// <summary>일이 없는 주민(기본 인부 제외).</summary>
+        public double IdleResidents;
+
+        public double OfJob(int jobId) => Jobs.TryGetValue(jobId, out double n) ? n : 0;
+        public double OfFacility(int facilityId) => Facilities.TryGetValue(facilityId, out double n) ? n : 0;
     }
 }

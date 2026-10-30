@@ -22,6 +22,8 @@ namespace DesertSettlement.Core.Config
         public EquipmentUpgradeSettings EquipmentUpgrade { get; set; }
         /// <summary>재해(2026-10-23: 전염병). 없으면 재해 없음.</summary>
         public DisasterSettings Disasters { get; set; }
+        /// <summary>주택·노동력(결정 LB1~). 없으면 원본 v0.8: 시설이 식량을 먹고(<c>foodUse</c>) 식량 계수 F가 효율에 곱해진다.</summary>
+        public LaborSettings Labor { get; set; }
 
         /// <summary>시설 종류(<see cref="BuildingKinds"/>) → 레벨별 명세. 인덱스 0 = L1.</summary>
         public Dictionary<string, List<BuildingLevel>> BuildingLevels { get; set; }
@@ -72,6 +74,27 @@ namespace DesertSettlement.Core.Config
         public double ClosedFacilityUpkeepRatio { get; set; }
         public double CanalLossPerWholeEdge { get; set; }
         public int InitialMvpMaxFacilityLevel { get; set; }
+    }
+
+    /// <summary>
+    /// 주택·노동력(결정 LB1~). 주민은 주택에 살며 수로 물과 식량을 쓰고,
+    /// 우물·농장·채석장·광산(레벨표 <c>workers</c>)과 공사(레벨표 <c>buildWorkers</c>)에 자동 배치된다.
+    /// 물·식량이 모자라면 서서히 떠나고, 다시 충분해지면 더 천천히 돌아온다.
+    /// </summary>
+    public sealed class LaborSettings
+    {
+        /// <summary>주민(기본 인부 포함) 1명이 한 시간에 먹는 식량.</summary>
+        public double FoodPerResidentPerHour { get; set; }
+        /// <summary>주택 주민 1명이 한 시간에 쓰는 물(주택이 수로에서 취수). 기본 인부는 물을 쓰지 않는다.</summary>
+        public double WaterPerResidentPerHour { get; set; }
+        /// <summary>주민이 목표보다 많을 때 시간당 떠나는 수 = 정원 × 이 값.</summary>
+        public double LeavePerHour { get; set; }
+        /// <summary>주민이 목표보다 적을 때 시간당 돌아오는 수 = 정원 × 이 값(떠나는 속도보다 느리게).</summary>
+        public double ReturnPerHour { get; set; }
+        /// <summary>정착지마다 석재·인원·시간 없이 바로 완공되는 주택 수(결정: 첫 주택 1채 무료).</summary>
+        public int FreeHouses { get; set; }
+        /// <summary>건설 슬롯 1개당 기본 인부 수. 기본 인부는 공사에만 일하고, 물은 안 쓰고 식량은 먹으며, 떠나지 않는다(막힘 방지).</summary>
+        public double CrewPerConstructionSlot { get; set; }
     }
 
     public sealed class PurchaseSettings
@@ -136,6 +159,8 @@ namespace DesertSettlement.Core.Config
         public bool StoneMultiplierUsesQuarryCapacity { get; set; }
         public InfraMultipliers Infra { get; set; }
         public double FixedTestBidMultiplier { get; set; }
+        /// <summary>주민 1명의 가치(결정 CL1). 입찰자 <see cref="BidderProfile.PopulationWeight"/>를 곱해 광물 기반 가치에 더한다. 0이면 주민 가치 없음.</summary>
+        public double ValuePerResident { get; set; }
     }
 
     /// <summary>경매 진행 규칙과 입찰자. 값은 모두 플레이테스트 기본값.</summary>
@@ -178,6 +203,8 @@ namespace DesertSettlement.Core.Config
         public double InfraWeight { get; set; } = 1;
         /// <summary>빈 땅 배율 가중치(부동산 개발업자·건설업자, 2026-10-23 로드맵 1-⑥). 배율 = 1 + 가중치 × (빈 땅 비율 − 기준 비율). 0이면 영향 없음.</summary>
         public double OpenLandWeight { get; set; }
+        /// <summary>주민 가치 가중치(결정 CL1). 주민 가치 = 사는 인원 × <c>auctionSeed.valuePerResident</c> × 이 값, 광물 기반 가치에 더한다. 이주 사업가만 크게.</summary>
+        public double PopulationWeight { get; set; } = 1;
         /// <summary>공사 중 시설 종류별 개발 중 자산 가중치(없는 종류는 1).</summary>
         public Dictionary<string, double> DevelopmentWeights { get; set; }
         /// <summary>현금으로 주는 비율. 1보다 작으면 그만큼 다음 정착지 혜택으로 보상한다.</summary>
@@ -238,11 +265,13 @@ namespace DesertSettlement.Core.Config
         public double PerOperationalWaterTank { get; set; }
         /// <summary>가동 중 시장 하나당 기반시설 배율 가산(2026-10-27 이슈 #18, 병원·물탱크와 같은 0.01).</summary>
         public double PerOperationalMarket { get; set; }
+        /// <summary>주택 하나당 기반시설 배율 가산 × 그 주택의 거주율(사는 인원 ÷ 정원, 결정 CL2).</summary>
+        public double PerOperationalHouse { get; set; }
         public double Maximum { get; set; }
     }
 
     /// <summary>
-    /// 시설 한 레벨의 명세. 모든 시설이 공통으로 갖는 값(Stone, Hours, FoodUse, Upkeep)은 필수,
+    /// 시설 한 레벨의 명세. 모든 시설이 공통으로 갖는 값(Stone, Hours, Upkeep)은 필수,
     /// 나머지는 시설 종류에 따라 있을 때만 값이 들어간다(없으면 null).
     /// 단위: 자원·물은 게임 1시간당, Hours는 공사 게임시간.
     /// </summary>
@@ -250,8 +279,17 @@ namespace DesertSettlement.Core.Config
     {
         public double? Stone { get; set; }
         public double? Hours { get; set; }
+        /// <summary>운영 중 시설의 고정 식량 소비. 노동력(<see cref="LaborSettings"/>)이 꺼진 원본 v0.8 회귀 비교에서만 쓴다(노동력이 켜지면 주민이 먹는다).</summary>
         public double? FoodUse { get; set; }
         public double? Upkeep { get; set; }
+        /// <summary>주택 정원(결정 LB1~).</summary>
+        public double? Residents { get; set; }
+        /// <summary>운영에 필요한 인원(우물·농장·채석장·광산). 생산 = 최대 × 물 공급률 × 배치율(배치 ÷ 필요). 없으면 사람 없이 동작.</summary>
+        public double? Workers { get; set; }
+        /// <summary>이 레벨로 짓는(개량하는) 공사에 필요한 인원. 철거는 L1 값. 모인 비율만큼 공사가 느려진다(0명이면 멈춤).</summary>
+        public double? BuildWorkers { get; set; }
+        /// <summary>병원 병상 수(결정 EV3). 전염병 환자가 병상만큼 병원에서 빨리 회복한다.</summary>
+        public double? Beds { get; set; }
 
         public double? WaterSupply { get; set; }
         public double? WaterDemand { get; set; }
@@ -327,32 +365,24 @@ namespace DesertSettlement.Core.Config
     }
 
     /// <summary>
-    /// 전염병(사용자 정의 모델): 심각도 S가 천천히 오르고, 피해 = S × (1 − 저항력 R)만큼 생산 시설 효율이 준다.
-    /// R은 피해가 클수록 빨리 오르고, R ≥ <see cref="SeverityFallResistanceRatio"/> × S이면 S가 줄어 0이 되면 끝난다. 끝난 뒤 R은 천천히 줄어든다(장비가 준 시작값 아래로는 안 내려감).
+    /// 전염병(결정 EV1~): 주민 사이에 퍼지는 감염·회복 모형(SIR). 걸릴 수 있는 주민 S, 아픈 주민 I, 면역 R(회복했거나 방역 장비).
+    /// 매시간 새 환자 = <see cref="TransmissionPerHour"/> × S × I ÷ 주민, 회복 = 병원 병상에 든 환자 × <see cref="HospitalRecoveryPerHour"/> + 집의 환자 × <see cref="HomeRecoveryPerHour"/>.
+    /// 아픈 주민은 일하지 못한다. 회복하면 면역이 되고, 다음 전염병이 오면 면역의 <see cref="ImmunityCarryover"/>만 남는다.
     /// </summary>
     public sealed class EpidemicSettings
     {
-        /// <summary>시작할 때 심각도. 2026-10-26 EP1(이슈 #1): 0.10(피해가 낮게 시작해 하루쯤 뒤 정점).</summary>
-        public double InitialSeverity { get; set; } = 0.10;
-        /// <summary>R &lt; 비율 × S일 때 시간당 심각도 상승. EP1: 0.015 → 정점 31h·최대 피해 35%·50h에 끝(방역 장비 ×1.3이면 20h·29%·34h).</summary>
-        public double SeverityRisePerHour { get; set; } = 0.015;
-        /// <summary>R ≥ 비율 × S일 때 시간당 심각도 감소. B3 결정: 0.03(정점 뒤 빨리 회복).</summary>
-        public double SeverityFallPerHour { get; set; } = 0.03;
-        /// <summary>
-        /// 심각도가 줄기 시작하는 저항력 비율: R ≥ 이 값 × S이면 감소. EP1: 0.7.
-        /// 1이면 예전 규칙(R ≥ S)인데, 그러면 R이 S를 따라잡지 못해 심각도가 100%에 붙었다(2차 플레이테스트).
-        /// </summary>
-        public double SeverityFallResistanceRatio { get; set; } = 0.7;
-        /// <summary>전염병 중 시간당 저항력 상승의 기본값(피해와 상관없이 오르는 몫). 상승 = 이 값 + <see cref="ResistancePerDamage"/> × 현재 피해.</summary>
-        public double ResistanceBasePerHour { get; set; } = 0.002;
-        /// <summary>전염병 중 시간당 저항력 상승에서 현재 피해에 곱하는 값(결정 B3).</summary>
-        public double ResistancePerDamage { get; set; } = 0.04;
-        /// <summary>전염병이 끝난 뒤 시간당 저항력 감소.</summary>
-        public double ResistanceDecayPerHour { get; set; } = 0.005;
-        /// <summary>병원 인근 건물이 받는 피해 비율(절반 = 0.5, 결정).</summary>
-        public double HospitalDamageFactor { get; set; } = 0.5;
-        /// <summary>병원이 덮는 거리(1 = 병원 타일 + 이웃 6칸, 결정).</summary>
-        public int HospitalRadius { get; set; } = 1;
+        /// <summary>시작할 때 걸릴 수 있는 주민 중 아픈 비율.</summary>
+        public double InitialInfectedShare { get; set; }
+        /// <summary>전파율(시간당). 클수록 빨리 퍼지고 정점이 높다(재해 세기 배수를 곱함).</summary>
+        public double TransmissionPerHour { get; set; }
+        /// <summary>집에 있는 환자의 시간당 회복 비율(평균 앓는 시간 = 1 ÷ 이 값).</summary>
+        public double HomeRecoveryPerHour { get; set; }
+        /// <summary>병원 병상에 든 환자의 시간당 회복 비율(집보다 훨씬 빠르게).</summary>
+        public double HospitalRecoveryPerHour { get; set; }
+        /// <summary>새 전염병이 시작될 때 남는 면역 비율(같은 정착지 안, 0~1).</summary>
+        public double ImmunityCarryover { get; set; }
+        /// <summary>아픈 주민 비율이 이 값 아래로 내려가면 전염병이 끝난다(남은 환자는 회복한 것으로 봄).</summary>
+        public double EndBelowSickShare { get; set; }
     }
 
     // BuildingKinds(시설 종류 이름)는 2026-10-24 Core/Economy/FacilityCatalog.cs로 옮겼다(시설 정의를 한곳에).

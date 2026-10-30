@@ -13,15 +13,15 @@ namespace SettlementSim
     /// 숙련 봇(2026-10-23 로드맵 2-④, Docs/decision_log_auto.md O5~O8). 기준 봇(<see cref="ReferenceBot"/>, 다중 계획)에 더해:
     /// - 개량: 6시간마다 석재·자금이 넉넉하면 광산을 한 단계 올리고, 식량 계수가 떨어지면 농장을 올린다.
     /// - 보류: 첫 정기 경매에서 '보류 + 광산 개량'의 예상 가치(시세 감소 포함)가 지금 파는 것보다 크면 한 번 보류한다.
-    /// - 병원: 전염병 예고가 뜨면 광산을 가장 많이 덮는 사막 칸에 병원을 짓는다.
+    /// - 병원: 전염병 예고가 뜨면 병원을 짓는다(병상만큼 환자가 빨리 회복, 위치는 상관없어 광산 옆 빈 사막).
     /// 물탱크는 상황 판단이 많아 넣지 않았다(O8). 기존 측정과 비교할 수 있도록 기준 봇은 그대로 둔다.
     /// </summary>
     public static class SkilledBot
     {
         private const double CashReserve = 300;
 
-        /// <summary>측정 출력용 누적 횟수(보류·광산 개량·병원).</summary>
-        public static int Holds, MineUpgrades, Hospitals;
+        /// <summary>측정 출력용 누적 횟수(보류·광산 개량·병원·추가 주택).</summary>
+        public static int Holds, MineUpgrades, Hospitals, Houses;
 
         /// <summary>매각 직전 경매(측정용, 재미 보강 측정 2026-10-24). null이면 아무것도 안 함.</summary>
         public static Action<AuctionEvent> BeforeSell;
@@ -109,16 +109,43 @@ namespace SettlementSim
         private static IEnumerable<Facility> Upgradable(Settlement s, string kind) =>
             s.OperatingOf(kind).Where(f => s.CanUpgrade(f.Id).Success).OrderBy(f => f.Level).ToList();
 
-        /// <summary>6시간마다: 석재·자금이 넉넉하면 광산 → (식량 계수가 낮으면) 농장 순으로 한 단계.</summary>
+        /// <summary>
+        /// 6시간마다: 석재·자금이 넉넉하면 (사람이 모자라면) 주택 → 광산 → (식량이 모자라면) 농장 순으로 하나.
+        /// 식량 부족 신호는 노동력이 켜져 있으면 직전 시간 식량 적자·재고 부족, 꺼져 있으면 식량 계수 F(원본).
+        /// </summary>
         private static void Improve(Settlement s)
         {
             if (s.Jobs.Any(j => j.State == JobState.Queued) || s.Cash < CashReserve + 200) return;
+            if (s.Rules.LaborOn && AddHouse(s)) return;
             if (UpgradeMines(s, force: false)) return;
-            if (s.FoodCoefficient < 0.95)
+            HourRecord last = s.History.Count > 0 ? s.History[s.History.Count - 1] : null;
+            bool hungry = s.Rules.LaborOn ? last != null && (last.FoodDeficit > 0 || last.FoodProduced < last.FoodDemand && s.Food < 30) : s.FoodCoefficient < 0.95;
+            if (hungry)
             {
                 Facility farm = Upgradable(s, BuildingKinds.Farm).FirstOrDefault();
                 if (farm != null && Enough(s, farm)) s.RequestUpgrade(farm.Id);
             }
+        }
+
+        /// <summary>
+        /// 운영 시설 + 공사가 필요로 하는 인원이 주민보다 많으면 주택 하나(결정 LB1~).
+        /// 자리는 수로가 닿은(물을 받을) 빈 사막 중 우물에서 가까운 칸. 석재가 모자라면 짓지 않는다.
+        /// </summary>
+        private static bool AddHouse(Settlement s)
+        {
+            LaborAssignment labor = s.LastLabor;
+            if (labor.IdleResidents > 1 || labor.Needed <= labor.Assigned + 0.5) return false;
+            if (s.Stone < (s.Rules.Config.GetLevel(BuildingKinds.House, 1).Stone ?? 0) + 10) return false;
+            var wet = new HashSet<VertexId>(s.Facilities.Where(f => f.Kind == BuildingKinds.CanalEdge && f.IsOperating)
+                .SelectMany(f => new[] { f.Edge.Value.VertexA, f.Edge.Value.VertexB }));
+            List<HexCoord> wells = s.OperatingOf(BuildingKinds.Well).Select(w => w.Tile).ToList();
+            HexCoord? site = s.Map.Tiles.Where(t => t.Terrain == TerrainType.Desert && s.CanBuild(BuildingKinds.House, t.Coord).Success
+                                                    && HexTopology.VerticesOf(t.Coord).Any(wet.Contains))
+                .OrderBy(t => wells.Count == 0 ? 0 : wells.Min(w => w.DistanceTo(t.Coord))).ThenBy(t => t.Coord.Q).ThenBy(t => t.Coord.R)
+                .Select(t => (HexCoord?)t.Coord).FirstOrDefault();
+            if (site == null || !s.RequestBuild(BuildingKinds.House, site.Value).Success) return false;
+            Houses++;
+            return true;
         }
 
         private static bool Enough(Settlement s, Facility f) =>
@@ -140,7 +167,7 @@ namespace SettlementSim
         private static bool EpidemicWarned(Settlement s) =>
             s.Disasters != null && s.Disasters.Events.Any(e => e.TypeId == DisasterManager.EpidemicId && e.State == DisasterState.Warned);
 
-        /// <summary>광산을 가장 많이 덮는(반경 1) 빈 사막 칸에 병원.</summary>
+        /// <summary>광산 옆 빈 사막 칸에 병원(병원 효과는 위치와 상관없다, 결정 EV3).</summary>
         private static bool BuildHospital(Settlement s)
         {
             if (s.Cash < CashReserve) return false;

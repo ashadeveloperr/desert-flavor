@@ -142,11 +142,7 @@ namespace SettlementSim
                 .Select(t => (HexCoord?)t.Coord).FirstOrDefault();
             if (hall == null) return null;
 
-            var plan = new List<MapBuildEntry>
-            {
-                Build(BuildingKinds.Well, well),
-                Build(BuildingKinds.Farm, farm.Value),
-            };
+            var plan = new List<MapBuildEntry>();
             var canals = new HashSet<EdgeId>();
             void AddCanals(IEnumerable<EdgeId> edges)
             {
@@ -156,6 +152,48 @@ namespace SettlementSim
                     plan.Add(new MapBuildEntry { Kind = BuildingKinds.CanalEdge, Q = e.Owner.Q, R = e.Owner.R, Side = e.Side.ToString() });
                 }
             }
+
+            // 결정 LB1~: 사람이 필요한 시설 앞에 주택을 넣는다. 첫 주택은 무료·즉시 완공이라 맨 앞.
+            // 주택 자리는 지금까지의 수로망에 꼭짓점이 닿은 빈 사막(물을 받아야 주민이 안 떠난다), 우물에서 가까운 순.
+            // 그런 자리가 없으면 수로망에서 가장 가까운 빈 사막까지 수로를 잇는다.
+            var planNetwork = new HashSet<VertexId> { wellFarmEdge.VertexA, wellFarmEdge.VertexB };
+            double housing = 0, workers = 0;
+            LaborSettings labor = PlanConfig?.Labor;
+            double Need(string kind) => labor == null ? 0 : PlanConfig.GetLevel(kind, 1)?.Workers ?? 0;
+            double HouseSize() => PlanConfig.GetLevel(BuildingKinds.House, 1)?.Residents ?? 1;
+            void Network(IEnumerable<EdgeId> edges)
+            {
+                foreach (EdgeId e in edges) { planNetwork.Add(e.VertexA); planNetwork.Add(e.VertexB); }
+            }
+            void AddWorkplace(string kind, HexCoord tile)
+            {
+                workers += Need(kind);
+                while (labor != null && housing < workers + HouseBuffer)
+                {
+                    List<HexCoord> free = map.Tiles.Where(t => t.Terrain == TerrainType.Desert && !used.Contains(t.Coord) && t.Coord != hall.Value)
+                        .OrderBy(t => t.Coord.DistanceTo(well)).ThenBy(t => t.Coord.Q).ThenBy(t => t.Coord.R).Select(t => t.Coord).ToList();
+                    HexCoord? site = free.Where(c => HexTopology.VerticesOf(c).Any(planNetwork.Contains)).Select(c => (HexCoord?)c).FirstOrDefault();
+                    if (site == null)
+                    {
+                        List<EdgeId> link = null;
+                        foreach (HexCoord c in free)
+                        {
+                            List<EdgeId> path = CanalPaths.ShortestPath(topology, map, planNetwork, new[] { c });
+                            if (path != null && (link == null || path.Count < link.Count)) { link = path; site = c; }
+                        }
+                        if (link == null) break;
+                        AddCanals(link);
+                        Network(link);
+                    }
+                    used.Add(site.Value);
+                    plan.Add(Build(BuildingKinds.House, site.Value));
+                    housing += HouseSize();
+                }
+                plan.Add(Build(kind, tile));
+            }
+
+            AddWorkplace(BuildingKinds.Well, well);
+            AddWorkplace(BuildingKinds.Farm, farm.Value);
             AddCanals(new[] { wellFarmEdge });
             // 2026-10-27 이슈 #18: 시장이 있어야 상인 할증 없이 사고 팔 수 있다. 농장 다음(석재 10)에 우물 가까운 빈 사막.
             if (BuildMarket)
@@ -166,9 +204,11 @@ namespace SettlementSim
                 if (market != null) { used.Add(market.Value); plan.Add(Build(BuildingKinds.Market, market.Value)); }
             }
             AddCanals(rockPath);
-            plan.Add(Build(BuildingKinds.Quarry, rock));
+            Network(rockPath);
+            AddWorkplace(BuildingKinds.Quarry, rock);
             AddCanals(best.Value.path);
-            plan.Add(Build(BuildingKinds.Mine, ore));
+            Network(best.Value.path);
+            AddWorkplace(BuildingKinds.Mine, ore);
             plan.Add(Build(BuildingKinds.AuctionHall, hall.Value));
             used.Add(hall.Value);
             // 확장 묶음은 경매장 뒤: 첫 경매 시각(경매장 완공 + 경매 간격 72h)을 늦추지 않고, 그 사이에 짓는다.
@@ -176,12 +216,14 @@ namespace SettlementSim
             {
                 if (x.well.HasValue)
                 {
-                    plan.Add(Build(BuildingKinds.Well, x.well.Value));
-                    plan.Add(Build(BuildingKinds.Farm, x.farm.Value));
+                    AddWorkplace(BuildingKinds.Well, x.well.Value);
+                    AddWorkplace(BuildingKinds.Farm, x.farm.Value);
                     AddCanals(new[] { x.border.Value });
+                    Network(new[] { x.border.Value });
                 }
                 AddCanals(x.path);
-                plan.Add(Build(BuildingKinds.Mine, x.ore));
+                Network(x.path);
+                AddWorkplace(BuildingKinds.Mine, x.ore);
             }
             // 2026-10-26 AH1: 경매장이 하나 늘 때마다 입찰자 +1. 추가 경매장은 확장 묶음 뒤(초반 석재를 먼저 생산 시설에), 우물에서 가까운 빈 사막에.
             for (int i = 0; i < ExtraAuctionHalls; i++)
@@ -204,6 +246,15 @@ namespace SettlementSim
 
         /// <summary>계획에 시장을 넣을지(2026-10-27 이슈 #18, 측정 인자 `market=0`으로 끔). 시장 규칙이 없으면(원본) 넣지 않는다.</summary>
         public static bool BuildMarket = true;
+
+        /// <summary>
+        /// 계획이 주택 수를 정할 때 읽는 설정(결정 LB1~). 노동력 설정이 없으면(원본) 주택을 넣지 않는다.
+        /// 측정 진입점이 설정을 읽은 뒤 채운다(Program.LoadConfig).
+        /// </summary>
+        public static EconomyConfig PlanConfig;
+
+        /// <summary>필요 인원보다 더 들일 주민 수(공사에 쓸 여유, 기본 인부 2명 + 이 값).</summary>
+        public static double HouseBuffer = 2;
 
         /// <summary>첫 경매장 말고 더 짓는 경매장 수(측정용, 2026-10-26 AH1: 경매장이 하나 늘 때마다 입찰자 +1). `-- mods campaign … halls=k`.</summary>
         public static int ExtraAuctionHalls;

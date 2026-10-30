@@ -69,11 +69,22 @@ namespace DesertSettlement.Core.Economy
                 canals.TrySetBlocked(c.Edge.Value, true);
             }
 
+            // 우물 방출 × 배치율(결정 LB1~, 노동력이 꺼져 있으면 1). 완공 가정 계산은 다 찬다고 본다.
             sources = _facilities.Values.Where(x => x.Kind == BuildingKinds.Well && Counts(x))
-                .Select(w => new WaterSource(WaterIds.Of(w), w.Tile, (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier)).ToList();
+                .Select(w => new WaterSource(WaterIds.Of(w), w.Tile,
+                    (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier * (assumeJobsComplete ? 1 : StaffRatio(w)))).ToList();
             List<WaterConsumer> consumers = _facilities.Values
                 .Where(x => Counts(x) && !x.Edge.HasValue && (Level(x).WaterDemand ?? 0) > 0)
                 .Select(x => new WaterConsumer(WaterIds.Of(x), x.Tile, Level(x).WaterDemand.Value)).ToList();
+            // 주택은 주민 수에 따라 물을 받는다. 개량 중에도 주민이 살아서 계속 받는다.
+            if (Rules.LaborOn && Rules.Labor.WaterPerResidentPerHour > 0)
+            {
+                foreach (Facility house in _facilities.Values.Where(x => IsHouse(x) && (HasResidents(x) || Counts(x))))
+                {
+                    double demand = HouseWaterDemand(house, assumeJobsComplete ? AssumedLevelOf(house) : house.Level, assumeJobsComplete);
+                    if (demand > 0) consumers.Add(new WaterConsumer(WaterIds.Of(house), house.Tile, demand));
+                }
+            }
 
             return WaterNetworkSolver.Solve(canals, sources, consumers, assumeJobsComplete ? Rules.Water : WaterNow);
         }

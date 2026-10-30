@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace DesertSettlement.Runtime
 {
-    /// <summary>시설 머리 위 글자(IMGUI): 공사 진행률, 폐쇄, 물 부족·농장 적자 이유. 인스펙터 '글자'에서 끌 수 있다.</summary>
+    /// <summary>시설 머리 위 글자(IMGUI): 공사 진행률, 폐쇄, 물 부족·농장 적자 이유, 일손 부족·주민 떠남. 인스펙터 '글자'에서 끌 수 있다.</summary>
     public sealed partial class SettlementView
     {
         [Header("글자")]
@@ -38,6 +38,10 @@ namespace DesertSettlement.Runtime
                     {
                         parts.Add($"물 {w.Rate:P0} · {FacilityInfo.ShortageText(w.Shortage)}");
                     }
+                    // 노동력(결정 LB1~): 일손이 모자란 시설, 주민이 떠나는 주택.
+                    if (o.WorkersNeeded > 0 && o.WorkersAssigned + 0.05 < o.WorkersNeeded)
+                        parts.Add($"일손 {FacilityInfo.People(o.WorkersAssigned)}/{FacilityInfo.People(o.WorkersNeeded)}");
+                    if (s.IsLeaving(f)) parts.Add($"주민 {FacilityInfo.People(f.Residents)}/{FacilityInfo.People(s.HouseCapacity(f))} 떠나는 중");
                     if (parts.Count > 0) text = string.Join("\n", parts);
                 }
                 if (text == null) continue;

@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace DesertSettlement.Core.Tests
 {
-    /// <summary>재해(2026-10-23: 전염병·병원·방역 장비). Docs/archive/work_items_2026-10-23.md 4번.</summary>
+    /// <summary>재해 일정과 전염병(감염·회복 모형, 결정 EV1~EV7): 퍼짐·정점·끝, 아픈 주민은 일 못 함, 병원 병상, 방역 장비 면역.</summary>
     public class DisasterTests
     {
         private static EconomyConfig _config;
@@ -50,10 +50,9 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(36, _config.Disasters.GraceHours, "2026-10-26 AU2: 경매 주기 48h에 맞춰 48 → 36");
             Assert.AreEqual(6, _config.Disasters.WarningHours);
             Assert.IsTrue(_config.Disasters.Types.Any(t => t.Id == "epidemic"));
-            Assert.AreEqual(0.5, _config.Disasters.Epidemic.HospitalDamageFactor, 1e-12);
             Assert.AreEqual(20, _config.GetLevel(BuildingKinds.Hospital, 1).Stone);
-            Assert.AreEqual(0.7, _config.Disasters.Epidemic.SeverityFallResistanceRatio, 1e-12);
-            Assert.AreEqual(1.3, _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicResistanceGrowthMultiplier, 1e-12);
+            Assert.Greater(_config.GetLevel(BuildingKinds.Hospital, 1).Beds ?? 0, 0, "병원 병상(결정 EV3)");
+            Assert.Greater(_config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicImmuneShare, 0, "방역 장비 = 처음부터 면역인 주민 비율(결정 EV5)");
             CollectionAssert.Contains(SettlementRules.FromConfig(_config).AllowedTerrain[BuildingKinds.Hospital], TerrainType.Desert);
         }
 
@@ -86,143 +85,133 @@ namespace DesertSettlement.Core.Tests
             for (int k = 0; k < 3; k++) Assert.AreEqual(w[k] / w.Sum(), counts[k] / (double)n, 0.03, $"{k}번 확률");
         }
 
-        // ───────────── 전염병 ─────────────
+
+        // ───────────── 전염병(감염·회복 모형, 결정 EV1~EV7) ─────────────
+
+        private static readonly HexCoord[] HouseTiles = { new HexCoord(1, 0), new HexCoord(-1, 0), new HexCoord(0, 1) };
+
+        /// <summary>
+        /// 주택 3채(무료, 주민 18명)가 있는 정착지. 전염병만 보려고 주민이 물·식량 때문에 떠나지 않게 한다
+        /// (주민 물 0, 식량 넉넉 — 설정 객체는 공유하므로 노동력 설정은 사본을 고친다).
+        /// </summary>
+        private static Settlement NewTown(Action<SettlementRules> tweak = null)
+        {
+            Settlement s = NewSettlement(r =>
+            {
+                r.Labor = new LaborSettings
+                {
+                    FoodPerResidentPerHour = r.Labor.FoodPerResidentPerHour, WaterPerResidentPerHour = 0,
+                    LeavePerHour = r.Labor.LeavePerHour, ReturnPerHour = r.Labor.ReturnPerHour,
+                    FreeHouses = r.Labor.FreeHouses, CrewPerConstructionSlot = r.Labor.CrewPerConstructionSlot,
+                };
+                r.FreeBuilds[BuildingKinds.House] = HouseTiles.Length - r.Labor.FreeHouses;
+                r.BaseFoodStorage = r.StarterFood = 100000;
+                tweak?.Invoke(r);
+            });
+            foreach (HexCoord t in HouseTiles) Assert.IsTrue(s.RequestBuild(BuildingKinds.House, t).Success);
+            Assert.AreEqual(18, s.Residents, 1e-9);
+            return s;
+        }
+
+        private static (double peak, long peakHour, long duration) RunEpidemic(Settlement s, DisasterManager d)
+        {
+            double peak = 0;
+            long peakHour = -1;
+            for (int h = 0; h < 400 && d.Events[0].State != DisasterState.Ended; h++)
+            {
+                s.AdvanceHour();
+                if (d.Epidemic.SickShare > peak) { peak = d.Epidemic.SickShare; peakHour = s.CurrentHour - d.Events[0].StartHour; }
+            }
+            Assert.AreEqual(DisasterState.Ended, d.Events[0].State, "언젠가 끝난다");
+            return (peak, peakHour, d.Events[0].EndHour - d.Events[0].StartHour);
+        }
 
         [Test]
-        public void Epidemic_WarnsStartsGrowsResistsAndEnds()
+        public void Epidemic_WarnsStarts_SpreadsPeaksAndEnds_LeavingImmunity()
         {
-            Settlement s = NewSettlement();
+            Settlement s = NewTown();
             DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
             var log = new List<string>();
             d.Warned += e => log.Add($"warn {s.CurrentHour}");
             d.Started += e => log.Add($"start {s.CurrentHour}");
-            d.Ended += e => log.Add($"end {e.EndHour}");
-
-            double peakSeverity = 0;
-            for (int h = 0; h < 400 && !log.Any(x => x.StartsWith("end")); h++)
+            bool rose = false, weakened = false;
+            double previous = 0;
+            for (int h = 0; h < 400 && d.Events[0].State != DisasterState.Ended; h++)
             {
                 s.AdvanceHour();
-                if (d.Epidemic.Active)
-                {
-                    peakSeverity = Math.Max(peakSeverity, d.Epidemic.Severity);
-                    HourRecord r = s.History.Last();
-                    Assert.AreEqual(d.Epidemic.Damage, r.EpidemicDamage, 0.06, "피해 = S × (1 − R)");
-                }
+                if (!d.Epidemic.Active) continue;
+                if (d.Epidemic.Sick > previous + 1e-9) rose = true;
+                if (d.Epidemic.Weakening) weakened = true;
+                if (weakened) Assert.IsTrue(d.Epidemic.Weakening, "정점을 지나면 끝까지 줄어든다");
+                previous = d.Epidemic.Sick;
+                Assert.AreEqual(18, d.Epidemic.Susceptible + d.Epidemic.Sick + d.Epidemic.Immune, 1e-6, "걸릴 수 있음 + 아픔 + 면역 = 주민");
             }
             int grace = _config.Disasters.GraceHours;
             Assert.AreEqual($"warn {grace - 6}", log[0], "유예 − 6h에 예고");
             Assert.AreEqual($"start {grace}", log[1]);
-            Assert.IsTrue(log.Any(x => x.StartsWith("end")), "언젠가 끝난다(저항력이 심각도를 넘음)");
-            long end = d.Events[0].EndHour;
-            Assert.That(end - grace, Is.InRange(36, 72), "2~3일 안에 끝난다(EP1 목표, 설정 수치 약 50h)");
-            Assert.Greater(peakSeverity, _config.Disasters.Epidemic.InitialSeverity, "심각도가 오르다가");
-            Assert.IsFalse(d.Epidemic.Active);
-            Assert.Greater(d.Epidemic.Resistance, 0.2, "저항력이 남아 있다");
-
-            double r0 = d.Epidemic.Resistance;
-            for (int h = 0; h < 10; h++) s.AdvanceHour();
-            Assert.Less(d.Epidemic.Resistance, r0, "끝난 뒤 저항력은 천천히 준다");
-        }
-
-        [Test]
-        public void Epidemic_PeaksThenWeakens_WithoutSticking()
-        {
-            // 이슈 #1(EP1): 예전 규칙(R ≥ S)은 심각도가 100%에 붙어 '끝없이 오른다'로 보였다.
-            // 목표 곡선: 피해 정점 24~36h·30~40%, 심각도도 정점 뒤 줄어들고(↓ 표시), 100%에 닿지 않는다.
-            Settlement s = NewSettlement();
-            DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
-            double peakDamage = 0, peakSeverity = 0;
-            long peakHour = -1, weakeningFrom = -1;
-            bool rose = false;
-            for (int h = 0; h < 200; h++)
-            {
-                double before = d.Epidemic.Severity;
-                s.AdvanceHour();
-                if (!d.Epidemic.Active) { if (peakHour >= 0) break; continue; }
-                long sinceStart = s.CurrentHour - _config.Disasters.GraceHours;
-                if (d.Epidemic.Damage > peakDamage) { peakDamage = d.Epidemic.Damage; peakHour = sinceStart; }
-                peakSeverity = Math.Max(peakSeverity, d.Epidemic.Severity);
-                if (d.Epidemic.Severity > before) rose = true;
-                if (d.Epidemic.Weakening && weakeningFrom < 0) weakeningFrom = sinceStart;
-                if (weakeningFrom >= 0) Assert.IsTrue(d.Epidemic.Weakening, "한 번 약해지기 시작하면 끝까지 약해진다");
-            }
             Assert.IsTrue(rose, "처음에는 퍼진다(↑)");
-            Assert.That(peakHour, Is.InRange(24, 36), "피해 정점 시각");
-            Assert.That(peakDamage, Is.InRange(0.30, 0.40), "최대 피해");
-            Assert.Less(peakSeverity, 0.9, "심각도가 100%에 붙지 않는다");
-            Assert.That(weakeningFrom, Is.InRange(24, 40), "정점 무렵부터 '약해지는 중'");
-        }
-
-        [Test]
-        public void Epidemic_DamagesProducersOnly_HospitalHalvesNearby()
-        {
-            Settlement s = NewSettlement(r =>
-            {
-                r.FreeBuilds[BuildingKinds.Farm] = 2;
-                r.FreeBuilds[BuildingKinds.Hospital] = 1;
-            });
-            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, new HexCoord(1, -1)).Success);
-            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, new HexCoord(-3, 0)).Success);
-            Assert.IsTrue(s.RequestBuild(BuildingKinds.Hospital, new HexCoord(2, -1)).Success);
-            Facility near = s.FacilityAt(new HexCoord(1, -1)), far = s.FacilityAt(new HexCoord(-3, 0));
-            Facility hospital = s.FacilityAt(new HexCoord(2, -1));
-
-            DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
-            for (int h = 0; h < 70; h++) s.AdvanceHour();
-            Assert.IsTrue(d.Epidemic.Active);
-            double damage = d.Epidemic.Damage;
-            Assert.Greater(damage, 0.05);
-            Assert.AreEqual(1 - damage, d.ProductionFactor(far), 1e-12, "병원에서 먼 농장: 피해 그대로");
-            Assert.AreEqual(1 - damage * 0.5, d.ProductionFactor(near), 1e-12, "병원 이웃 농장: 피해 절반");
-            Assert.AreEqual(1.0, d.ProductionFactor(hospital), 1e-12, "생산 시설이 아니면 영향 없음");
-        }
-
-        [Test]
-        public void InitialResistanceEffect_StartsResistance_AndIsTheFloor()
-        {
-            Settlement s = NewSettlement(r => r.ApplyEffects(new EconomyEffects { InitialEpidemicResistance = 0.3 }));
-            DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
-            Assert.AreEqual(0.3, d.Epidemic.Resistance, 1e-12, "시작 저항력 30%");
-            for (int h = 0; h < 600; h++) s.AdvanceHour();
+            Assert.IsTrue(weakened, "정점 뒤 약해진다(↓)");
             Assert.IsFalse(d.Epidemic.Active);
-            Assert.AreEqual(0.3, d.Epidemic.Resistance, 1e-9, "끝난 뒤 줄어도 30% 아래로는 안 내려감");
+            Assert.AreEqual(0, d.Epidemic.Sick, 1e-12, "끝나면 남은 환자도 회복");
+            Assert.Greater(d.Epidemic.Immune, 9, "회복한 주민은 면역으로 남는다");
         }
 
         [Test]
-        public void Vaccination_SpeedsResistanceGrowth_ButIsNotImmunity()
+        public void SickResidents_CannotWork()
         {
-            long Duration(bool vaccinated)
+            Settlement s = NewTown();
+            DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
+            while (!d.Epidemic.Active || d.Epidemic.Sick < 3) s.AdvanceHour();
+            s.AdvanceHour();
+            LaborAssignment labor = s.LastLabor;
+            Assert.Greater(labor.Sick, 2);
+            Assert.AreEqual(labor.Residents - labor.Sick, labor.IdleResidents, 1e-9, "일터가 없으면 아프지 않은 주민만 남는다");
+            Assert.AreEqual(labor.Sick, s.History.Last().EpidemicSickShare * labor.Residents, 1e-6);
+        }
+
+        [Test]
+        public void Hospital_SpeedsRecovery_LowersPeakAndShortens()
+        {
+            (double peak, long peakHour, long duration) Run(bool hospital)
             {
-                Settlement s = NewSettlement(r =>
-                {
-                    if (vaccinated) r.ApplyEffects(_config.Equipment.Single(e => e.Id == "vaccination").Effects);
-                });
+                Settlement s = NewTown(r => { if (hospital) r.FreeBuilds[BuildingKinds.Hospital] = 1; });
+                if (hospital) Assert.IsTrue(s.RequestBuild(BuildingKinds.Hospital, new HexCoord(2, -1)).Success);
                 DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
-                Assert.AreEqual(0, d.Epidemic.Resistance, 1e-12, "방역 장비도 시작 저항력은 0");
-                for (int h = 0; h < 600; h++) s.AdvanceHour();
-                Assert.IsFalse(d.Epidemic.Active);
-                return d.Events[0].EndHour - d.Events[0].StartHour;
+                Assert.AreEqual(hospital ? s.Rules.Config.GetLevel(BuildingKinds.Hospital, 1).Beds.Value : 0, d.HospitalBeds, 1e-12);
+                return RunEpidemic(s, d);
             }
-            long plain = Duration(false), vaccinated = Duration(true);
-            Assert.Less(vaccinated, plain, "저항력이 빨리 올라 더 일찍 끝남");
-            Assert.Greater(vaccinated, 12, "면역이 아님: 반나절 이상 이어짐");
+            var plain = Run(false);
+            var withHospital = Run(true);
+            Assert.Less(withHospital.peak, plain.peak, "병원이 정점을 낮춘다");
+            Assert.Less(withHospital.duration, plain.duration, "병원이 빨리 끝낸다");
+            Assert.Greater(_config.Disasters.Epidemic.HospitalRecoveryPerHour, _config.Disasters.Epidemic.HomeRecoveryPerHour, "병원 회복이 집보다 빠르다(결정 EV3)");
         }
 
         [Test]
-        public void Vaccination_LowersPeakDamage()
+        public void Vaccination_MakesAShareImmune_AndLowersPeak()
         {
+            double vaccine = _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicImmuneShare;
             double Peak(bool vaccinated)
             {
-                Settlement s = NewSettlement(r =>
-                {
-                    if (vaccinated) r.ApplyEffects(_config.Equipment.Single(e => e.Id == "vaccination").Effects);
-                });
+                Settlement s = NewTown(r => { if (vaccinated) r.ApplyEffects(_config.Equipment.Single(e => e.Id == "vaccination").Effects); });
                 DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
-                double peak = 0;
-                for (int h = 0; h < 300; h++) { s.AdvanceHour(); peak = Math.Max(peak, s.History.Last().EpidemicDamage); }
-                return peak;
+                while (!d.Epidemic.Active) s.AdvanceHour();
+                if (vaccinated) Assert.GreaterOrEqual(d.Epidemic.Immune, vaccine * (18 - d.Epidemic.Sick) - 1e-9, "처음부터 면역인 주민 비율(결정 EV5)");
+                else Assert.AreEqual(d.Epidemic.RecoveredLastHour, d.Epidemic.Immune, 1e-9, "방역이 없으면 면역은 첫 시간에 회복한 주민뿐");
+                return RunEpidemic(s, d).peak;
             }
             Assert.Less(Peak(true), Peak(false));
+        }
+
+        [Test]
+        public void Epidemic_DoesNotScaleProduction()
+        {
+            // 결정 EV2: 전염병은 생산 배율이 아니라 일하지 못하는 주민으로 나타난다.
+            Settlement s = NewTown(r => r.FreeBuilds[BuildingKinds.Farm] = 1);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, new HexCoord(2, -1)).Success);
+            DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
+            while (!d.Epidemic.Active) s.AdvanceHour();
+            Assert.AreEqual(1.0, d.ProductionFactor(s.FacilityAt(new HexCoord(2, -1))), 1e-12);
         }
     }
 }

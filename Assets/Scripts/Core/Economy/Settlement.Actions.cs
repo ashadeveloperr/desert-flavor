@@ -34,6 +34,7 @@ namespace DesertSettlement.Core.Economy
                 };
                 _facilities.Add(f.Id, f);
                 if (kind == BuildingKinds.AuctionHall && AuctionHallCompletedHour == null) AuctionHallCompletedHour = CurrentHour;
+                FillHouse(f);
                 FacilityCompleted?.Invoke(f);
                 return CommandResult.Ok();
             }
@@ -70,6 +71,7 @@ namespace DesertSettlement.Core.Economy
             if (SettlementRules.IsEdgeKind(kind)) return CommandResult.Fail("수로는 RequestCanal로 짓습니다.");
             if (Rules.DisabledKinds.Contains(kind)) return CommandResult.Fail($"{kind}은(는) MVP에서 지을 수 없습니다.");
             if (!Rules.AllowedTerrain.TryGetValue(kind, out TerrainType[] allowed)) return CommandResult.Fail($"알 수 없는 시설 종류: {kind}");
+            if (kind == BuildingKinds.House && !Rules.LaborOn) return CommandResult.Fail("노동력 규칙이 꺼져 있어 주택을 지을 수 없습니다.");
             if (!Map.TryGetTile(tile, out HexTile hexTile)) return CommandResult.Fail("맵 밖의 타일입니다.");
             if (Array.IndexOf(allowed, hexTile.Terrain) < 0)
             {
@@ -136,7 +138,7 @@ namespace DesertSettlement.Core.Economy
             switch (job.Type)
             {
                 case JobType.Build:
-                    _facilities.Remove(job.FacilityId);
+                    RemoveFacility(job.FacilityId);
                     break;
                 case JobType.Upgrade:
                     f.State = FacilityState.Operating;
@@ -164,7 +166,7 @@ namespace DesertSettlement.Core.Economy
             return CommandResult.Ok(job.Id);
         }
 
-        /// <summary>시설 폐쇄/재개. 폐쇄 중에는 물 수요·식량 소비 0, 유지비 일부.</summary>
+        /// <summary>시설 폐쇄/재개. 폐쇄 중에는 물 수요·식량 소비 0, 유지비 일부, 배치된 인원은 다른 시설로 간다.</summary>
         private CommandResult DoSetClosed(int facilityId, bool closed)
         {
             Facility f = GetFacility(facilityId);

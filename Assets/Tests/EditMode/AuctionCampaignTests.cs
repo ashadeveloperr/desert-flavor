@@ -49,9 +49,11 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Config_HasAuctionBiddersAndEquipment()
         {
-            // 2026-10-23 로드맵 1-⑥: 기획서 8.4의 6종(Docs/decision_log_auto.md BD1~BD6).
-            CollectionAssert.AreEquivalent(new[] { "industrialist", "farmer", "distributor", "builder", "waterBroker", "developer" },
+            // 기획서 8.4의 6종(결정 BD1~BD6) + 이주 사업가(결정 CL1~CL3).
+            CollectionAssert.AreEquivalent(new[] { "industrialist", "farmer", "distributor", "builder", "waterBroker", "developer", "colonist" },
                 _config.Auction.Bidders.Select(b => b.Id));
+            Assert.AreEqual(1, Bidder("colonist").NextSettlementFreeBuilds[BuildingKinds.House], "이주 사업가 혜택: 무료 주택 +1");
+            Assert.Greater(Bidder("colonist").PopulationWeight, Bidder("developer").PopulationWeight, "이주 사업가가 주민을 가장 크게 본다");
             Assert.AreEqual(0.2, _config.Auction.EmergencyPenalty, 1e-9);
             Assert.AreEqual(1, Bidder("farmer").NextSettlementFreeBuilds[BuildingKinds.Farm], "농장주 혜택: 완공된 농장 1개");
             Assert.AreEqual(1, Bidder("distributor").NextSettlementFreeBuilds[BuildingKinds.Warehouse], "유통 사업가 혜택: 창고");
@@ -160,7 +162,9 @@ namespace DesertSettlement.Core.Tests
             ValuationResult industrialist = SettlementValuation.EvaluateFor(s, 133, Bidder("industrialist"));
             ValuationResult farmer = SettlementValuation.EvaluateFor(s, 133, Bidder("farmer"));
 
-            Assert.AreEqual(neutral.BaseValue * 1.3, industrialist.BaseValue, 1e-6, "산업가 광물 가중치 1.3(취향 2배, F2)");
+            // 기반 가치 = 광물 가치 + 주민 가치(결정 CL1): 광물 부분만 비교한다.
+            Assert.AreEqual((neutral.BaseValue - neutral.PopulationValue) * 1.3, industrialist.BaseValue - industrialist.PopulationValue, 1e-6,
+                "산업가 광물 가중치 1.3(취향 2배, F2)");
             Assert.Less(industrialist.FoodMultiplier, neutral.FoodMultiplier, "산업가는 식량 배율을 덜 반영");
             Assert.Greater(farmer.FoodMultiplier, neutral.FoodMultiplier, "농장주는 식량 배율을 더 반영");
         }
@@ -174,8 +178,8 @@ namespace DesertSettlement.Core.Tests
             int announcements = 0;
             a.BiddersAnnounced += _ => announcements++;
 
-            s.AdvanceHours(38);
-            Assert.AreEqual(36, s.AuctionHallCompletedHour, "명령 순간 착공(2026-10-26 JQ2)이라 원본 37h보다 1시간 이름");
+            s.AdvanceHours(51);
+            Assert.AreEqual(50, s.AuctionHallCompletedHour, "샘플 배치(주택 포함, 결정 LB1~: 공사 인원) — 시뮬레이터 `-- labor sample`의 건설 시간 ×1 값");
             Assert.AreEqual(s.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, a.NextAuctionHour, "완공 + 경매 간격(결정 AU1)");
             Assert.AreEqual(1, announcements, "경매장 완공 직후 예고");
             Assert.AreEqual(_config.Auction.AttendeesWithOneAuctionHall, a.AnnouncedBidders.Count, "경매장 1개의 입찰자 수(결정 AH1)");
@@ -186,15 +190,15 @@ namespace DesertSettlement.Core.Tests
         public void RegularAuction_OpensOnTime_WithMarketAndAnnouncedBidders()
         {
             (Settlement s, AuctionManager a) = NewRun();
-            s.AdvanceHours(38);
+            s.AdvanceHours(51);
             List<string> announced = a.AnnouncedBidders.Select(b => b.Id).ToList();
             RunUntilEvent(s, a);
 
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Regular, e.Kind);
-            Assert.AreEqual(84, e.Hour);
-            Assert.AreEqual(84, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
+            Assert.AreEqual(98, e.Hour);
+            Assert.AreEqual(98, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
             CollectionAssert.AreEqual(announced, e.Bids.Select(b => b.Bidder.Id).ToList(), "예고된 입찰자가 온다");
             AuctionSettings cfg = _config.Auction;
             Assert.That(e.Market, Is.InRange(cfg.MarketCenter * (1 - cfg.MarketSwing), cfg.MarketCenter * (1 + cfg.MarketSwing)));
@@ -215,11 +219,11 @@ namespace DesertSettlement.Core.Tests
             a.BiddersAnnounced += _ => announcements++;
 
             a.Hold();
-            Assert.AreEqual(84 + 48, a.NextAuctionHour);
+            Assert.AreEqual(98 + 48, a.NextAuctionHour);
             Assert.AreEqual(1, announcements, "보류 직후 다음 경매 예고");
             RunUntilEvent(s, a);
             Assert.IsTrue(a.IsOpen);
-            Assert.AreEqual(132, a.CurrentAuction.Hour);
+            Assert.AreEqual(146, a.CurrentAuction.Hour);
         }
 
         [Test]
@@ -227,7 +231,7 @@ namespace DesertSettlement.Core.Tests
         {
             // 2026-10-26 AH1(이슈 #10): 경매장 1·2·3개 = 입찰자 2·3·4명. 더 지으면 예고에 한 명 추가, 닫으면 뒤에서부터 빠지고 다시 열면 돌아온다.
             (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 5000);
-            s.AdvanceHours(38);
+            s.AdvanceHours(51);
             Assert.AreEqual(1, a.OperatingAuctionHalls);
             List<string> two = a.AnnouncedBidders.Select(b => b.Id).ToList();
             Assert.AreEqual(2, two.Count);
@@ -271,13 +275,13 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void CashHittingZeroWithAuctionHall_OpensEmergencyAuctionWithPenalty()
         {
-            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매까지 버텨서 낮춤(지금 정기 경매 84h, 2026-10-26 AU1)
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매까지 버텨서 낮춤(지금 정기 경매 98h, 결정 LB8)
             RunUntilEvent(s, a);
 
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Emergency, e.Kind);
-            Assert.Less(e.Hour, 84, "정기 경매(84h) 전에 자금이 바닥남");
+            Assert.Less(e.Hour, 98, "정기 경매(98h) 전에 자금이 바닥남");
             Assert.LessOrEqual(s.Cash, 0);
             Assert.AreEqual(0.2, e.Penalty, 1e-9);
             foreach (AuctionBid bid in e.Bids) Assert.AreEqual(bid.Valuation.Value * e.Market * 0.8, bid.TotalOffer, 1e-6);
@@ -286,7 +290,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void DecliningEmergencySale_BankruptsAfter24NegativeHours()
         {
-            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매까지 버텨서 낮춤(지금 정기 경매 84h, 2026-10-26 AU1)
+            (Settlement s, AuctionManager a) = NewRun(r => r.StartingCash = 250); // 경매가 72h 간격이 되며 400으로는 정기 경매까지 버텨서 낮춤(지금 정기 경매 98h, 결정 LB8)
             string reason = null;
             a.Bankrupted += r => reason = r;
             for (int guard = 0; guard < 20 && !a.IsFinished; guard++)
@@ -321,7 +325,7 @@ namespace DesertSettlement.Core.Tests
         public void CashHittingZeroWithAuctionHallButNoMine_IsImmediateBankruptcy()
         {
             SettlementRules rules = SettlementRules.FromConfig(_config);
-            rules.StartingCash = 60; // 정기 경매(84h, 2026-10-26 AU1) 전에 자금이 바닥나게(이전 150)
+            rules.StartingCash = 60; // 정기 경매(98h, 결정 LB8) 전에 자금이 바닥나게(이전 150)
             var s = new Settlement(_maps[0].CreateMap(), rules);
             var a = new AuctionManager(s, 1);
             s.RequestBuild(BuildingKinds.Well, new HexCoord(0, 0));
@@ -459,6 +463,7 @@ namespace DesertSettlement.Core.Tests
         {
             SettlementRules rules = SettlementRules.FromConfig(_config);
             rules.WellSupplyMultiplier = 1.2;
+            rules.Labor = null; // 장비 배율만 본다: 우물이 사람 없이 다 퍼 올리게(일손 배율은 LaborTests)
             var s = new Settlement(_maps[0].CreateMap(), rules);
             s.RequestBuild(BuildingKinds.Well, new HexCoord(0, 0));
             s.AdvanceHours(12);

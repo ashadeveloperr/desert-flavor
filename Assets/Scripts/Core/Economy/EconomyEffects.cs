@@ -37,10 +37,8 @@ namespace DesertSettlement.Core.Economy
         public int ExtraConstructionSlots { get; set; }
         /// <summary>기본 식량·석재 저장 한도에 더하는 값(대형 창고 설비).</summary>
         public double ExtraStorage { get; set; }
-        /// <summary>정착지 시작 전염병 저항력(방역 장비). 전염병이 끝나 저항력이 줄어도 이 값 아래로는 안 내려간다.</summary>
-        public double InitialEpidemicResistance { get; set; }
-        /// <summary>전염병 중 저항력이 오르는 속도 배율(방역 장비, 결정 B1·EP2). 면역이 아니라 '더 빨리 회복'.</summary>
-        public double EpidemicResistanceGrowthMultiplier { get; set; } = 1;
+        /// <summary>처음부터 면역인 주민 비율(방역 장비, 결정 EV5). 전염병이 와도 주민 중 이 비율은 걸리지 않는다(회복으로 얻은 면역이 더 크면 그쪽).</summary>
+        public double EpidemicImmuneShare { get; set; }
         /// <summary>재해 피해 배율(결정 D3·D5·D6): 1 = 그대로, 0.5 = 절반. 수로 방풍막 = 모래폭풍, 방충망 = 메뚜기떼, 관개 설비 = 탄저병.</summary>
         public double SandstormDamageMultiplier { get; set; } = 1;
         public double LocustDamageMultiplier { get; set; } = 1;
@@ -65,8 +63,7 @@ namespace DesertSettlement.Core.Economy
                 r.UpkeepMultiplier *= e.UpkeepMultiplier;
                 r.ExtraConstructionSlots += e.ExtraConstructionSlots;
                 r.ExtraStorage += e.ExtraStorage;
-                r.InitialEpidemicResistance += e.InitialEpidemicResistance;
-                r.EpidemicResistanceGrowthMultiplier *= e.EpidemicResistanceGrowthMultiplier;
+                r.EpidemicImmuneShare += e.EpidemicImmuneShare;
                 r.SandstormDamageMultiplier *= e.SandstormDamageMultiplier;
                 r.LocustDamageMultiplier *= e.LocustDamageMultiplier;
                 r.BlightDamageMultiplier *= e.BlightDamageMultiplier;
@@ -88,7 +85,7 @@ namespace DesertSettlement.Core.Economy
                 FoodOutputMultiplier = M(FoodOutputMultiplier), StoneOutputMultiplier = M(StoneOutputMultiplier), OreOutputMultiplier = M(OreOutputMultiplier),
                 PurchasePriceMultiplier = M(PurchasePriceMultiplier), UpkeepMultiplier = M(UpkeepMultiplier),
                 ExtraConstructionSlots = ExtraConstructionSlots, ExtraStorage = ExtraStorage * s,
-                InitialEpidemicResistance = InitialEpidemicResistance * s, EpidemicResistanceGrowthMultiplier = M(EpidemicResistanceGrowthMultiplier),
+                EpidemicImmuneShare = EpidemicImmuneShare * s,
                 SandstormDamageMultiplier = M(SandstormDamageMultiplier), LocustDamageMultiplier = M(LocustDamageMultiplier), BlightDamageMultiplier = M(BlightDamageMultiplier),
             };
         }
@@ -137,8 +134,7 @@ namespace DesertSettlement.Core.Economy
             Ratio("유지비", UpkeepMultiplier);
             if (ExtraConstructionSlots != 0) parts.Add($"동시 작업 +{ExtraConstructionSlots}");
             if (ExtraStorage > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "저장 한도 +{0:0}", ExtraStorage));
-            if (InitialEpidemicResistance > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "시작 전염병 저항력 +{0:0}%", InitialEpidemicResistance * 100));
-            Ratio("전염병 저항력 상승 속도", EpidemicResistanceGrowthMultiplier);
+            if (EpidemicImmuneShare > 1e-9) parts.Add(string.Format(CultureInfo.InvariantCulture, "전염병 면역 주민 {0:0}%", EpidemicImmuneShare * 100));
             Ratio("모래폭풍 피해", SandstormDamageMultiplier);
             Ratio("메뚜기떼 피해", LocustDamageMultiplier);
             Ratio("탄저병 피해", BlightDamageMultiplier);

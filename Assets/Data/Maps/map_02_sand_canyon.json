@@ -16,10 +16,15 @@
     { "q": 0, "r": -2, "type": "Obstacle" }
   ],
   "sampleLayout": [
+    { "kind": "house", "q": -1, "r": 1 },
     { "kind": "well", "q": -2, "r": 1 },
     { "kind": "farm", "q": -1, "r": 0 },
     { "kind": "canalEdge", "q": -1, "r": 0, "side": "SouthEast" },
     { "kind": "canalEdge", "q": -1, "r": 1, "side": "NorthEast" },
+    { "kind": "canalEdge", "q": -2, "r": 1, "side": "SouthEast" },
+    { "kind": "canalEdge", "q": -2, "r": 1, "side": "NorthEast" },
+    { "kind": "house", "q": -2, "r": 2 },
+    { "kind": "house", "q": -2, "r": 0 },
     { "kind": "quarry", "q": 0, "r": 0 },
     { "kind": "mine", "q": 0, "r": 1 },
     { "kind": "canalEdge", "q": 0, "r": 0, "side": "SouthEast" },

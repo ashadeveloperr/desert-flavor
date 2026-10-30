@@ -10,7 +10,7 @@ using static DesertSettlement.Runtime.UI.UiKit;
 namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
-    /// 위쪽 띠(UI2): 왼쪽 자원(자금·식량·석재·식량 계수 + 지난 1시간 변화), 가운데 정착지·지역 특성·장비,
+    /// 위쪽 띠(UI2): 왼쪽 자원(자금·식량·석재·주민과 일손(노동력이 꺼져 있으면 식량 계수) + 지난 1시간 변화), 가운데 정착지·지역 특성·장비,
     /// 오른쪽 시계·일시정지·배속(` 1 2 3) | 저장(F5)·불러오기(F9).
     /// 좁은 화면에서는 세 구역이 같은 비율로 줄어든다(LY3, 16:10까지는 그대로).
     /// </summary>
@@ -38,7 +38,7 @@ namespace DesertSettlement.Runtime.UI
             _cash = Resource(res.transform, "자금", 120);
             _food = Resource(res.transform, "식량", 140);
             _stone = Resource(res.transform, "석재", 140);
-            _coef = Resource(res.transform, "식량 계수", 170);
+            _coef = Resource(res.transform, "식량 계수", 170); // 노동력이 켜져 있으면 '주민 n 일손 a/b'
             _delta = Label(bar, "", Theme.Small, Theme.Muted);
             _delta.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(16, 2), new Vector2(640, 18));
 
@@ -121,11 +121,23 @@ namespace DesertSettlement.Runtime.UI
             _cash.text = $"{Paint("자금", Theme.Muted)} {Paint(s.Cash.ToString("0"), s.Cash < 0 ? Theme.Danger : Theme.Text)}";
             _food.text = $"{Paint("식량", Theme.Muted)} {s.Food:0}/{s.FoodCapacity:0}";
             _stone.text = $"{Paint("석재", Theme.Muted)} {s.Stone:0}/{s.StoneCapacity:0}";
-            Color coefColor = s.FoodCoefficient >= 0.95 ? Theme.Good : s.FoodCoefficient >= 0.7 ? Theme.Warn : Theme.Danger;
-            _coef.text = $"{Paint("식량 계수", Theme.Muted)} {Paint(s.FoodCoefficient.ToString("P0"), coefColor)}";
+            if (s.Rules.LaborOn)
+            {
+                // 노동력(결정 LB1~): 주민 수와 일손(배치/필요). 모자라면 노랑, 주민이 떠나는 중이면 빨강.
+                LaborAssignment labor = s.LastLabor;
+                bool short_ = labor.Assigned + 0.05 < labor.Needed;
+                Color handsColor = s.FoodSatisfaction < 0.999 ? Theme.Danger : short_ ? Theme.Warn : Theme.Good;
+                _coef.text = $"{Paint("주민", Theme.Muted)} {s.Residents:0} {Paint($"일 {labor.Assigned:0}/{labor.Needed:0}", handsColor)}";
+            }
+            else
+            {
+                Color coefColor = s.FoodCoefficient >= 0.95 ? Theme.Good : s.FoodCoefficient >= 0.7 ? Theme.Warn : Theme.Danger;
+                _coef.text = $"{Paint("식량 계수", Theme.Muted)} {Paint(s.FoodCoefficient.ToString("P0"), coefColor)}";
+            }
             HourRecord last = s.History.LastOrDefault();
             _delta.text = last == null ? "" :
-                $"지난 1시간  식량 +{last.FoodProduced:0.0} −{last.FoodDemand:0.0}   석재 +{last.StoneProduced:0.0}   광물 +{last.OreProduced:0.0}   유지비 −{last.Upkeep:0.0}";
+                $"지난 1시간  식량 +{last.FoodProduced:0.0} −{last.FoodDemand:0.0}   석재 +{last.StoneProduced:0.0}   광물 +{last.OreProduced:0.0}   유지비 −{last.Upkeep:0.0}" +
+                (s.Rules.LaborOn ? $"   일손 배치 {s.LastLabor.Assigned:0}/{s.LastLabor.Needed:0} · 남는 주민 {s.LastLabor.IdleResidents:0}" : "");
 
             // 생성 맵 이름에는 시드가 들어 있어(맵 스케치 미리보기용) 화면에는 난이도만 보인다(UX4).
             string place = c.CurrentGenerated != null ? $"생성 지역 · 난이도 {c.CurrentGenerated.Params.D:0.00}" : c.CurrentMap.Name;

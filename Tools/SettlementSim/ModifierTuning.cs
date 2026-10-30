@@ -110,7 +110,7 @@ namespace SettlementSim
                 $"D{kv.Key}~{kv.Key + 1} {kv.Value.Average():+0;-0}({kv.Value.Count}, 적자 {kv.Value.Count(x => x < 0)})")));
             Line($"  재해를 겪은 정착지(종류 무관): {epidemicSettlements}/{playedSettlements}");
             Line($"  시장: {(config.Purchase.Trade == null ? "규칙 없음(예전)" : $"식량 한도 {config.Purchase.Food.SellLimit} · 석재 한도 {config.Purchase.Stone.SellLimit} · 회복 {config.Purchase.Trade.RecoveryPerHour:P0}/h, 봇 시장 {(ReferenceBot.BuildMarket ? "지음" : "안 지음")} · 판매 {(SkilledBot.SellSurplus ? "함" : "안 함")}")} — 판매 수입 {SkilledBot.SalesIncome:0} · 구매 지출 {SkilledBot.PurchaseSpend:0} (정착지당 {SkilledBot.SalesIncome / Math.Max(1, playedSettlements):0.0} · {SkilledBot.PurchaseSpend / Math.Max(1, playedSettlements):0.0})");
-            if (smart) Line($"  숙련 봇 행동: 보류 {SkilledBot.Holds}번 · 광산 개량 {SkilledBot.MineUpgrades}번 · 병원 {SkilledBot.Hospitals}곳 (정착지 {playedSettlements}곳)");
+            if (smart) Line($"  숙련 봇 행동: 보류 {SkilledBot.Holds}번 · 광산 개량 {SkilledBot.MineUpgrades}번 · 병원 {SkilledBot.Hospitals}곳 · 추가 주택 {SkilledBot.Houses}채 (정착지 {playedSettlements}곳)");
             Line("  표기: [약점 첫 글자, +강점 첫 글자] 무=무른 지반 산=고지대 마=마른 대수층 모=모래바람 염=염분 외=외딴 / +풍=풍부한 광맥 +비=오아시스 +단=단단한 암반 / ☣ = 경매 전 재해(종류 무관)");
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output");
             File.WriteAllText(Path.Combine(outDir, "modifier_campaign.txt"), Report.ToString(), new UTF8Encoding(false));
@@ -167,6 +167,9 @@ namespace SettlementSim
                     else if (kv[0] == "market") ReferenceBot.BuildMarket = kv[1] != "0";
                     else if (kv[0] == "sell") SkilledBot.SellSurplus = kv[1] != "0";
                 }
+                // 노동력 후보(결정 LB1~): lab=이름[+이름…] (LaborTuning.cs의 LaborCandidates).
+                string labArg = args.FirstOrDefault(a => a.StartsWith("lab="));
+                if (labArg != null) ApplyLaborCandidate(config, labArg.Substring(4));
                 string cashArg = args.FirstOrDefault(a => a.StartsWith("cash="));
                 if (cashArg != null) config.Prototype.StartingCash = double.Parse(cashArg.Substring(5), inv);
                 args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && !a.Contains("=")).ToArray();

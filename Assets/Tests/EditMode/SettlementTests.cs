@@ -426,7 +426,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void FarmWithoutWater_IsBelowItsOwnUpkeep()
         {
-            Settlement s = NewSettlement();
+            Settlement s = NewSettlement(r => r.Labor = null); // 시설 고정 식량 소비는 노동력이 꺼진 원본 규칙(노동력이 켜지면 일꾼이 먹는다)
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, FarmTile).Success);
             s.AdvanceHours(8);
             Facility farm = s.FacilityAt(FarmTile);
@@ -438,7 +438,8 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void FoodShortage_LowersCoefficient_ThenPurchaseRecovers()
         {
-            Settlement s = NewSettlement(r => r.StarterFood = 0);
+            // 식량 계수 F는 노동력이 꺼진 원본 규칙에만 있다(노동력이 켜지면 주민이 떠난다 — LaborTests).
+            Settlement s = NewSettlement(r => { r.StarterFood = 0; r.Labor = null; });
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, FarmTile).Success);   // 물 없는 농장 → 식량 생산 0
             s.AdvanceHours(31);
             Assert.Less(s.FoodCoefficient, 1.0, "식량 부족 → F 감소");

@@ -146,12 +146,35 @@ namespace DesertSettlement.Core.Config
                     }
                     RequireNonNegative(problems, where, "stone", level.Stone);
                     RequirePositive(problems, where, "hours", level.Hours);
-                    RequireNonNegative(problems, where, "foodUse", level.FoodUse);
                     RequireNonNegative(problems, where, "upkeep", level.Upkeep);
+                    OptionalNonNegative(problems, where, "foodUse", level.FoodUse);
+                    OptionalNonNegative(problems, where, "workers", level.Workers);
+                    OptionalNonNegative(problems, where, "buildWorkers", level.BuildWorkers);
+                }
+            }
+
+            LaborSettings labor = config.Labor;
+            if (labor != null)
+            {
+                if (labor.FoodPerResidentPerHour < 0 || labor.WaterPerResidentPerHour < 0) problems.Add("labor의 1인당 식량·물은 음수일 수 없습니다.");
+                if (labor.LeavePerHour <= 0 || labor.LeavePerHour > 1) problems.Add("labor.leavePerHour는 0 초과 1 이하여야 합니다.");
+                if (labor.ReturnPerHour <= 0 || labor.ReturnPerHour > 1) problems.Add("labor.returnPerHour는 0 초과 1 이하여야 합니다.");
+                if (labor.FreeHouses < 0 || labor.CrewPerConstructionSlot < 0) problems.Add("labor.freeHouses·crewPerConstructionSlot은 음수일 수 없습니다.");
+                if (config.BuildingLevels.TryGetValue(BuildingKinds.House, out List<BuildingLevel> houses) && houses != null)
+                {
+                    for (int i = 0; i < houses.Count; i++)
+                    {
+                        if (houses[i] != null) RequirePositive(problems, $"buildingLevels.house[L{i + 1}]", "residents", houses[i].Residents);
+                    }
                 }
             }
 
             return problems;
+        }
+
+        private static void OptionalNonNegative(List<string> problems, string where, string field, double? value)
+        {
+            if (value.HasValue && value.Value < 0) problems.Add($"{where}.{field}는 음수일 수 없습니다: {value.Value}");
         }
 
         private static void RequireNonNegative(List<string> problems, string where, string field, double? value)

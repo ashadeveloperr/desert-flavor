@@ -24,6 +24,8 @@ namespace DesertSettlement.Core.Config
         public const string Hospital = "hospital";
         public const string WaterTank = "waterTank";
         public const string CanalEdge = "canalEdge";
+        /// <summary>주택(결정 LB1~): 주민이 산다. 주민은 수로 물과 식량을 쓰고 우물·농장·채석장·광산과 공사에 배치된다.</summary>
+        public const string House = "house";
 
         /// <summary>모든 시설 종류(카탈로그 순서).</summary>
         public static IReadOnlyList<string> All => FacilityCatalog.All.Select(t => t.Kind).ToList();
@@ -81,6 +83,7 @@ namespace DesertSettlement.Core.Economy
             new FacilityType(BuildingKinds.Farm, "농장", Production, (0.35f, 0.75f, 0.3f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Quarry, "채석장", Production, (0.75f, 0.72f, 0.68f), false, TerrainType.Bedrock),
             new FacilityType(BuildingKinds.Mine, "광산", Production, (0.45f, 0.3f, 0.25f), false, TerrainType.OreVein),
+            new FacilityType(BuildingKinds.House, "주택", Infrastructure, (0.9f, 0.8f, 0.62f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Warehouse, "창고", Infrastructure, (0.7f, 0.5f, 0.3f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Market, "시장", Infrastructure, (0.85f, 0.45f, 0.35f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Hospital, "병원", Infrastructure, (0.95f, 0.95f, 0.95f), false, TerrainType.Desert),

@@ -24,9 +24,19 @@ namespace DesertSettlement.Core.Economy
                 // 2026-10-26 JQ2(이슈 #8): 명령 순간 착공. 새 작업뿐 아니라 취소(슬롯)·순서 변경·석재 구매로 시작할 수 있게 된 작업도.
                 // 저장 불러오기는 같은 명령을 같은 시각에 다시 부르므로 결과가 같다.
                 if (Rules.StartJobsOnCommand) StartJobs(CurrentHour, onCommand: true);
+                // 화면 표시용 인원 배치 갱신(정각 정산은 매번 새로 계산하므로 결과에 영향 없음, 결정 LB1~).
+                if (Rules.LaborOn) LastLabor = AssignLabor();
             }
             return r;
         }
+
+        /// <summary>우선 고용: 이 시설을 고용 1순위로(전에 누른 시설은 한 칸씩 밀림). 물 조건과 상관없이 먼저 배치된다(결정 LB1~).</summary>
+        public CommandResult PrioritizeHiring(int facilityId) =>
+            Record(DoPrioritizeHiring(facilityId), new GameCommand { Type = GameCommand.Hire, Id = facilityId });
+
+        /// <summary>우선 고용 해제: 목록에서 빼서 자동 배치 순서(물 100% → 일부, 완공 순)로 돌린다.</summary>
+        public CommandResult ClearHiringPriority(int facilityId) =>
+            Record(DoClearHiringPriority(facilityId), new GameCommand { Type = GameCommand.Unhire, Id = facilityId });
 
         /// <summary>
         /// 타일 시설 건설 예약. 석재는 착공 때 차감된다.

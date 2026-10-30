@@ -10,7 +10,7 @@ namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
     /// 오른쪽 패널(UI2): 선택한 시설의 이름·레벨·상태, 정보(생산·물·물길·재해 등 <see cref="FacilityInfo.Describe"/>),
-    /// 개량·철거·폐쇄(수로는 닫기/열기)·선택 해제 버튼. 선택이 없으면 숨는다. 맵에는 물길 띠가 함께 보인다.
+    /// 개량·철거·폐쇄(수로는 닫기/열기)·선택 해제 버튼, 사람이 필요한 시설이면 우선 고용·해제 버튼. 선택이 없으면 숨는다. 맵에는 물길 띠가 함께 보인다.
     /// </summary>
     public sealed class InspectorView : IUiView
     {
@@ -18,7 +18,8 @@ namespace DesertSettlement.Runtime.UI
         private readonly RectTransform _panel;
         private readonly Text _title;
         private readonly Transform _lines;
-        private readonly Button _upgrade, _demolish, _close;
+        private readonly Button _upgrade, _demolish, _close, _hire, _unhire;
+        private readonly GameObject _hireRow;
         private string _key;
 
         public InspectorView(GameUi ui, Transform canvas)
@@ -44,6 +45,12 @@ namespace DesertSettlement.Runtime.UI
             _upgrade = Btn(actions.transform, "개량", () => Do(f => _ui.Session.Settlement.RequestUpgrade(f.Id)), 100);
             _demolish = Btn(actions.transform, "철거", () => Do(f => _ui.Session.Settlement.RequestDemolish(f.Id)), 100);
             _close = Btn(actions.transform, "폐쇄", () => Do(f => _ui.Session.Settlement.SetClosed(f.Id, f.State == FacilityState.Operating)), 110);
+
+            // 우선 고용(결정 LB1~): 사람이 필요한 시설(우물·농장·채석장·광산)만 보인다.
+            HorizontalLayoutGroup hiring = Row(_panel, 6);
+            _hireRow = hiring.gameObject;
+            _hire = Btn(hiring.transform, "우선 고용", () => Do(f => _ui.Session.Settlement.PrioritizeHiring(f.Id)), 120);
+            _unhire = Btn(hiring.transform, "우선 해제", () => Do(f => _ui.Session.Settlement.ClearHiringPriority(f.Id)), 120);
         }
 
         private void Do(System.Func<Facility, CommandResult> command)
@@ -87,6 +94,10 @@ namespace DesertSettlement.Runtime.UI
             _close.gameObject.SetActive(closable);
             bool canal = f.Kind == BuildingKinds.CanalEdge;
             _close.SetText(f.State == FacilityState.Closed ? (canal ? "수로 열기" : "재개") : (canal ? "수로 닫기" : "폐쇄"));
+
+            _hireRow.SetActive(s.Rules.NeedsWorkers(f.Kind));
+            Set(_hire, s.CanPrioritizeHiring(f.Id));
+            _unhire.gameObject.SetActive(s.CanClearHiringPriority(f.Id).Success);
         }
 
         private static void Set(Button b, CommandResult check) => b.interactable = check.Success;

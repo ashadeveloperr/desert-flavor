@@ -23,6 +23,14 @@
     "canalLossPerWholeEdge": 0.05,
     "initialMvpMaxFacilityLevel": 3
   },
+  "labor": {
+    "foodPerResidentPerHour": 0.15,
+    "waterPerResidentPerHour": 0.25,
+    "leavePerHour": 0.04,
+    "returnPerHour": 0.02,
+    "freeHouses": 1,
+    "crewPerConstructionSlot": 1
+  },
   "purchase": {
     "food": {
       "baseCost": 2,
@@ -61,9 +69,11 @@
       "perOperationalHospital": 0.01,
       "perOperationalWaterTank": 0.01,
       "perOperationalMarket": 0.01,
+      "perOperationalHouse": 0.01,
       "maximum": 1.2
     },
-    "fixedTestBidMultiplier": 1.05
+    "fixedTestBidMultiplier": 1.05,
+    "valuePerResident": 5
   },
   "auction": {
     "attendeesMin": 1,
@@ -84,6 +94,7 @@
         "stoneMultiplierWeight": 1.0,
         "infraWeight": 1.0,
         "developmentWeights": { "mine": 1.0, "well": 1.0, "quarry": 0.6, "farm": 0.3 },
+        "populationWeight": 0.3,
         "cashShare": 1.0,
         "nextSettlementFoodBonus": 0
       },
@@ -95,6 +106,7 @@
         "stoneMultiplierWeight": 0.6,
         "infraWeight": 1.0,
         "developmentWeights": { "farm": 1.0, "well": 0.6, "quarry": 0.5, "mine": 0.3 },
+        "populationWeight": 0.3,
         "cashShare": 0.92,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "farm": 1 }
@@ -107,6 +119,7 @@
         "stoneMultiplierWeight": 1.6,
         "infraWeight": 1.6,
         "developmentWeights": { "warehouse": 1.0, "farm": 0.8, "quarry": 0.8, "mine": 0.4 },
+        "populationWeight": 0.3,
         "cashShare": 0.95,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "warehouse": 1 }
@@ -120,6 +133,7 @@
         "infraWeight": 1.2,
         "openLandWeight": 0.3,
         "developmentWeights": { "quarry": 1.0, "well": 0.6, "mine": 0.6, "farm": 0.4 },
+        "populationWeight": 0.3,
         "cashShare": 0.92,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "quarry": 1 }
@@ -132,6 +146,7 @@
         "stoneMultiplierWeight": 1.0,
         "infraWeight": 2.6,
         "developmentWeights": { "well": 1.0, "waterTank": 1.0, "canalEdge": 1.0, "farm": 0.6, "mine": 0.4 },
+        "populationWeight": 0.3,
         "cashShare": 1.0,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "waterTank": 1 }
@@ -144,10 +159,24 @@
         "stoneMultiplierWeight": 0.8,
         "infraWeight": 1.8,
         "openLandWeight": 0.8,
-        "developmentWeights": { "auctionHall": 1.0, "warehouse": 1.0, "hospital": 1.0, "mine": 0.3 },
+        "developmentWeights": { "auctionHall": 1.0, "warehouse": 1.0, "hospital": 1.0, "house": 1.5, "mine": 0.3 },
+        "populationWeight": 0.6,
         "cashShare": 0.95,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "auctionHall": 1 }
+      },
+      {
+        "id": "colonist",
+        "name": "이주 사업가",
+        "oreWeight": 0.85,
+        "foodMultiplierWeight": 1.2,
+        "stoneMultiplierWeight": 0.8,
+        "infraWeight": 1.4,
+        "developmentWeights": { "house": 2.0, "farm": 0.8, "well": 0.8, "mine": 0.4 },
+        "populationWeight": 2.5,
+        "cashShare": 0.92,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "house": 1 }
       }
     ]
   },
@@ -213,8 +242,8 @@
       "id": "vaccination",
       "name": "방역 장비",
       "price": 500,
-      "description": "전염병 중 저항력이 오르는 속도 ×1.3(면역이 아니라 더 빨리 회복). 전염병에 대응",
-      "effects": { "epidemicResistanceGrowthMultiplier": 1.3 }
+      "description": "주민 25%가 처음부터 전염병 면역. 전염병에 대응",
+      "effects": { "epidemicImmuneShare": 0.25 }
     },
     {
       "id": "insectNet",
@@ -247,15 +276,12 @@
     "locusts": { "minHours": 4, "maxHours": 12, "farmProduction": 0.0, "foodStockLoss": 0.15 },
     "blight": { "minHours": 48, "maxHours": 96, "farmProduction": 0.5 },
     "epidemic": {
-      "initialSeverity": 0.10,
-      "severityRisePerHour": 0.015,
-      "severityFallPerHour": 0.03,
-      "severityFallResistanceRatio": 0.7,
-      "resistanceBasePerHour": 0.002,
-      "resistancePerDamage": 0.04,
-      "resistanceDecayPerHour": 0.005,
-      "hospitalDamageFactor": 0.5,
-      "hospitalRadius": 1
+      "initialInfectedShare": 0.05,
+      "transmissionPerHour": 0.35,
+      "homeRecoveryPerHour": 0.08,
+      "hospitalRecoveryPerHour": 0.16,
+      "immunityCarryover": 0.5,
+      "endBelowSickShare": 0.01
     }
   },
   "buildingLevels": {
@@ -264,6 +290,8 @@
         "stone": 8,
         "hours": 10,
         "waterSupply": 100,
+        "workers": 1,
+        "buildWorkers": 2,
         "foodUse": 0.25,
         "upkeep": 0.6
       },
@@ -271,6 +299,8 @@
         "stone": 18,
         "hours": 10,
         "waterSupply": 140,
+        "workers": 1,
+        "buildWorkers": 2,
         "foodUse": 0.3,
         "upkeep": 0.9
       },
@@ -278,6 +308,8 @@
         "stone": 30,
         "hours": 14,
         "waterSupply": 190,
+        "workers": 1,
+        "buildWorkers": 3,
         "foodUse": 0.4,
         "upkeep": 1.25
       }
@@ -288,6 +320,8 @@
         "hours": 6,
         "waterDemand": 30,
         "foodProduction": 4,
+        "workers": 2,
+        "buildWorkers": 2,
         "foodUse": 0.75,
         "upkeep": 0.5
       },
@@ -296,6 +330,8 @@
         "hours": 8,
         "waterDemand": 35,
         "foodProduction": 6,
+        "workers": 3,
+        "buildWorkers": 2,
         "foodUse": 0.95,
         "upkeep": 0.75
       },
@@ -304,6 +340,8 @@
         "hours": 12,
         "waterDemand": 40,
         "foodProduction": 8.5,
+        "workers": 4,
+        "buildWorkers": 3,
         "foodUse": 1.2,
         "upkeep": 1.1
       }
@@ -314,6 +352,8 @@
         "hours": 8,
         "waterDemand": 25,
         "stoneProduction": 1,
+        "workers": 2,
+        "buildWorkers": 2,
         "foodUse": 0.9,
         "upkeep": 0.7
       },
@@ -322,6 +362,8 @@
         "hours": 9,
         "waterDemand": 30,
         "stoneProduction": 1.6,
+        "workers": 3,
+        "buildWorkers": 2,
         "foodUse": 1.1,
         "upkeep": 0.95
       },
@@ -330,6 +372,8 @@
         "hours": 13,
         "waterDemand": 35,
         "stoneProduction": 2.4,
+        "workers": 4,
+        "buildWorkers": 3,
         "foodUse": 1.35,
         "upkeep": 1.3
       }
@@ -340,6 +384,8 @@
         "hours": 12,
         "waterDemand": 50,
         "oreProduction": 12,
+        "workers": 4,
+        "buildWorkers": 3,
         "foodUse": 1.8,
         "upkeep": 1.5
       },
@@ -348,6 +394,8 @@
         "hours": 14,
         "waterDemand": 50,
         "oreProduction": 18,
+        "workers": 6,
+        "buildWorkers": 3,
         "foodUse": 2.2,
         "upkeep": 2
       },
@@ -356,6 +404,8 @@
         "hours": 18,
         "waterDemand": 55,
         "oreProduction": 25,
+        "workers": 8,
+        "buildWorkers": 4,
         "foodUse": 2.8,
         "upkeep": 2.9
       }
@@ -364,20 +414,46 @@
       {
         "stone": 18,
         "hours": 12,
+        "buildWorkers": 2,
         "foodUse": 0.2,
         "upkeep": 0.6
       },
       {
         "stone": 20,
         "hours": 12,
+        "buildWorkers": 2,
         "foodUse": 0.25,
         "upkeep": 0.8
+      }
+    ],
+    "house": [
+      {
+        "stone": 4,
+        "hours": 4,
+        "residents": 6,
+        "buildWorkers": 2,
+        "upkeep": 0.1
+      },
+      {
+        "stone": 8,
+        "hours": 6,
+        "residents": 10,
+        "buildWorkers": 2,
+        "upkeep": 0.2
+      },
+      {
+        "stone": 12,
+        "hours": 8,
+        "residents": 14,
+        "buildWorkers": 3,
+        "upkeep": 0.3
       }
     ],
     "warehouse": [
       {
         "stone": 8,
         "hours": 6,
+        "buildWorkers": 2,
         "foodStorageBonus": 150,
         "stoneStorageBonus": 150,
         "foodUse": 0,
@@ -386,6 +462,7 @@
       {
         "stone": 12,
         "hours": 8,
+        "buildWorkers": 2,
         "foodStorageBonus": 300,
         "stoneStorageBonus": 300,
         "foodUse": 0,
@@ -396,6 +473,7 @@
       {
         "stone": 10,
         "hours": 6,
+        "buildWorkers": 2,
         "foodUse": 0.1,
         "upkeep": 0.3
       }
@@ -404,6 +482,8 @@
       {
         "stone": 20,
         "hours": 10,
+        "buildWorkers": 2,
+        "beds": 3,
         "foodUse": 0,
         "upkeep": 0.5
       }
@@ -412,6 +492,7 @@
       {
         "stone": 10,
         "hours": 6,
+        "buildWorkers": 2,
         "capacity": 360,
         "chargePerHour": 30,
         "dischargePerHour": 30,
@@ -421,6 +502,7 @@
       {
         "stone": 14,
         "hours": 8,
+        "buildWorkers": 2,
         "capacity": 630,
         "chargePerHour": 45,
         "dischargePerHour": 45,
@@ -433,6 +515,7 @@
         "stone": 2,
         "hours": 2,
         "capacityPerHour": 100,
+        "buildWorkers": 1,
         "foodUse": 0,
         "upkeep": 0.05
       },
@@ -440,6 +523,7 @@
         "stone": 6,
         "hours": 3,
         "capacityPerHour": 150,
+        "buildWorkers": 1,
         "foodUse": 0,
         "upkeep": 0.08
       }

@@ -24,7 +24,7 @@ namespace DesertSettlement.Runtime
                 case TerrainType.OreVein: return "광맥 (광산)";
                 case TerrainType.Bedrock: return "암반 (채석장)";
                 case TerrainType.Obstacle: return "장애물 (건설 불가)";
-                default: return "사막 (농장·창고·경매장)";
+                default: return "사막 (농장·주택·창고·경매장)";
             }
         }
 
@@ -104,22 +104,56 @@ namespace DesertSettlement.Runtime
             return parts.Count == 0 ? "" : " + 다음 정착지 " + string.Join(", ", parts);
         }
 
-        /// <summary>생산 줄. 예: "생산: 식량 3.20/h (최대 4.00 · 물 80% · F 100%)". 생산 시설이 아니면 null.</summary>
+        /// <summary>생산 줄. 예: "생산: 식량 3.20/h (최대 4.00 · 물 80% · 일손 100%)". 노동력이 꺼져 있으면 일손 대신 F. 생산 시설이 아니면 null.</summary>
         public static string ProductionLine(Settlement s, Facility f)
         {
             FacilityOutput o = s.OutputOf(f);
             if (!o.IsProducer) return null;
-            return $"생산: {ResourceName(o.Resource)} {o.ProducedPerHour:0.00}/h (최대 {o.MaxPerHour:0.00} · 물 {o.WaterRate:P0} · F {o.FoodCoefficient:P0})";
+            string hands = s.Rules.LaborOn ? "일손" : "F";
+            return $"생산: {ResourceName(o.Resource)} {o.ProducedPerHour:0.00}/h (최대 {o.MaxPerHour:0.00} · 물 {o.WaterRate:P0} · {hands} {o.Workforce:P0})";
         }
 
-        /// <summary>전염병 중인 생산 시설의 피해 줄(병원 인근이면 표시). 아니면 null.</summary>
+        /// <summary>사람 수 표시(소수 한 자리, 정수면 정수).</summary>
+        public static string People(double n) => n.ToString("0.#");
+
+        /// <summary>
+        /// 사람이 필요한 시설의 일손 줄(결정 LB1~). 예: "일손 2 / 3명 · 고용 순서 2번째 (우선 고용 1순위)".
+        /// 물이 없어 자동 배치에서 빠졌으면 그 이유를 붙인다. 사람이 필요 없거나 노동력이 꺼져 있으면 null.
+        /// </summary>
+        public static string WorkersLine(Settlement s, Facility f)
+        {
+            double need = s.WorkersNeeded(f);
+            if (need <= 0) return null;
+            if (!f.IsOperating) return $"일손: 필요 {People(need)}명 (운영 중일 때 배치)";
+            double assigned = s.LastLabor.OfFacility(f.Id);
+            int priority = s.HirePriority.ToList().IndexOf(f.Id);
+            int order = s.HiringOrder().ToList().IndexOf(f);
+            string rank = order >= 0 ? $" · 고용 순서 {order + 1}번째" : " · 물이 없어 자동 배치 안 됨(우선 고용하면 배치)";
+            string pri = priority >= 0 ? $" (우선 고용 {priority + 1}순위)" : "";
+            return $"일손: {People(assigned)} / {People(need)}명{rank}{pri}";
+        }
+
+        /// <summary>주택 줄(결정 LB1~): 주민·물·식량과 떠나는 중/돌아오는 중. 주택이 아니면 null.</summary>
+        public static string HouseLine(Settlement s, Facility f)
+        {
+            if (f.Kind != BuildingKinds.House || !s.Rules.LaborOn) return null;
+            double cap = s.HouseCapacity(f);
+            double food = s.FoodSatisfaction;
+            double water = s.HouseWaterRate(f);
+            string trend = s.IsLeaving(f) ? " — ⚠ 떠나는 중"
+                : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating ? " — 돌아오는 중" : "";
+            return $"주민: {People(f.Residents)} / {People(cap)}명 (물 {water:P0} · 식량 {food:P0}){trend}";
+        }
+
+        /// <summary>전염병 중 주택·병원의 줄(아픈 주민·병상, 결정 EV1~EV3). 아니면 null.</summary>
         public static string EpidemicLine(Settlement s, Facility f)
         {
             DisasterManager d = s.Disasters;
             if (d == null || !d.Epidemic.Active) return null;
-            double factor = d.ProductionFactor(f);
-            if (factor >= 0.9999) return null;
-            return $"전염병: 생산 −{1 - factor:P0}{(d.IsNearHospital(f) ? " (병원 인근 — 피해 절반)" : "")}";
+            EpidemicState ep = d.Epidemic;
+            if (f.Kind == BuildingKinds.House) return $"전염병: 정착지 주민 {ep.SickShare:P0}가 아파 일하지 못함";
+            if (f.Kind == BuildingKinds.Hospital) return $"전염병: 환자 {ep.Hospitalized:0.#}명 입원 / 병상 {d.HospitalBeds:0} (집보다 빨리 회복)";
+            return null;
         }
 
         /// <summary>농장이 자기 소비보다 적게 생산할 때의 경고. 아니면 null.</summary>
@@ -160,15 +194,22 @@ namespace DesertSettlement.Runtime
             {
                 ConstructionJob job = s.Jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress);
                 lines.Add($"공사 {progress:P0}" + (job != null ? $" (완료 {job.DeadlineHour}시간째)" : ""));
+                if (job != null && s.WorkersNeeded(job) > 0)
+                    lines.Add($"공사 인원: {People(s.LastLabor.OfJob(job.Id))} / {People(s.WorkersNeeded(job))}명 (모자라면 그만큼 느려짐)");
             }
 
             string production = ProductionLine(s, f);
             if (production != null) lines.Add(production);
+            string workers = WorkersLine(s, f);
+            if (workers != null) lines.Add(workers);
+            string house = HouseLine(s, f);
+            if (house != null) lines.Add(house);
             string epidemic = EpidemicLine(s, f);
             if (epidemic != null) lines.Add(epidemic);
 
             WaterAllocation water = s.LastWater;
-            if ((lv.WaterDemand ?? 0) > 0 && water != null && water.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w))
+            bool takesWater = (lv.WaterDemand ?? 0) > 0 || f.Kind == BuildingKinds.House && s.Rules.LaborOn;
+            if (takesWater && water != null && water.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w))
             {
                 lines.Add($"물: {w.Delivered:0.0} / {w.Demand:0} ({w.Rate:P0}), 우물에서 거리 {w.PriorityDistance}");
                 if (w.Shortage != WaterShortageReason.None) lines.Add("물 부족 이유: " + ShortageText(w.Shortage) + (w.Shortage == WaterShortageReason.CanalCapacity ? " (맵에 빨간 띠)" : ""));
@@ -182,7 +223,8 @@ namespace DesertSettlement.Runtime
             {
                 double supply = (lv.WaterSupply ?? 0) * s.Rules.WellSupplyMultiplier;
                 string bonus = s.Rules.WellSupplyMultiplier > 1.0001 ? $", 장비 ×{s.Rules.WellSupplyMultiplier:0.00}" : "";
-                lines.Add($"방출: {released:0.0} / {supply:0} (식량 계수 영향 없음{bonus})");
+                string hands = s.Rules.LaborOn ? $"일손 {s.StaffRatio(f):P0}만큼 퍼 올림" : "식량 계수 영향 없음";
+                lines.Add($"방출: {released:0.0} / {supply:0} ({hands}{bonus})");
                 AddSentRoutes(lines, s, water, WaterIds.Of(f), "이 우물");
             }
             if (f.Kind == BuildingKinds.CanalEdge)
@@ -196,7 +238,7 @@ namespace DesertSettlement.Runtime
             }
             if (f.Kind == BuildingKinds.CanalEdge && f.State == FacilityState.Closed) lines.Add("닫힌 수로: 이 변으로 물이 지나가지 않음 (폐쇄 해제로 다시 열기)");
             if (f.Kind == BuildingKinds.Warehouse) lines.Add($"저장 한도 +식량 {lv.FoodStorageBonus:0} / +석재 {lv.StoneStorageBonus:0}");
-            if (f.Kind == BuildingKinds.Hospital) lines.Add("병원: 이 칸과 이웃 6칸 건물의 전염병 피해 절반");
+            if (f.Kind == BuildingKinds.Hospital) lines.Add($"병원: 병상 {lv.Beds ?? 0:0}개 — 전염병 환자가 병상만큼 입원해 집보다 훨씬 빨리 회복");
             if (f.Kind == BuildingKinds.Market && s.Rules.Trade != null)
                 lines.Add($"시장: 식량·석재 판매, 상인 할증 없이 구매 · 시장 {s.MarketCount}개 가격 회복 ×{s.Rules.Trade.RecoveryFactor(s.MarketCount):0.##}(시간당 {s.Rules.Trade.RecoveryPerHour * s.Rules.Trade.RecoveryFactor(s.MarketCount):P0})");
             if (f.Kind == BuildingKinds.WaterTank)
@@ -216,7 +258,10 @@ namespace DesertSettlement.Runtime
             string upkeep = f.State == FacilityState.Closed || f.State == FacilityState.Upgrading
                 ? $"유지비 {(lv.Upkeep ?? 0) * s.Rules.ClosedUpkeepRatio:0.00}/h (폐쇄·개량 중)"
                 : $"유지비 {lv.Upkeep ?? 0:0.00}/h";
-            lines.Add($"식량 소비 {o.FoodUsePerHour:0.00}/h · {upkeep}");
+            if (!s.Rules.LaborOn) lines.Add($"식량 소비 {o.FoodUsePerHour:0.00}/h · {upkeep}");
+            else if (f.Kind == BuildingKinds.House) lines.Add($"주민 식량 {f.Residents * s.Rules.Labor.FoodPerResidentPerHour:0.00}/h · {upkeep}");
+            else if (o.WorkersNeeded > 0) lines.Add($"일꾼 식량 {o.FoodUsePerHour:0.00}/h (주민이 먹음) · {upkeep}");
+            else lines.Add(upkeep);
 
             string deficit = FarmDeficitText(s, f);
             if (deficit != null) lines.Add("⚠ " + deficit);

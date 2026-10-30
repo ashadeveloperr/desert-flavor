@@ -47,13 +47,18 @@ namespace DesertSettlement.Core.Economy
         public readonly double InfraMultiplier;
         /// <summary>빈 땅 배율(부동산 개발업자, 결정 BD3). 다른 입찰자는 1.</summary>
         public readonly double OpenLandMultiplier;
+        /// <summary>광물 가치 + 주민 가치(배율 곱하기 전).</summary>
         public readonly double BaseValue;
-        /// <summary>가치 V = 광물 기반 가치 × 식량·석재·인프라·빈 땅 배율.</summary>
+        /// <summary>그중 주민 가치 = 사는 인원 × 1인 가치 × 입찰자 주민 가중치(결정 CL1).</summary>
+        public readonly double PopulationValue;
+        /// <summary>가치 V = (광물 가치 + 주민 가치) × 식량·석재·인프라·빈 땅 배율.</summary>
         public readonly double Value;
 
         public ValuationResult(string bidderId, double ore, double devOre, double food, double stone,
-            double mf, double ms, double mi, double baseValue, double oreRaw = double.NaN, bool stoneFromCapacity = false, double mo = 1)
+            double mf, double ms, double mi, double baseValue, double oreRaw = double.NaN, bool stoneFromCapacity = false, double mo = 1,
+            double population = 0)
         {
+            PopulationValue = population;
             BidderId = bidderId;
             OreLast24h = ore;
             OreRawLast24h = double.IsNaN(oreRaw) ? ore : oreRaw;
@@ -83,6 +88,7 @@ namespace DesertSettlement.Core.Economy
     ///   auction.maturityFullHours 동안 100%까지 오른다(시간마다 HourRecord.*Valued로 기록). 개발 중 자산에도 시작 비율을 곱한다.
     /// - 석재 배율(다 지은 뒤 채석장 철거 방지): 평가 창 평균과 가동 중 채석장의 생산 능력 중 큰 값.
     /// - 입찰자 성향(결정 A2): 광물 가중치, 배율 가중치(1을 넘는 부분에 곱함), 공사 중 시설 종류별 개발 가중치.
+    /// - 주민(결정 CL1·CL2): 사는 인원 × 1인 가치 × 입찰자 주민 가중치를 광물 가치에 더하고, 주택은 거주율만큼 인프라 배율에 들어간다.
     /// </summary>
     public static class SettlementValuation
     {
@@ -99,7 +105,17 @@ namespace DesertSettlement.Core.Economy
             (BuildingKinds.Hospital, false, i => i.PerOperationalHospital),
             (BuildingKinds.WaterTank, false, i => i.PerOperationalWaterTank),
             (BuildingKinds.Market, false, i => i.PerOperationalMarket),
+            (BuildingKinds.House, false, i => i.PerOperationalHouse), // 운영 중 몫은 거주율만큼(InfraCount)
         };
+
+        /// <summary>인프라 배율에 넣는 운영 중 시설 수. 주택은 거주율(사는 인원 ÷ 정원)의 합(결정 CL2), Once면 최대 1.</summary>
+        private static double InfraCount(Settlement s, string kind, bool once)
+        {
+            if (kind == BuildingKinds.House)
+                return s.OperatingOf(kind).Sum(h => s.HouseCapacity(h) > 0 ? Math.Min(1, h.Residents / s.HouseCapacity(h)) : 0);
+            int operating = s.OperatingOf(kind).Count();
+            return once ? Math.Min(1, operating) : operating;
+        }
 
         /// <summary>중립 기준 가치 V(입찰자 성향 없음).</summary>
         public static ValuationResult Evaluate(Settlement s, long auctionHour) => EvaluateFor(s, auctionHour, BidderProfile.Neutral);
@@ -143,18 +159,17 @@ namespace DesertSettlement.Core.Economy
             InfraMultipliers infra = seed.Infra;
             double miRaw = 1;
             foreach ((string kind, bool once, Func<InfraMultipliers, double> bonus) in InfraTable)
-            {
-                int operating = s.OperatingOf(kind).Count();
-                miRaw += (once ? Math.Min(1, operating) : operating) * bonus(infra);
-            }
+                miRaw += InfraCount(s, kind, once) * bonus(infra);
             miRaw = Math.Min(infra.Maximum, miRaw + devInfra);
 
             double mf = 1 + (mfRaw - 1) * bidder.FoodMultiplierWeight;
             double ms = 1 + (msRaw - 1) * bidder.StoneMultiplierWeight;
             double mi = 1 + (miRaw - 1) * bidder.InfraWeight;
-            double baseValue = seed.OreProduction24hValueFactor * (ore + devOre) * bidder.OreWeight;
+            // 주민 가치(결정 CL1): 사는 인원 × 1인 가치 × 입찰자 가중치를 광물 기반 가치에 더한다(배율은 둘 다에 곱해짐).
+            double population = s.Residents * seed.ValuePerResident * bidder.PopulationWeight;
+            double baseValue = seed.OreProduction24hValueFactor * (ore + devOre) * bidder.OreWeight + population;
             double mo = 1 + bidder.OpenLandWeight * (OpenLandShare(s) - seed.OpenLandShareCenter);
-            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity, Math.Max(0, mo));
+            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity, Math.Max(0, mo), population);
         }
 
         /// <summary>
@@ -214,7 +229,7 @@ namespace DesertSettlement.Core.Economy
                 BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
                 double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(WaterIds.Of(f)) : 1.0;
                 // 완공 가정 물 배분의 기대 생산 × 실적이 없던 시간 × 진행률 × 비율. 막 지은 시설이므로 숙성 시작 비율을 곱한다.
-                double amount = s.Rules.Efficiency(rate, s.FoodCoefficient) * missingHours * progress * ratio * s.Rules.MaturityStartRatio
+                double amount = s.Rules.Efficiency(rate, s.ExpectedWorkforce(f, job != null)) * missingHours * progress * ratio * s.Rules.MaturityStartRatio
                                 * s.Rules.MaxOutput(f.Kind, lv);
                 list.Add(new DevelopmentAsset(f.Id, f.Kind,
                     resource == ResourceKind.Ore ? amount : 0, resource == ResourceKind.Food ? amount : 0, resource == ResourceKind.Stone ? amount : 0, 0));

@@ -20,14 +20,15 @@ namespace DesertSettlement.Core.Economy
         {
             long h = CurrentHour;
             Disasters?.BeginHour(h); // 재해 예고·시작·끝
-            SlowJobs(h);             // 모래폭풍 중 공사 속도 감소
+            LastLabor = AssignLabor(); // 이번 시간 공사 인원(공사가 시설보다 먼저 받는다, 결정 LB1~)
+            SlowJobs(h);             // 모래폭풍·공사 인원 부족이면 공사 속도 감소
             CompleteJobs(h);
             StartJobs(h);
+            LastLabor = AssignLabor(); // 완공·착공을 반영한 이번 시간 배치(우물 방출·생산이 쓴다)
             WaterAllocation water = SolveWater();
 
             double demand = 0, upkeep = 0, food = 0, stone = 0, ore = 0;
             double foodValued = 0, stoneValued = 0, oreValued = 0; // 가동 숙성 반영(경매 가치용)
-            double f = FoodCoefficient;
             bool wateredFarm = false;
             foreach (Facility facility in _facilities.Values.OrderBy(x => x.Id))
             {
@@ -35,11 +36,11 @@ namespace DesertSettlement.Core.Economy
                 BuildingLevel lv = LevelOf(facility);
                 if (facility.State == FacilityState.Operating)
                 {
-                    demand += lv.FoodUse ?? 0;
+                    if (!Rules.LaborOn) demand += lv.FoodUse ?? 0; // 원본 v0.8: 시설이 먹는다(노동력이 켜지면 아래에서 주민이 먹는다)
                     upkeep += lv.Upkeep ?? 0;
                     double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(WaterIds.Of(facility)) : 1.0;
                     double maturity = Rules.Maturity(h - facility.CompletedHour);
-                    double amount = ProductionPerHour(facility, rate, f);
+                    double amount = ProductionPerHour(facility, rate, WorkforceOf(facility));
                     switch (SettlementRules.ResourceOf(facility.Kind))
                     {
                         case ResourceKind.Food:
@@ -63,6 +64,10 @@ namespace DesertSettlement.Core.Economy
                 }
             }
 
+            if (Rules.LaborOn) demand = (Residents + Rules.BaseCrew) * Rules.Labor.FoodPerResidentPerHour; // 주민·기본 인부가 먹는다
+            double foodRatio = demand > 0 ? Math.Min(1, (Food + food) / demand) : 1; // 식량 충족률(주민 목표 인원)
+            FoodSatisfaction = foodRatio;
+
             upkeep *= Rules.UpkeepMultiplier;
             Cash -= upkeep;
             if (Cash < 0 && FirstInsolvencyHour == null) FirstInsolvencyHour = h;
@@ -81,11 +86,15 @@ namespace DesertSettlement.Core.Economy
             StoneDiscarded += stoneOverflow;
             Stone = Math.Min(stoneCap, Stone + stone);
 
-            // 다음 시간의 F.
             TotalFoodShortage += deficit;
-            if (deficit > 1e-9)
+            if (deficit > 1e-9 && FirstShortageHour == null) FirstShortageHour = h;
+            if (Rules.LaborOn)
             {
-                if (FirstShortageHour == null) FirstShortageHour = h;
+                UpdateResidents(water, foodRatio); // 물·식량이 모자란 주택에서 주민이 떠나고, 충분하면 돌아온다
+            }
+            else if (deficit > 1e-9)
+            {
+                // 원본 v0.8: 다음 시간의 F.
                 double intensity = Math.Min(1, deficit / (Rules.FoodDeficitFullIntensityRatio * demand));
                 FoodCoefficient = Math.Max(0, FoodCoefficient - Rules.FoodDeclinePerDayMax / 24.0 * intensity);
             }
@@ -100,11 +109,12 @@ namespace DesertSettlement.Core.Economy
                 OreProduced = ore, FoodProduced = food, FoodValid = foodValid, StoneProduced = stone, StoneValid = stoneValid,
                 FoodDemand = demand, FoodDeficit = deficit, Upkeep = upkeep,
                 OreValued = oreValued, FoodValued = foodValued, StoneValued = stoneValued,
-                EpidemicDamage = Disasters?.Epidemic.Damage ?? 0,
+                EpidemicSickShare = Disasters?.Epidemic.SickShare ?? 0,
+                Residents = Residents, WorkersAssigned = LastLabor.Assigned, WorkersNeeded = LastLabor.Needed,
             };
             _history.Add(record);
             RecoverPrices();         // 시장 가격 회복(2026-10-27 이슈 #18)
-            Disasters?.EndHour(h); // 전염병 심각도·저항력 갱신(이번 시간 피해를 반영한 뒤)
+            Disasters?.EndHour(h); // 전염병 새 환자·회복(주민 떠남·돌아옴을 반영한 뒤)
             CurrentHour = h + 1;
             HourSettled?.Invoke(record);
             return record;
@@ -129,16 +139,19 @@ namespace DesertSettlement.Core.Economy
                         f.CompletedHour = h;
                         f.ActiveSinceHour = h;
                         if (f.Kind == BuildingKinds.AuctionHall && AuctionHallCompletedHour == null) AuctionHallCompletedHour = h;
+                        FillHouse(f);
                         FacilityCompleted?.Invoke(f);
                         break;
                     case JobType.Upgrade:
+                        double capacityBefore = IsHouse(f) ? HouseCapacity(f) : 0;
                         f.Level = job.TargetLevel;
                         f.State = FacilityState.Operating;
                         f.ActiveSinceHour = h;
+                        FillHouse(f, capacityBefore);
                         FacilityCompleted?.Invoke(f);
                         break;
                     case JobType.Demolish:
-                        _facilities.Remove(f.Id);
+                        RemoveFacility(f.Id);
                         _stateBeforeDemolish.Remove(f.Id);
                         AddStone(f.StoneInvested * Rules.DemolishRefundRatio);
                         break;
@@ -191,6 +204,7 @@ namespace DesertSettlement.Core.Economy
                         Facility down = GetFacility(job.FacilityId);
                         _stateBeforeDemolish[down.Id] = down.State;
                         down.State = FacilityState.Demolishing;
+                        down.Residents = 0; // 철거하는 주택의 주민은 떠난다
                         break;
                 }
                 running++;
@@ -199,15 +213,19 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 공사 속도가 1보다 느린 시간(모래폭풍)에는 진행 중 작업의 완공 시각을 늦춘다: 시간마다 (1 − 속도)씩 쌓아 1이 되면 한 시간 늦춤.
-        /// 이번 시간에 막 시작한 작업은 다음 시간부터. 2026-10-23 D1.
+        /// 공사 속도가 1보다 느린 시간에는 진행 중 작업의 완공 시각을 늦춘다: 시간마다 (1 − 속도)씩 쌓아 1이 되면 한 시간 늦춤.
+        /// 속도 = 모래폭풍 공사 속도(이번 시간에 막 시작한 작업은 다음 시간부터, 2026-10-23 D1) × 공사 배치율(결정 LB1~, 0명이면 멈춤).
+        /// 명령 순간 착공한 작업은 이 시간을 첫 1시간으로 세므로 배치율도 이 시간부터 걸린다.
         /// </summary>
         private void SlowJobs(long h)
         {
-            double speed = Disasters?.ConstructionSpeed ?? 1;
-            if (speed >= 1 - 1e-12) return;
-            foreach (ConstructionJob job in _jobs.Where(j => j.State == JobState.InProgress && j.StartedHour < h))
+            double storm = Disasters?.ConstructionSpeed ?? 1;
+            bool stormy = storm < 1 - 1e-12;
+            if (!stormy && !Rules.LaborOn) return;
+            foreach (ConstructionJob job in _jobs.Where(j => j.State == JobState.InProgress))
             {
+                double speed = (stormy && job.StartedHour < h ? storm : 1) * (Rules.LaborOn ? StaffRatio(job) : 1);
+                if (speed >= 1 - 1e-12) continue;
                 job.DelayCarry += 1 - speed;
                 while (job.DelayCarry >= 1 - 1e-9)
                 {

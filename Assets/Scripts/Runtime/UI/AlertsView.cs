@@ -77,6 +77,9 @@ namespace DesertSettlement.Runtime.UI
             string type = job.Type == JobType.Build ? "건설" : job.Type == JobType.Upgrade ? "개량" : "철거";
             string state = job.State == JobState.InProgress ? Paint($"~{job.DeadlineHour}h", Theme.Good)
                 : s.Stone + 1e-8 < job.StoneCost ? Paint($"석재 {job.StoneCost:0} 부족", Theme.Warn) : Paint("대기", Theme.Muted);
+            // 공사 인원이 모자라면 그만큼 느려진다(결정 LB1~).
+            if (job.State == JobState.InProgress && s.StaffRatio(job) < 0.999)
+                state += " " + Paint($"인원 {FacilityInfo.People(s.LastLabor.OfJob(job.Id))}/{FacilityInfo.People(s.WorkersNeeded(job))}", Theme.Warn);
             return $"{type} {FacilityInfo.KindName(job.Kind)} L{job.TargetLevel}  {state}";
         }
 
@@ -122,7 +125,20 @@ namespace DesertSettlement.Runtime.UI
             foreach (string kind in BuildingKinds.All)
             {
                 int free = s.FreeBuildsRemaining(kind);
-                if (free > 0) list.Add(($"입찰자 혜택: 완공된 {FacilityInfo.KindName(kind)} {free}개 무료 배치", Theme.Good));
+                if (free <= 0) continue;
+                // 주택은 정착지마다 첫 1채가 무료(결정 LB1~). 입찰자 혜택으로 더 받을 수도 있다.
+                string why = kind == BuildingKinds.House ? "무료 주택" : "입찰자 혜택";
+                list.Add(($"{why}: 완공된 {FacilityInfo.KindName(kind)} {free}개 바로 배치 (석재·공사 없음)", Theme.Good));
+            }
+            if (s.Rules.LaborOn)
+            {
+                // 노동력(결정 LB1~): 떠나는 주택, 일손 부족.
+                int leaving = s.Facilities.Count(s.IsLeaving);
+                if (leaving > 0)
+                    list.Add(($"⚠ 주민이 떠나는 중 — 주택 {leaving}채 ({(s.FoodSatisfaction < 0.999 ? "식량 부족" : "물 부족: 주택까지 수로·우물")})", Theme.Danger));
+                LaborAssignment labor = s.LastLabor;
+                if (labor.Assigned + 0.5 < labor.Needed)
+                    list.Add(($"⚠ 일손 부족 — 필요 {labor.Needed:0} · 배치 {labor.Assigned:0}명 (주택을 더 짓거나 우선 고용으로 순서 조정)", Theme.Warn));
             }
             DisasterManager d = s.Disasters;
             if (d != null)
@@ -134,8 +150,10 @@ namespace DesertSettlement.Runtime.UI
                         list.Add(($"⚠ {e.Name} — {e.PlannedEndHour - s.CurrentHour}시간 남음 · {FacilityInfo.TimedDisasterText(s, e)}", Theme.Danger));
                 }
                 EpidemicState ep = d.Epidemic;
+                // 감염·회복 모형(결정 EV1~): 아픈 주민은 일하지 못하고, 병상만큼 병원에서 빨리 낫는다.
                 if (ep.Active)
-                    list.Add(($"☣ 전염병 {(ep.Weakening ? "↓ 약해지는 중" : "↑ 확산 중")} — 심각도 {ep.Severity:P0} · 저항력 {ep.Resistance:P0} · 생산 −{ep.Damage:P0}",
+                    list.Add(($"☣ 전염병 {(ep.Weakening ? "↓ 약해지는 중" : "↑ 확산 중")} — 아픈 주민 {ep.Sick:0}명({ep.SickShare:P0}, 일 못 함) · " +
+                              $"병원 {ep.Hospitalized:0}/{d.HospitalBeds:0}병상 · 면역 {ep.Immune:0}명",
                         ep.Weakening ? Theme.Warn : Theme.Danger));
             }
             return list;

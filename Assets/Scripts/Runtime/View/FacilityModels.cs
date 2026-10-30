@@ -171,6 +171,7 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.WaterTank: WaterTank(m, body); break;
                 case BuildingKinds.Warehouse: Warehouse(m, body); break;
                 case BuildingKinds.Market: Market(m, body); break;
+                case BuildingKinds.House: House(m, body); break;
                 default: Part(m, PrimitiveType.Cube, body, new Vector3(0, 0.2f, 0), new Vector3(0.6f, 0.4f, 0.6f)); break;
             }
             Scaffolding(m, kind == BuildingKinds.Farm ? 0.25f : 0.75f);
@@ -342,6 +343,23 @@ namespace DesertSettlement.Runtime
             Part(m, PrimitiveType.Cube, DarkWood, new Vector3(-0.56f, 0.22f, 0), new Vector3(0.22f, 0.02f, 0.5f), new Vector3(0, 0, -15), level: 3);
             Part(m, PrimitiveType.Cube, Wood, new Vector3(-0.64f, 0.1f, -0.22f), new Vector3(0.03f, 0.2f, 0.03f), level: 3);
             Part(m, PrimitiveType.Cube, Wood, new Vector3(-0.64f, 0.1f, 0.22f), new Vector3(0.03f, 0.2f, 0.03f), level: 3);
+        }
+
+        // 주택(결정 LB1~): 흙벽돌 집 두 채(평지붕 + 문·창) + 지붕 위 물항아리. L2 셋째 집, L3 둘째 집 위층과 차양.
+        private static void House(FacilityModel m, Color body)
+        {
+            Color roof = Color.Lerp(body, Dark, 0.2f);
+            Part(m, PrimitiveType.Cube, body, new Vector3(-0.2f, 0.16f, 0.08f), new Vector3(0.4f, 0.32f, 0.36f));
+            Part(m, PrimitiveType.Cube, roof, new Vector3(-0.2f, 0.33f, 0.08f), new Vector3(0.44f, 0.03f, 0.4f));
+            Part(m, PrimitiveType.Cube, Dark, new Vector3(-0.2f, 0.09f, -0.105f), new Vector3(0.1f, 0.18f, 0.02f));
+            Part(m, PrimitiveType.Cylinder, Soil, new Vector3(-0.08f, 0.39f, 0.16f), new Vector3(0.09f, 0.05f, 0.09f));
+            Part(m, PrimitiveType.Cube, body, new Vector3(0.24f, 0.12f, -0.12f), new Vector3(0.32f, 0.24f, 0.3f));
+            Part(m, PrimitiveType.Cube, roof, new Vector3(0.24f, 0.25f, -0.12f), new Vector3(0.36f, 0.03f, 0.34f));
+            Part(m, PrimitiveType.Cube, Dark, new Vector3(0.24f, 0.13f, -0.275f), new Vector3(0.08f, 0.06f, 0.02f));
+            Part(m, PrimitiveType.Cube, body, new Vector3(0.26f, 0.11f, 0.32f), new Vector3(0.3f, 0.22f, 0.24f), level: 2);
+            Part(m, PrimitiveType.Cube, roof, new Vector3(0.26f, 0.23f, 0.32f), new Vector3(0.34f, 0.03f, 0.28f), level: 2);
+            Part(m, PrimitiveType.Cube, body, new Vector3(0.24f, 0.36f, -0.08f), new Vector3(0.24f, 0.2f, 0.2f), level: 3);
+            Part(m, PrimitiveType.Cube, Cream, new Vector3(-0.2f, 0.24f, -0.2f), new Vector3(0.4f, 0.02f, 0.16f), new Vector3(-15, 0, 0), level: 3);
         }
 
         // 시장(2026-10-27 이슈 #18): 천막 노점 셋(몸체 색 천막 + 나무 기둥 + 좌판 위 상자·자루). 개량 없음.

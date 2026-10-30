@@ -20,7 +20,7 @@ namespace SettlementSim
             ProceduralMapConfig proc = LoadProceduralConfig();
             int maps = args.Length > 0 ? int.Parse(args[0]) : 20;
             List<BidderProfile> bidders = config.Auction.Bidders;
-            Header($"입찰자 측정 — 다중 봇 첫 경매, D마다 {maps}장. 칸 = 현금 입찰 / 중립 가치 중앙값 (6명 중 최고 현금 입찰 비율)");
+            Header($"입찰자 측정 — 다중 봇 첫 경매, D마다 {maps}장. 칸 = 현금 입찰 / 중립 가치 중앙값 (전원 중 최고 현금 입찰 비율)");
             Line("  D    | " + string.Join(" | ", bidders.Select(b => b.Name)));
             foreach (double d in new[] { 0.0, 0.5, 1.0, 2.0 })
             {

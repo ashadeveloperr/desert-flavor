@@ -28,7 +28,7 @@ Assets/Scripts/
     Hex/                 HexCoord(axial 좌표), HexLayout(월드 좌표), HexMap(지형), VertexId/EdgeId(꼭짓점·변 키), HexTopology(타일↔변↔꼭짓점)
     Canal/               CanalGraph: 변 위 수로·레벨·막힌 변, 꼭짓점 사이 경로
     Water/               WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과), WaterRoutes(물길 표시용 조회)
-    Economy/             Settlement(정착지 하나, partial 6개 — 아래), SettlementRules(규칙 값), SettlementTypes,
+    Economy/             Settlement(정착지 하나, partial 7개 — 아래), SettlementRules(규칙 값), SettlementTypes,
                          SettlementValuation(경매 가치), FacilityCatalog(시설 종류 목록), EconomyEffects(장비·모디파이어 효과 묶음),
                          Disasters(DisasterManager: 재해 일정·전염병), WaterIds(물 배분에 넘기는 id 규칙)
     Auction/             AuctionManager: 경매 일정·예고·입찰·긴급 매각·파산
@@ -51,7 +51,7 @@ Tools/SettlementSim/   .NET 시뮬레이터: Core 파일을 링크해 회귀 검
 Tools/unity-tests.sh   테스트 전용 사본에서 Unity 테스트 실행(열린 에디터와 무관)
 ```
 
-**`Settlement` partial 파일:** 상태·조회·시장 가격 = `Settlement.cs` · 명령 처리(`Do*`·`Can*`) = `.Actions.cs` · 공개 명령 진입점·기록 = `.Commands.cs` · 경제 틱·작업 큐 = `.Tick.cs` · 물 계산 = `.Water.cs` · 물탱크 = `.WaterTanks.cs`.
+**`Settlement` partial 파일:** 상태·조회·시장 가격 = `Settlement.cs` · 명령 처리(`Do*`·`Can*`) = `.Actions.cs` · 공개 명령 진입점·기록 = `.Commands.cs` · 경제 틱·작업 큐 = `.Tick.cs` · 물 계산 = `.Water.cs` · 물탱크 = `.WaterTanks.cs` · 구매·판매 = `.Market.cs` · 주택·노동력(주민·배치·우선 고용) = `.Labor.cs`.
 
 ## 3. 흐름
 
@@ -65,12 +65,14 @@ Tools/unity-tests.sh   테스트 전용 사본에서 Unity 테스트 실행(열�
 ```
 GameSession.Update → GameClock.Advance(실제 초 × 배속)
   → 정각마다 HourPassed → GameSession.OnHourPassed → Settlement.AdvanceHour()   (Settlement.Tick.cs)
-       1. 재해 BeginHour(예고·시작·끝)  2. 모래폭풍 공사 지연  3. 끝난 공사 완료  4. 대기열 착공(슬롯·석재)
-       5. 물 배분(SolveWater, 물탱크 충전·방출 포함)  6. 시설마다 생산(물 가동률 × 식량 계수 F × 재해)·식량 수요·유지비
-       7. 유지비 차감  8. 저장 한도(넘친 생산 폐기)  9. 다음 시간의 F  10. 기록(HourRecord)
-       11. 시장 가격 회복  12. 재해 EndHour(전염병 갱신)  13. CurrentHour + 1
+       1. 재해 BeginHour(예고·시작·끝)  2. 인원 배치(공사 몫) → 공사 지연(모래폭풍·공사 인원 부족)  3. 끝난 공사 완료  4. 대기열 착공(슬롯·석재)
+       5. 인원 배치(AssignLabor: 공사 → 우선 고용 → 물 100% → 물 일부)  6. 물 배분(SolveWater, 우물 방출 × 배치율, 주택 취수, 물탱크 충전·방출 포함)
+       7. 시설마다 생산(물 가동률 × 일손 × 재해)·유지비, 식량 수요 = (주민 + 기본 인부) × 1인당  8. 유지비 차감  9. 저장 한도(넘친 생산 폐기)
+       10. 주민 떠남·돌아옴(UpdateResidents)  11. 기록(HourRecord)  12. 시장 가격 회복  13. 재해 EndHour(전염병 새 환자·회복, 아픈 주민은 다음 시간 배치에서 빠짐)  14. CurrentHour + 1
   → HourSettled 이벤트 → AuctionManager.OnHourSettled: 경매 예고·개최·긴급 매각·파산 판정
 ```
+일손 = 노동력이 켜져 있으면 시설 배치율(배치 ÷ 필요), 꺼져 있으면(원본 v0.8 회귀) 식량 계수 F — 그때만 시설 `foodUse`가 식량 수요이고 10번 자리에서 다음 시간의 F를 정한다.
+배치 순서의 '물 100%'는 직전 시간 물 배분(`LastWater`)으로 본다. 화면 표시용 배치(`LastLabor`)는 명령 직후에도 다시 계산하지만 정산은 매번 새로 계산하므로 결과에 영향이 없다.
 
 화면은 이벤트를 기다리지 않고 **주기적으로 Core 상태를 읽어 다시 그린다**(`GameUi.Update`가 `refreshSeconds`마다 모든 View의 `Refresh`, 버튼 직후엔 `RefreshNow`).
 
@@ -95,6 +97,10 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 3. (선택) 모양 `Runtime/View/FacilityModels.cs`(없으면 상자)
 4. 생산 시설이면: `SettlementRules.ResourceOf`(만드는 자원)와 `MaxOutput`(레벨표 × 배율)에 한 줄씩. 정산(`AdvanceHour`)·화면 예상치(`OutputOf`)·경매 가치(개발 중 자산·채석장 능력)·재해 배율이 모두 이 둘을 쓴다(결정 PR1). 식량·석재·광물이 아닌 새 자원이면 `ResourceKind`, `AdvanceHour`의 자원별 합계, `HourRecord`, 경매 가치까지 손대야 한다
 5. 경매 가치 인프라 보너스가 있으면: `InfraMultipliers`(EconomyConfig) + `SettlementValuation.InfraTable`에 한 줄(운영 중 합계와 공사 중 보너스가 함께 씀, 몇 개든 한 번만 세면 Once)
+6. 노동력(이슈 #31): 레벨마다 `buildWorkers`(공사 인원, 없으면 0명)를 넣는다. 운영에 사람이 필요하면 `workers`도 — 그러면 배치 순서·우선 고용·배치율이 저절로 걸린다(`SettlementRules.NeedsWorkers`). ⚠ `buildWorkers`를 빠뜨리면 공사에 사람이 안 들어 노동력 규칙을 건너뛴다. 봇 계획(`ReferenceBot.Plan`)이 그 시설을 지으면 주택 수도 따라 늘어난다
+
+### 노동력 수치 바꾸기(이슈 #31)
+JSON `labor`(1인당 식량·물, 떠남·복귀 속도, 무료 주택 수, 슬롯당 기본 인부)와 `buildingLevels.*.workers`·`buildWorkers`·`house[].residents`. 후보 비교는 `Tools/SettlementSim/LaborTuning.cs`의 `LaborCandidates`에 한 줄 더하고 `-- mods campaign 0.25 14000 30 smart lab=이름`(여러 개는 `+`). 흐름 진단 `-- labor [D] [간격]`. 샘플 배치 시각이 바뀌면 `-- labor sample` 값으로 `AuctionCampaignTests`·`DebugSessionSmokeTests` 기대값을 고친다.
 
 ### 새 플레이어 명령
 1. `Settlement.Actions.cs`에 `Can*`(불가 이유)·`Do*` 2. `Settlement.Commands.cs`에 공개 메서드 — 성공하면 반드시 `Record` 호출 ⚠(안 부르면 저장에서 빠지고 순간 착공도 안 됨)
@@ -146,7 +152,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 절차 맵 난이도 곡선 · 생성 규칙 확률·크기 | `procedural_map_config.json`의 `difficulty` · `generator` — 바꾼 뒤 `-- tune`. 이 JSON 값은 코드 기본값과 같아야 한다(`ProceduralMapTests.Config_JsonMatchesCodeDefaults`) |
 | 생성 절차 자체(BSP·배치 순서·검사) | `ProceduralMapGenerator.cs` — 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests` 골든 값 갱신 |
 | 지역 모디파이어 목록·수치·출현, 후보 지역 수 | `procedural_map_config.json`의 `modifiers`, `regionChoices` |
-| 재해 빈도·유예·예고, 전염병 속도, 병원 반경 | JSON `disasters` (설명 `EconomyConfig.cs`의 `DisasterSettings`) |
+| 재해 빈도·유예·예고, 전염병 전파·회복·면역 이월 · 병원 병상 | JSON `disasters`(설명 `EconomyConfig.cs`의 `DisasterSettings`·`EpidemicSettings`) · `buildingLevels.hospital[].beds` |
 | 맵 지형·샘플 배치, 맵 추가 | `Assets/Data/Maps/*.json` (새 파일은 `GameSession`의 Maps 목록에) |
 | 예시 맵 그리기 · 생성 맵 눈으로 보기 | 메뉴 Tools > Desert Settlement > 맵 스케치 씬 열기 → `MapSketch` 인스펙터 |
 | 경매 입찰자·시세 시드 | `GameSession` 인스펙터 → Campaign Seed |
@@ -180,7 +186,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 - `mods campaign [정착지당 D 증가] [cashPerD] [정착지 수] [smart] [nodisaster] [vaccine] [upgrade] [upkeep=k] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`
   — 난이도 기준은 `smart`(숙련 봇). `halls=k` 봇이 경매장 k개, `late=…`는 후반 가속 값 덮어쓰기(모두 0 = 가속 없음), `trade=off` 시장 규칙 없음, `market=0`·`sell=0` 봇이 시장을 안 짓거나 안 팖.
   기준 측정: `mods campaign 0.25 14000 30 smart`(결과 해석은 `Docs/handoff.md` 3절)
-- 결정이 끝난 측정(다시 잴 일이 있을 때만, 머리 주석에 '결정 완료'): `exploit`, `epidemic`, `funboost`, `bidders`. 진단 도구: `botdiag`(측정 봇 보완용). 예전 72h 경매를 전제한 `funcheck`·`upgrades`는 지웠다(결정 SM1)
+- 결정이 끝난 측정(다시 잴 일이 있을 때만, 머리 주석에 '결정 완료'): `exploit`, `funboost`, `bidders`. 전염병 후보 비교 `epidemic [맵 수]`·`epidemic sweep`(감염·회복 모형, 결정 EV7), 노동력 `labor`(진단·`sample`)와 `mods campaign … lab=후보`(결정 LB13). 진단 도구: `botdiag`(측정 봇 보완용). 예전 72h 경매를 전제한 `funcheck`·`upgrades`는 지웠다(결정 SM1)
 - 여러 후보를 동시에 재려면 `dotnet build Tools/SettlementSim -c Release` 뒤 `dotnet Tools/SettlementSim/bin/Release/net10.0/SettlementSim.dll mods campaign …`을 병렬로. 콘솔 출력은 cp949라 Git Bash에서는 `iconv -f cp949 -t utf-8`
 - 설정 값을 바꿔 비교 측정할 때는 JSON을 바꾼 뒤 **반드시 되돌린다**(`git diff Assets/Data/Config/`)
 - 원본 v0.8 Python 스크립트는 지웠다(결정 SM2, git 기록에 있음). 같은 계산이 C# `EconomySim.cs`에 있고 회귀값도 거기서 검증한다

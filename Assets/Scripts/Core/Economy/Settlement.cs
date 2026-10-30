@@ -18,7 +18,8 @@ namespace DesertSettlement.Core.Economy
     ///
     /// 원본 v0.8 시뮬레이터와 같은 계산을 하며(나중에 넣은 규칙을 끈 상태), 회귀값은 EditMode 테스트와 Tools/SettlementSim으로 고정돼 있다.
     /// 파일 나눔: 상태·조회·내부 도우미 = 이 파일, 명령 처리(Do*·Can*) = Settlement.Actions.cs, 공개 명령·기록 = Settlement.Commands.cs,
-    /// 경제 틱·작업 큐 = Settlement.Tick.cs, 물 계산 = Settlement.Water.cs, 물탱크 = Settlement.WaterTanks.cs, 구매·판매·시장 가격 = Settlement.Market.cs.
+    /// 경제 틱·작업 큐 = Settlement.Tick.cs, 물 계산 = Settlement.Water.cs, 물탱크 = Settlement.WaterTanks.cs, 구매·판매·시장 가격 = Settlement.Market.cs,
+    /// 주택·노동력(주민·배치·우선 고용) = Settlement.Labor.cs.
     /// </summary>
     public sealed partial class Settlement
     {
@@ -36,7 +37,10 @@ namespace DesertSettlement.Core.Economy
         public double Cash { get; private set; }
         public double Food { get; private set; }
         public double Stone { get; private set; }
-        /// <summary>전역 식량 계수 F (0~1). 우물 물 생산에는 적용하지 않는다(확정).</summary>
+        /// <summary>
+        /// 전역 식량 계수 F (0~1). 우물 물 생산에는 적용하지 않는다(확정). 원본 v0.8 규칙(노동력 꺼짐)에서만 바뀌고,
+        /// 노동력이 켜져 있으면 1에 머문다(식량 부족은 주민이 떠나는 것으로 나타난다, 결정 LB1~).
+        /// </summary>
         public double FoodCoefficient { get; private set; } = 1.0;
 
         /// <summary>다음에 정산할 게임 시간(정착지 시작 = 0).</summary>
@@ -78,6 +82,8 @@ namespace DesertSettlement.Core.Economy
             {
                 if (kv.Value > 0) _freeBuilds[kv.Key] = kv.Value;
             }
+            // 정착지마다 첫 주택은 무료·즉시 완공(결정 LB1~). 입찰자 혜택으로 받은 무료 주택에 더해진다.
+            if (rules.LaborOn && rules.Labor.FreeHouses > 0) _freeBuilds[BuildingKinds.House] = FreeBuildsRemaining(BuildingKinds.House) + rules.Labor.FreeHouses;
         }
 
         private readonly Dictionary<string, int> _freeBuilds = new Dictionary<string, int>();
@@ -108,21 +114,25 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 운영 중인 시설의 시간당 생산량 = 최대 생산(<see cref="SettlementRules.MaxOutput"/>) × 효율(물 공급률 × F, 상한) × 재해 배율.
-        /// 정각 정산(<see cref="AdvanceHour"/>)과 화면 예상치(<see cref="OutputOf"/>)가 함께 쓴다. 생산 시설이 아니면 0.
+        /// 운영 중인 시설의 시간당 생산량 = 최대 생산(<see cref="SettlementRules.MaxOutput"/>) × 효율(물 공급률 × 일손, 상한) × 재해 배율.
+        /// 일손은 배치율(노동력 꺼짐이면 F). 정각 정산(<see cref="AdvanceHour"/>)과 화면 예상치(<see cref="OutputOf"/>)가 함께 쓴다. 생산 시설이 아니면 0.
         /// </summary>
-        private double ProductionPerHour(Facility f, double waterRate, double foodCoefficient) =>
-            Rules.MaxOutput(f.Kind, LevelOf(f)) * Rules.Efficiency(waterRate, foodCoefficient) * (Disasters?.ProductionFactor(f) ?? 1);
+        private double ProductionPerHour(Facility f, double waterRate, double workforce) =>
+            Rules.MaxOutput(f.Kind, LevelOf(f)) * Rules.Efficiency(waterRate, workforce) * (Disasters?.ProductionFactor(f) ?? 1);
 
-        /// <summary>시설의 시간당 생산·식량 소비 예상치. 운영 중이 아니면 생산·소비 모두 0.</summary>
+        /// <summary>시설의 시간당 생산·식량 소비 예상치(최근 물 배분·인원 배치 기준). 운영 중이 아니면 생산·소비 모두 0.</summary>
         public FacilityOutput OutputOf(Facility f)
         {
             BuildingLevel lv = LevelOf(f);
             ResourceKind resource = SettlementRules.ResourceOf(f.Kind);
             double max = Rules.MaxOutput(f.Kind, lv);
-            if (!f.IsOperating) return new FacilityOutput(resource, 0, max, 0, 0, FoodCoefficient);
+            double need = WorkersNeeded(f);
+            if (!f.IsOperating) return new FacilityOutput(resource, 0, max, 0, 0, WorkforceOf(f), 0, need);
             double rate = WaterRateOf(f);
-            return new FacilityOutput(resource, ProductionPerHour(f, rate, FoodCoefficient), max, lv.FoodUse ?? 0, rate, FoodCoefficient);
+            double workforce = WorkforceOf(f);
+            double assigned = LastLabor.OfFacility(f.Id);
+            double foodUse = Rules.LaborOn ? assigned * Rules.Labor.FoodPerResidentPerHour : lv.FoodUse ?? 0;
+            return new FacilityOutput(resource, ProductionPerHour(f, rate, workforce), max, foodUse, rate, workforce, assigned, need);
         }
 
         // ───────────────────────── 내부 도우미 ─────────────────────────

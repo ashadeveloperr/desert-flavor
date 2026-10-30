@@ -79,7 +79,8 @@ namespace DesertSettlement.Runtime.UI
             ValuationResult v = bid.Valuation;
             string dev = v.DevelopmentOre > 0.01 ? $" (개발 중 +{v.DevelopmentOre:0.0})" : "";
             string land = Math.Abs(v.OpenLandMultiplier - 1) > 1e-9 ? $" × 빈 땅 {v.OpenLandMultiplier:0.00}" : "";
-            Label(card, $"가치 {v.Value:0} = 광물 {v.OreLast24h:0.0}{dev} → {v.BaseValue:0} × 식량 {v.FoodMultiplier:0.00} × 석재 {v.StoneMultiplier:0.00} × 인프라 {v.InfraMultiplier:0.00}{land}", Theme.Small, Theme.Muted);
+            string people = v.PopulationValue > 0.5 ? $" + 주민 {v.PopulationValue:0}" : "";
+            Label(card, $"가치 {v.Value:0} = 광물 {v.OreLast24h:0.0}{dev}{people} → {v.BaseValue:0} × 식량 {v.FoodMultiplier:0.00} × 석재 {v.StoneMultiplier:0.00} × 인프라 {v.InfraMultiplier:0.00}{land}", Theme.Small, Theme.Muted);
             if (v.OreRawLast24h - v.OreLast24h > 0.05)
                 Label(card, $"막 지은 시설은 실적을 덜 쳐줌: 광물 {v.OreRawLast24h:0.0} 중 {v.OreLast24h:0.0} 인정", Theme.Small, Theme.Warn);
             Btn(card, $"{bid.Bidder.Name}에게 매각", () => { _ui.Session.SellTo(index); _changed(); }, -1, 32);

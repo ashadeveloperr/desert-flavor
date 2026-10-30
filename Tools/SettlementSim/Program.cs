@@ -35,6 +35,7 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "savecheck") return SaveCheck(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "botdiag") return BotDiagnose(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "funboost") return FunBoost(args.Skip(1).ToArray());
+            if (args.Length > 0 && args[0] == "labor") return LaborTuning(args.Skip(1).ToArray());
 
             EconomyRegression();
             ReleaseAndIntake();
@@ -464,8 +465,9 @@ namespace SettlementSim
         // 설정·맵은 게임과 같은 Core 로더(Newtonsoft + 검증)로 읽는다. 오타·잘못된 값이면 여기서 예외로 멈춘다(결정 CF3).
 
         /// <summary>Assets/Data/Config/economy_balance_v0.8_config.json(게임과 같은 경제 수치).</summary>
+        /// 봇 계획(주택 수)도 이 설정을 본다(<see cref="ReferenceBot.PlanConfig"/>, 결정 LB1~).
         private static DesertSettlement.Core.Config.EconomyConfig LoadConfig() =>
-            DesertSettlement.Core.Config.EconomyConfigLoader.Parse(
+            ReferenceBot.PlanConfig = DesertSettlement.Core.Config.EconomyConfigLoader.Parse(
                 File.ReadAllText(Path.Combine(FindRepoRoot(), "Assets", "Data", "Config", "economy_balance_v0.8_config.json")));
 
         /// <summary>Assets/Data/Config/procedural_map_config.json(게임과 같은 절차 맵 수치).</summary>

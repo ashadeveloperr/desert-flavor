@@ -259,7 +259,7 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 시설이 이번 시간 받는 생산 배율(1 = 피해 없음). 농장만 메뚜기떼·탄저병 배율(장비가 피해를 줄임).
+        /// 시설이 이번 시간 받는 생산 배율(1 = 피해 없음). 작물 시설(경작지·과수원·허브 농장)만 메뚜기떼·탄저병 배율(장비가 피해를 줄임).
         /// 전염병은 생산 배율이 아니라 아픈 주민이 일하지 못하는 것으로 나타난다(결정 EV2).
         /// </summary>
         public double ProductionFactor(Facility f)
@@ -267,7 +267,7 @@ namespace DesertSettlement.Core.Economy
             if (f == null) return 1;
             if (SettlementRules.ResourceOf(f.Kind) == ResourceKind.None) return 1;
             double factor = 1;
-            if (f.Kind == BuildingKinds.Farm)
+            if (SettlementRules.IsCrop(f.Kind)) // 경작지·과수원·허브 농장(결정 FD8)
             {
                 SettlementRules r = _settlement.Rules;
                 if (IsActive(Locusts)) factor *= 1 - Math.Min(1, (1 - _settings.Locusts.FarmProduction) * Intensity) * r.LocustDamageMultiplier;

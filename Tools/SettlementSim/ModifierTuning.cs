@@ -110,7 +110,7 @@ namespace SettlementSim
                 $"D{kv.Key}~{kv.Key + 1} {kv.Value.Average():+0;-0}({kv.Value.Count}, 적자 {kv.Value.Count(x => x < 0)})")));
             Line($"  재해를 겪은 정착지(종류 무관): {epidemicSettlements}/{playedSettlements}");
             Line($"  시장: {(config.Purchase.Trade == null ? "규칙 없음(예전)" : $"식량 한도 {config.Purchase.Food.SellLimit} · 석재 한도 {config.Purchase.Stone.SellLimit} · 회복 {config.Purchase.Trade.RecoveryPerHour:P0}/h, 봇 시장 {(ReferenceBot.BuildMarket ? "지음" : "안 지음")} · 판매 {(SkilledBot.SellSurplus ? "함" : "안 함")}")} — 판매 수입 {SkilledBot.SalesIncome:0} · 구매 지출 {SkilledBot.PurchaseSpend:0} (정착지당 {SkilledBot.SalesIncome / Math.Max(1, playedSettlements):0.0} · {SkilledBot.PurchaseSpend / Math.Max(1, playedSettlements):0.0})");
-            if (smart) Line($"  숙련 봇 행동: 보류 {SkilledBot.Holds}번 · 광산 개량 {SkilledBot.MineUpgrades}번 · 병원 {SkilledBot.Hospitals}곳 · 추가 주택 {SkilledBot.Houses}채 (정착지 {playedSettlements}곳)");
+            if (smart) Line($"  숙련 봇 행동: 보류 {SkilledBot.Holds}번 · 광산 개량 {SkilledBot.MineUpgrades}번 · 병원 {SkilledBot.Hospitals}곳 · 추가 주택 {SkilledBot.Houses}채 · 식품 시설 {SkilledBot.DietBuilds}곳 · 매각 때 생활 수준 평균 {SkilledBot.LivingAtSale / Math.Max(1, SkilledBot.SalesSeen):+0;-0;0} (정착지 {playedSettlements}곳)");
             Line("  표기: [약점 첫 글자, +강점 첫 글자] 무=무른 지반 산=고지대 마=마른 대수층 모=모래바람 염=염분 외=외딴 / +풍=풍부한 광맥 +비=오아시스 +단=단단한 암반 / ☣ = 경매 전 재해(종류 무관)");
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output");
             File.WriteAllText(Path.Combine(outDir, "modifier_campaign.txt"), Report.ToString(), new UTF8Encoding(false));
@@ -128,6 +128,7 @@ namespace SettlementSim
                 // nodisaster = 재해 끔, vaccine = 봇이 방역 장비 우선 구매·장착. 위치와 상관없이 쓸 수 있다.
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade"), smart = args.Contains("smart");
+                SkilledBot.Diet = args.Contains("diet"); // 식품 다양화 측정(결정 FD·LS): 숙련 봇이 과수원·가공 시설을 지음
                 // upkeep=k : 생성 맵 운영비 × (1 + k × D)의 k(H1, 2026-10-23 흐름 조정 측정용).
                 string upkeepArg = args.FirstOrDefault(a => a.StartsWith("upkeep="));
                 if (upkeepArg != null) proc.Difficulty.UpkeepPerD = double.Parse(upkeepArg.Substring(7), inv);
@@ -172,7 +173,7 @@ namespace SettlementSim
                 if (labArg != null) ApplyLaborCandidate(config, labArg.Substring(4));
                 string cashArg = args.FirstOrDefault(a => a.StartsWith("cash="));
                 if (cashArg != null) config.Prototype.StartingCash = double.Parse(cashArg.Substring(5), inv);
-                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && !a.Contains("=")).ToArray();
+                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && a != "diet" && !a.Contains("=")).ToArray();
                 if (args.Length > 1) proc.Difficulty.DPerSettlement = double.Parse(args[1], inv);
                 if (args.Length > 2) proc.Difficulty.CashPerD = double.Parse(args[2], inv);
                 int count = args.Length > 3 ? int.Parse(args[3], inv) : 15;

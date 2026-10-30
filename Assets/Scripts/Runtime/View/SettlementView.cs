@@ -286,9 +286,9 @@ namespace DesertSettlement.Runtime
             model.ShowScaffold(f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading);
 
             Func<Color, Color> crop = null;
-            if (f.Kind == BuildingKinds.Farm)
+            if (SettlementRules.IsCrop(f.Kind))
             {
-                // 작물(SG3): 완공 뒤 가동 숙성 시간 동안 자라고, 물을 덜 받으면 낮아지고 누렇게 시든다.
+                // 작물(SG3, 경작지·과수원·허브 농장): 완공 뒤 가동 숙성 시간 동안 자라고, 물을 덜 받으면 낮아지고 누렇게 시든다.
                 float grown = f.CompletedHour < 0 ? 0f
                     : Mathf.Clamp01((float)((s.CurrentHour - f.CompletedHour) / Math.Max(1.0, s.Rules.MaturityFullHours)));
                 float water = 1f;

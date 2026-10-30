@@ -189,12 +189,6 @@ namespace DesertSettlement.Core.Economy
         /// <summary>석재 외부 구매(1단위씩, 단가 상승). 저장 한도·자금 안에서만. 실제 구매 수를 돌려준다.</summary>
         private int DoBuyStone(int units) => Buy(units, isFood: false);
 
-        /// <summary>식량 재고를 비율만큼 잃는다(메뚜기떼, 2026-10-23 D4).</summary>
-        internal void LoseFood(double fraction)
-        {
-            Food = Math.Max(0, Food * (1 - Math.Max(0, Math.Min(1, fraction))));
-        }
-
         /// <summary>식량 시장 판매(시장이 있어야 함). 실제 판매 수를 돌려준다.</summary>
         private int DoSellFood(int units) => Sell(units, isFood: true);
 

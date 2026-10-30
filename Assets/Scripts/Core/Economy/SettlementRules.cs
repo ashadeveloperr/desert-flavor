@@ -236,28 +236,85 @@ namespace DesertSettlement.Core.Economy
 
         // ── 생산(결정 PR1): 생산 시설 목록과 생산 공식은 여기 하나다. 정산·예상치·경매 가치·재해가 모두 이것을 쓴다. ──
 
-        /// <summary>시설 종류가 만드는 자원(농장 식량·채석장 석재·광산 광물). 생산 시설이 아니면 None.</summary>
+        /// <summary>
+        /// 시설 종류가 만드는 자원: 식량 재화(경작지·과수원·목축지·제분소)는 Food, 기호품·향신료(양조장·포도주 공방·허브 농장)는 Goods,
+        /// 채석장 석재·광산 광물. 생산 시설이 아니면 None. 어떤 재화인지는 <see cref="GoodsOf"/>.
+        /// </summary>
         public static ResourceKind ResourceOf(string kind)
         {
             switch (kind)
             {
-                case BuildingKinds.Farm: return ResourceKind.Food;
                 case BuildingKinds.Quarry: return ResourceKind.Stone;
                 case BuildingKinds.Mine: return ResourceKind.Ore;
-                default: return ResourceKind.None;
+            }
+            Goods? g = GoodsOf(kind);
+            if (g == null) return ResourceKind.None;
+            return GoodsCatalog.IsFood(g.Value) ? ResourceKind.Food : ResourceKind.Goods;
+        }
+
+        /// <summary>시설 종류가 만드는 재화(결정 FD2). 재화 시설이 아니면 null.</summary>
+        public static Goods? GoodsOf(string kind)
+        {
+            switch (kind)
+            {
+                case BuildingKinds.Farm: return Goods.Grain;
+                case BuildingKinds.Orchard: return Goods.Fruit;
+                case BuildingKinds.Pasture: return Goods.Meat;
+                case BuildingKinds.Mill: return Goods.Bread;
+                case BuildingKinds.Brewery: return Goods.Beer;
+                case BuildingKinds.Winery: return Goods.Wine;
+                case BuildingKinds.HerbFarm: return Goods.Spice;
+                default: return null;
             }
         }
 
-        /// <summary>물·식량 100%일 때 시간당 생산량 = 레벨표 생산량 × 자원별 배율(장비·지역 효과 포함). 생산 시설이 아니면 0.</summary>
+        /// <summary>가공 시설의 원료(목축지·제분소·양조장 = 곡물, 포도주 공방 = 과일). 원료가 없는 시설이면 null.</summary>
+        public static Goods? InputOf(string kind)
+        {
+            switch (kind)
+            {
+                case BuildingKinds.Pasture:
+                case BuildingKinds.Mill:
+                case BuildingKinds.Brewery: return Goods.Grain;
+                case BuildingKinds.Winery: return Goods.Fruit;
+                default: return null;
+            }
+        }
+
+        /// <summary>메뚜기떼·작물 탄저병 생산 피해를 받는 작물 시설(결정 FD8): 경작지·과수원·허브 농장.</summary>
+        public static bool IsCrop(string kind) => kind == BuildingKinds.Farm || kind == BuildingKinds.Orchard || kind == BuildingKinds.HerbFarm;
+
+        /// <summary>
+        /// 물·일손 100%일 때 시간당 생산량 = 레벨표 생산량 × 자원별 배율(장비·지역 효과 포함). 생산 시설이 아니면 0.
+        /// 경작지는 <c>foodProduction</c>(곡물), 나머지 재화 시설은 <c>goodsProduction</c>. 작물 배율(관개 장비 등)은 경작지·과수원에 걸린다.
+        /// </summary>
         public double MaxOutput(string kind, BuildingLevel lv)
         {
-            switch (ResourceOf(kind))
+            switch (kind)
             {
-                case ResourceKind.Food: return (lv.FoodProduction ?? 0) * FoodOutputMultiplier;
-                case ResourceKind.Stone: return (lv.StoneProduction ?? 0) * StoneOutputMultiplier;
-                case ResourceKind.Ore: return (lv.OreProduction ?? 0) * OreMultiplier;
-                default: return 0;
+                case BuildingKinds.Farm: return (lv.FoodProduction ?? 0) * FoodOutputMultiplier;
+                case BuildingKinds.Orchard: return (lv.GoodsProduction ?? 0) * FoodOutputMultiplier;
+                case BuildingKinds.Quarry: return (lv.StoneProduction ?? 0) * StoneOutputMultiplier;
+                case BuildingKinds.Mine: return (lv.OreProduction ?? 0) * OreMultiplier;
             }
+            return GoodsOf(kind) != null ? lv.GoodsProduction ?? 0 : 0;
+        }
+
+        /// <summary>재화 1단위가 채우는 식량(설정 <c>goods.*.foodValue</c>, 곡물 = 1). 식량이 아니면 0.</summary>
+        public double FoodValue(Goods g) => GoodsCatalog.IsFood(g) ? GoodsCatalog.Settings(Config, g).FoodValue : 0;
+
+        /// <summary>
+        /// 경매 식량 배율이 보는 순 식량 가치(결정 FD7): 시간당 생산 × 그 재화 식량 효율 − 쓰는 원료 × 원료 식량 효율.
+        /// 기호품 시설(양조장·포도주 공방)은 원료만 빼서 음수가 될 수 있다.
+        /// </summary>
+        public double NetFoodValue(string kind, double output, BuildingLevel lv)
+        {
+            Goods? g = GoodsOf(kind);
+            if (g == null) return 0;
+            double value = output * FoodValue(g.Value);
+            Goods? input = InputOf(kind);
+            if (input != null) value -= output * (lv.InputPerOutput ?? 0) * FoodValue(input.Value);
+            return value;
         }
 
         /// <summary>

@@ -35,7 +35,6 @@ namespace DesertSettlement.Core.Economy
         public SettlementRules Rules { get; }
 
         public double Cash { get; private set; }
-        public double Food { get; private set; }
         public double Stone { get; private set; }
         /// <summary>
         /// 전역 식량 계수 F (0~1). 우물 물 생산에는 적용하지 않는다(확정). 원본 v0.8 규칙(노동력 꺼짐)에서만 바뀌고,
@@ -55,7 +54,6 @@ namespace DesertSettlement.Core.Economy
         /// <summary>가장 최근 틱의 수로망(운영 중인 수로만).</summary>
         public CanalGraph LastCanals { get; private set; }
 
-        public double FoodDiscarded { get; private set; }
         public double StoneDiscarded { get; private set; }
         public double TotalFoodShortage { get; private set; }
         public long? FirstShortageHour { get; private set; }
@@ -77,7 +75,7 @@ namespace DesertSettlement.Core.Economy
             Topology = new HexTopology(map);
             Cash = rules.StartingCash;
             Stone = Math.Min(rules.StarterStone, rules.BaseStoneStorage);
-            Food = Math.Min(rules.StarterFood, rules.BaseFoodStorage);
+            _stock[(int)Goods.Grain] = Math.Min(rules.StarterFood, rules.BaseFoodStorage); // 시작 식량은 곡물(결정 FD9)
             foreach (KeyValuePair<string, int> kv in rules.FreeBuilds)
             {
                 if (kv.Value > 0) _freeBuilds[kv.Key] = kv.Value;
@@ -93,6 +91,7 @@ namespace DesertSettlement.Core.Economy
 
         // ───────────────────────── 조회 ─────────────────────────
 
+        /// <summary>식품 창고 한도(모든 재화가 함께 씀, 결정 FD5) = 기본 + 창고.</summary>
         public double FoodCapacity => Rules.BaseFoodStorage + OperatingOf(BuildingKinds.Warehouse).Sum(w => LevelOf(w).FoodStorageBonus ?? 0);
         public double StoneCapacity => Rules.BaseStoneStorage + OperatingOf(BuildingKinds.Warehouse).Sum(w => LevelOf(w).StoneStorageBonus ?? 0);
         public int JobsInProgress => _jobs.Count(j => j.State == JobState.InProgress);
@@ -118,7 +117,8 @@ namespace DesertSettlement.Core.Economy
         /// 일손은 배치율(노동력 꺼짐이면 F). 정각 정산(<see cref="AdvanceHour"/>)과 화면 예상치(<see cref="OutputOf"/>)가 함께 쓴다. 생산 시설이 아니면 0.
         /// </summary>
         private double ProductionPerHour(Facility f, double waterRate, double workforce) =>
-            Rules.MaxOutput(f.Kind, LevelOf(f)) * Rules.Efficiency(waterRate, workforce) * (Disasters?.ProductionFactor(f) ?? 1);
+            Rules.MaxOutput(f.Kind, LevelOf(f)) * Rules.Efficiency(waterRate, workforce) * (Disasters?.ProductionFactor(f) ?? 1)
+            * LivingProductivity; // 생활 수준 ±10%(결정 LS6)
 
         /// <summary>시설의 시간당 생산·식량 소비 예상치(최근 물 배분·인원 배치 기준). 운영 중이 아니면 생산·소비 모두 0.</summary>
         public FacilityOutput OutputOf(Facility f)
@@ -132,7 +132,9 @@ namespace DesertSettlement.Core.Economy
             double workforce = WorkforceOf(f);
             double assigned = LastLabor.OfFacility(f.Id);
             double foodUse = Rules.LaborOn ? assigned * Rules.Labor.FoodPerResidentPerHour : lv.FoodUse ?? 0;
-            return new FacilityOutput(resource, ProductionPerHour(f, rate, workforce), max, foodUse, rate, workforce, assigned, need);
+            // 가공 시설은 지난 시간 원료가 있던 비율만큼(결정 FD4).
+            double produced = ProductionPerHour(f, rate, workforce) * (SettlementRules.InputOf(f.Kind) != null ? f.InputRatio : 1);
+            return new FacilityOutput(resource, produced, max, foodUse, rate, workforce, assigned, need);
         }
 
         // ───────────────────────── 내부 도우미 ─────────────────────────

@@ -93,6 +93,15 @@ namespace DesertSettlement.Core.Economy
             return sold;
         }
 
+        /// <summary>재화 시장 판매(곡물은 식량 판매와 같음, 나머지는 팔기만, 결정 FD6). 실제 판매 수를 돌려준다.</summary>
+        public int SellGoods(Goods goods, int units)
+        {
+            if (goods == Goods.Grain) return SellFood(units);
+            int sold = SellOther(goods, units);
+            if (sold > 0) Record(CommandResult.Ok(), new GameCommand { Type = GameCommand.SellGoods, Kind = GoodsCatalog.Id(goods), Amount = units });
+            return sold;
+        }
+
         /// <summary>석재 시장 판매(1단위씩, 판매가 하락). 운영 중인 시장이 있어야 한다. 실제 판매 수를 돌려준다.</summary>
         public int SellStone(int units)
         {

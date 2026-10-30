@@ -61,7 +61,8 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void HouseWithoutWater_ResidentsLeaveSlowly_AndReturnSlowerWhenWatered()
         {
-            Settlement s = NewSettlement(tweak: r => r.FreeBuilds[BuildingKinds.Well] = 1);
+            // 떠남·복귀 기본 속도만 본다: 생활 수준(이주 배율, FoodGoodsTests)은 끈다.
+            Settlement s = NewSettlement(c => c.Living = null, r => r.FreeBuilds[BuildingKinds.Well] = 1);
             s.RequestBuild(BuildingKinds.House, HouseTile);
             s.RequestBuild(BuildingKinds.Well, WellTile);
             Facility house = s.FacilityAt(HouseTile);

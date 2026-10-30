@@ -26,6 +26,19 @@ namespace DesertSettlement.Core.Config
         public const string CanalEdge = "canalEdge";
         /// <summary>주택(결정 LB1~): 주민이 산다. 주민은 수로 물과 식량을 쓰고 우물·농장·채석장·광산과 공사에 배치된다.</summary>
         public const string House = "house";
+        // 식품 다양화(결정 FD2): 경작지(Farm, 곡물) 외의 식량·기호품·향신료 시설.
+        /// <summary>과수원: 물 + 일손 → 과일.</summary>
+        public const string Orchard = "orchard";
+        /// <summary>목축지: 곡물 + 물 + 일손 → 고기.</summary>
+        public const string Pasture = "pasture";
+        /// <summary>제분소: 곡물 → 빵.</summary>
+        public const string Mill = "mill";
+        /// <summary>양조장: 곡물 → 맥주.</summary>
+        public const string Brewery = "brewery";
+        /// <summary>포도주 공방: 과일 → 와인.</summary>
+        public const string Winery = "winery";
+        /// <summary>허브 농장(산지 전용): 물 + 일손 → 향신료.</summary>
+        public const string HerbFarm = "herbFarm";
 
         /// <summary>모든 시설 종류(카탈로그 순서).</summary>
         public static IReadOnlyList<string> All => FacilityCatalog.All.Select(t => t.Kind).ToList();
@@ -69,10 +82,10 @@ namespace DesertSettlement.Core.Economy
     /// </summary>
     public static class FacilityCatalog
     {
-        public const string Water = "물", Production = "생산", Infrastructure = "기반시설";
+        public const string Water = "물", Production = "생산", Processing = "가공", Infrastructure = "기반시설";
 
         /// <summary>도구 막대 분류 순서.</summary>
-        public static readonly string[] Groups = { Water, Production, Infrastructure };
+        public static readonly string[] Groups = { Water, Production, Processing, Infrastructure };
 
         /// <summary>모든 시설. 순서 = 도구 막대 버튼 순서.</summary>
         public static readonly IReadOnlyList<FacilityType> All = new[]
@@ -80,9 +93,15 @@ namespace DesertSettlement.Core.Economy
             new FacilityType(BuildingKinds.Well, "우물", Water, (0.2f, 0.45f, 0.95f), false, TerrainType.WaterSource),
             new FacilityType(BuildingKinds.CanalEdge, "수로", Water, (0.38f, 0.31f, 0.23f), onEdge: true),
             new FacilityType(BuildingKinds.WaterTank, "물탱크", Water, (0.45f, 0.75f, 0.95f), false, TerrainType.Desert),
-            new FacilityType(BuildingKinds.Farm, "농장", Production, (0.35f, 0.75f, 0.3f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.Farm, "경작지", Production, (0.35f, 0.75f, 0.3f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.Orchard, "과수원", Production, (0.55f, 0.8f, 0.35f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.Pasture, "목축지", Production, (0.72f, 0.82f, 0.45f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.HerbFarm, "허브 농장", Production, (0.4f, 0.62f, 0.45f), false, TerrainType.Obstacle),
             new FacilityType(BuildingKinds.Quarry, "채석장", Production, (0.75f, 0.72f, 0.68f), false, TerrainType.Bedrock),
             new FacilityType(BuildingKinds.Mine, "광산", Production, (0.45f, 0.3f, 0.25f), false, TerrainType.OreVein),
+            new FacilityType(BuildingKinds.Mill, "제분소", Processing, (0.86f, 0.78f, 0.6f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.Brewery, "양조장", Processing, (0.75f, 0.55f, 0.3f), false, TerrainType.Desert),
+            new FacilityType(BuildingKinds.Winery, "포도주 공방", Processing, (0.6f, 0.25f, 0.4f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.House, "주택", Infrastructure, (0.9f, 0.8f, 0.62f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Warehouse, "창고", Infrastructure, (0.7f, 0.5f, 0.3f), false, TerrainType.Desert),
             new FacilityType(BuildingKinds.Market, "시장", Infrastructure, (0.85f, 0.45f, 0.35f), false, TerrainType.Desert),

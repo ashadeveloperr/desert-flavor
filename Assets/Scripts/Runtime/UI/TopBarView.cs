@@ -119,7 +119,7 @@ namespace DesertSettlement.Runtime.UI
             if (s == null || c == null) return;
 
             _cash.text = $"{Paint("자금", Theme.Muted)} {Paint(s.Cash.ToString("0"), s.Cash < 0 ? Theme.Danger : Theme.Text)}";
-            _food.text = $"{Paint("식량", Theme.Muted)} {s.Food:0}/{s.FoodCapacity:0}";
+            _food.text = $"{Paint("식품", Theme.Muted)} {s.PantryUsed:0}/{s.FoodCapacity:0}"; // 식품 창고(결정 FD5), 재화별은 왼쪽 패널 원형 그래프
             _stone.text = $"{Paint("석재", Theme.Muted)} {s.Stone:0}/{s.StoneCapacity:0}";
             if (s.Rules.LaborOn)
             {

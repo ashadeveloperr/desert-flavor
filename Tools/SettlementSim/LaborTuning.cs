@@ -29,6 +29,15 @@ namespace SettlementSim
             ["cheap"] = c => Houses(c, (lv, i) => { lv.Upkeep = new[] { 0.1, 0.2, 0.3 }[i]; lv.Stone = new[] { 4.0, 8, 12 }[i]; }), // 주택 싸게
             ["big"] = c => Houses(c, (lv, i) => lv.Residents = new[] { 8.0, 12, 16 }[i]),  // 주택 정원 크게
             ["free2"] = c => c.Labor.FreeHouses = 2,                                     // 무료 주택 2채
+            // 식품 다양화·생활 수준 후보(결정 FD·LS): 새 시설 유지비·석재 절반, 생활 수준 효과 키우기.
+            ["cheapfood"] = c =>
+            {
+                foreach (string k in new[] { BuildingKinds.Orchard, BuildingKinds.Pasture, BuildingKinds.Mill, BuildingKinds.Brewery, BuildingKinds.Winery, BuildingKinds.HerbFarm })
+                    Levels(c, k, (lv, i) => { lv.Upkeep *= 0.5; lv.Stone = Math.Round((lv.Stone ?? 0) * 0.6); });
+            },
+            ["living2"] = c => { c.Living.ProductionAtMax = 0.2; c.Living.RisePerHour = 3; },
+            ["living3"] = c => { c.Living.ProductionAtMax = 0.3; c.Living.RisePerHour = 3; c.Living.DiversityMultipliers = new List<double> { 0.6, 0.8, 0.9, 1.0, 1.0 }; },
+            ["goods2"] = c => { foreach (GoodsSettings g in c.Goods.Values) g.SellPrice *= 1.5; },
             ["lean"] = c =>                                                               // 필요 인원 더 적게(우물 1 · 농장·채석장 2/3/4 · 광산 4/6/8)
             {
                 Levels(c, BuildingKinds.Well, (lv, i) => lv.Workers = 1);

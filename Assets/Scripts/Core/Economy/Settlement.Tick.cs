@@ -27,8 +27,11 @@ namespace DesertSettlement.Core.Economy
             LastLabor = AssignLabor(); // 완공·착공을 반영한 이번 시간 배치(우물 방출·생산이 쓴다)
             WaterAllocation water = SolveWater();
 
-            double demand = 0, upkeep = 0, food = 0, stone = 0, ore = 0;
+            // 생산: 1차 재화(곡물·과일·향신료)·석재·광물은 바로, 가공 시설은 주민이 먹은 뒤(결정 FD4).
+            double demand = 0, upkeep = 0, food = 0, stone = 0, ore = 0;   // food = 순 식량 가치(곡물 1 기준, 결정 FD7)
             double foodValued = 0, stoneValued = 0, oreValued = 0; // 가동 숙성 반영(경매 가치용)
+            var produced = new double[GoodsCatalog.All.Length];
+            var processors = new List<(Facility f, double capacity, double maturity)>();
             bool wateredFarm = false;
             foreach (Facility facility in _facilities.Values.OrderBy(x => x.Id))
             {
@@ -41,12 +44,22 @@ namespace DesertSettlement.Core.Economy
                     double rate = (lv.WaterDemand ?? 0) > 0 ? water.RateOf(WaterIds.Of(facility)) : 1.0;
                     double maturity = Rules.Maturity(h - facility.CompletedHour);
                     double amount = ProductionPerHour(facility, rate, WorkforceOf(facility));
+                    if (SettlementRules.InputOf(facility.Kind) != null)
+                    {
+                        processors.Add((facility, amount, maturity));
+                        continue;
+                    }
                     switch (SettlementRules.ResourceOf(facility.Kind))
                     {
                         case ResourceKind.Food:
-                            food += amount;
-                            foodValued += amount * maturity;
-                            if (rate > 0) wateredFarm = true;
+                        case ResourceKind.Goods:
+                            Goods g = SettlementRules.GoodsOf(facility.Kind).Value;
+                            AddGoods(g, amount);
+                            produced[(int)g] += amount;
+                            double value = Rules.NetFoodValue(facility.Kind, amount, lv);
+                            food += value;
+                            foodValued += value * maturity;
+                            if (facility.Kind == BuildingKinds.Farm && rate > 0) wateredFarm = true;
                             break;
                         case ResourceKind.Stone:
                             stone += amount;
@@ -64,22 +77,25 @@ namespace DesertSettlement.Core.Economy
                 }
             }
 
+            // 먹기·마시기(주민이 먼저), 그다음 남은 원료로 가공.
             if (Rules.LaborOn) demand = (Residents + Rules.BaseCrew) * Rules.Labor.FoodPerResidentPerHour; // 주민·기본 인부가 먹는다
-            double foodRatio = demand > 0 ? Math.Min(1, (Food + food) / demand) : 1; // 식량 충족률(주민 목표 인원)
+            var eaten = new double[GoodsCatalog.All.Length];
+            double fed = Eat(demand, eaten);
+            double drinkDemand = Rules.LaborOn ? Residents * Rules.Labor.DrinkPerResidentPerHour : 0;
+            double drunkTotal = Drink(drinkDemand, eaten);
+            double deficit = Math.Max(0, demand - fed);
+            double foodRatio = demand > 0 ? Math.Min(1, fed / demand) : 1; // 식량 충족률(주민 목표 인원)
             FoodSatisfaction = foodRatio;
+            foreach ((Facility f, double capacity, double maturity) in processors)
+                Process(f, capacity, produced, ref food, ref foodValued, maturity);
 
             upkeep *= Rules.UpkeepMultiplier;
             Cash -= upkeep;
             if (Cash < 0 && FirstInsolvencyHour == null) FirstInsolvencyHour = h;
 
-            // 저장: 소비 먼저, 남은 생산은 저장 한도까지만 유효.
-            double foodCap = FoodCapacity, stoneCap = StoneCapacity;
-            double deficit = Math.Max(0, demand - (Food + food));
-            double foodAfter = Math.Max(0, Food + food - demand);
-            double foodOverflow = Math.Max(0, foodAfter - foodCap);
-            double foodValid = Math.Max(0, food - foodOverflow);
-            FoodDiscarded += foodOverflow;
-            Food = Math.Min(foodCap, foodAfter);
+            // 저장: 소비 먼저, 넘치면 보관 순위가 낮은 재화부터 버린다. 경매 실적(FoodValid)은 버려진 식량 가치를 뺀다.
+            double stoneCap = StoneCapacity;
+            double foodValid = Math.Max(0, food - DiscardOverflow());
 
             double stoneOverflow = Math.Max(0, Stone + stone - stoneCap);
             double stoneValid = Math.Max(0, stone - stoneOverflow);
@@ -90,7 +106,8 @@ namespace DesertSettlement.Core.Economy
             if (deficit > 1e-9 && FirstShortageHour == null) FirstShortageHour = h;
             if (Rules.LaborOn)
             {
-                UpdateResidents(water, foodRatio); // 물·식량이 모자란 주택에서 주민이 떠나고, 충분하면 돌아온다
+                UpdateLiving(eaten, foodRatio, water); // 생활 수준(향신료 포함, 결정 LS1~·SP1~)
+                UpdateResidents(water, foodRatio);     // 물·식량이 모자란 주택에서 주민이 떠나고, 충분하면 돌아온다(생활 수준이 속도를 바꿈)
             }
             else if (deficit > 1e-9)
             {
@@ -108,9 +125,11 @@ namespace DesertSettlement.Core.Economy
                 Hour = h, Cash = Cash, Food = Food, Stone = Stone, FoodCoefficient = FoodCoefficient,
                 OreProduced = ore, FoodProduced = food, FoodValid = foodValid, StoneProduced = stone, StoneValid = stoneValid,
                 FoodDemand = demand, FoodDeficit = deficit, Upkeep = upkeep,
+                GoodsProduced = produced, GoodsConsumed = eaten, DrinkDemand = drinkDemand, Drunk = drunkTotal,
                 OreValued = oreValued, FoodValued = foodValued, StoneValued = stoneValued,
                 EpidemicSickShare = Disasters?.Epidemic.SickShare ?? 0,
                 Residents = Residents, WorkersAssigned = LastLabor.Assigned, WorkersNeeded = LastLabor.Needed,
+                LivingStandard = LivingStandard, LivingTarget = LivingTarget,
             };
             _history.Add(record);
             RecoverPrices();         // 시장 가격 회복(2026-10-27 이슈 #18)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DesertSettlement.Core.Auction;
@@ -10,14 +11,15 @@ using static DesertSettlement.Runtime.UI.UiKit;
 namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
-    /// 왼쪽 패널(UI2, Frostpunk 식 알림 목록): 경매 일정·예고 입찰자, 파산 경고, 입찰자 혜택, 재해(예고·진행), 그 아래 작업 대기열.
+    /// 왼쪽 패널(UI2, Frostpunk 식 알림 목록): 맨 위 식품 창고 원형 그래프·생활 수준(결정 FD5·LS1~), 경매 일정·예고 입찰자, 파산 경고, 입찰자 혜택, 재해(예고·진행), 그 아래 작업 대기열.
     /// 목록은 내용이 바뀔 때만 다시 만든다(UI5). 비교는 그릴 글자·색·버튼 그 자체로 해서, 비교 키에 값을 빠뜨려 갱신이 안 되는 일이 없다(결정 UK2).
     /// </summary>
     public sealed class AlertsView : IUiView
     {
         private readonly GameUi _ui;
         private readonly Transform _alerts, _queue;
-        private readonly Text _queueTitle;
+        private readonly Text _queueTitle, _pantryTitle, _legend, _living;
+        private readonly PieChart _pie;
         private string _alertKey, _queueKey;
 
         public AlertsView(GameUi ui, Transform canvas)
@@ -31,6 +33,15 @@ namespace DesertSettlement.Runtime.UI
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             FitHeight(panel.gameObject); // 내용만큼만 세로로 늘어난다
+
+            // 식품 창고(결정 FD5): 원형 그래프(한도 대비) + 재화별 수치·비율, 그 아래 생활 수준(결정 LS1~).
+            _pantryTitle = Label(panel, "", Theme.Title, Theme.Accent);
+            HorizontalLayoutGroup pantry = Row(panel, 8);
+            pantry.childAlignment = TextAnchor.MiddleLeft;
+            _pie = Pie(pantry.transform, 64, GoodsCatalog.All.Length);
+            _legend = Label(pantry.transform, "", Theme.Small);
+            _legend.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+            _living = Label(panel, "", Theme.Small);
 
             Label(panel, "알림", Theme.Title, Theme.Accent);
             _alerts = Column(panel, 4).transform;
@@ -50,6 +61,7 @@ namespace DesertSettlement.Runtime.UI
             AuctionManager auctions = _ui.Session.Auctions;
             if (s == null || auctions == null) return;
 
+            RefreshPantry(s);
             List<(string text, Color color)> alerts = BuildAlerts(s, auctions);
             string key = string.Join("\n", alerts.Select(a => a.text + "#" + ColorUtility.ToHtmlStringRGBA(a.color)));
             if (key != _alertKey)
@@ -69,6 +81,34 @@ namespace DesertSettlement.Runtime.UI
             Clear(_queue);
             if (jobs.Count == 0) Label(_queue, "비어 있음 — 아래 도구로 건설을 예약하세요", Theme.Small, Theme.Muted);
             foreach (ConstructionJob job in jobs) AddJobRow(s, job, queued.IndexOf(job));
+        }
+
+        /// <summary>식품 창고 원형 그래프·범례와 생활 수준 줄.</summary>
+        private void RefreshPantry(Settlement s)
+        {
+            double cap = Math.Max(1, s.FoodCapacity);
+            _pantryTitle.text = $"식품 창고  {s.PantryUsed:0}/{s.FoodCapacity:0}";
+            var shares = new List<float>();
+            var colors = new List<Color>();
+            var lines = new List<string>();
+            foreach (Goods g in GoodsCatalog.All)
+            {
+                double n = s.Stock(g);
+                shares.Add((float)(n / cap));
+                colors.Add(FacilityInfo.GoodsColor(g));
+                if (n >= 0.05) lines.Add($"{Paint("■", FacilityInfo.GoodsColor(g))} {GoodsCatalog.Name(g)} {n:0} ({n / Math.Max(1e-9, s.PantryUsed):P0})");
+            }
+            _pie.Set(shares, colors);
+            _legend.text = lines.Count == 0 ? Paint("비어 있음", Theme.Muted) : string.Join("\n", lines);
+
+            if (!s.Rules.LaborOn || s.Rules.Config.Living == null) { _living.gameObject.SetActive(false); return; }
+            _living.gameObject.SetActive(true);
+            LivingBreakdown b = s.LastLiving;
+            Color c = s.LivingStandard >= 1 ? Theme.Good : s.LivingStandard <= -1 ? Theme.Danger : Theme.Text;
+            string why = b.Supply < 0.999 ? Paint($"식량·물 부족(충족 {b.Supply:P0})", Theme.Danger)
+                : b.UpperKinds == 0 ? Paint("곡물만 — 고기·와인·맥주·빵·과일을 먹으면 오름", Theme.Muted)
+                : Paint($"등급 {b.AveragePoints:0} × {b.UpperKinds}종 ×{b.DiversityMultiplier:0.0#}{(b.SpiceCoverage > 0.005 ? $" × 향신료 ×{1 + s.Rules.Config.Living.SpiceBonus * b.SpiceCoverage:0.0#}" : "")}", Theme.Muted);
+            _living.text = $"생활 수준 {Paint(s.LivingStandard.ToString("+0;-0;0"), c)} → 목표 {s.LivingTarget:+0;-0;0}   {why}";
         }
 
         /// <summary>대기열 한 줄의 글자: 종류·시설·목표 레벨·상태(완공 시각 / 석재 부족 / 대기).</summary>

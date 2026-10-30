@@ -24,6 +24,10 @@ namespace DesertSettlement.Core.Config
         public DisasterSettings Disasters { get; set; }
         /// <summary>주택·노동력(결정 LB1~). 없으면 원본 v0.8: 시설이 식량을 먹고(<c>foodUse</c>) 식량 계수 F가 효율에 곱해진다.</summary>
         public LaborSettings Labor { get; set; }
+        /// <summary>재화별 수치(결정 FD1~, 키 = <c>GoodsCatalog.Id</c>: grain·fruit·bread·meat·beer·wine·spice). 없으면 곡물만 있는 것처럼.</summary>
+        public Dictionary<string, GoodsSettings> Goods { get; set; }
+        /// <summary>생활 수준(결정 LS1~). 없거나 노동력이 꺼져 있으면 생활 수준은 0에 머문다.</summary>
+        public LivingSettings Living { get; set; }
 
         /// <summary>시설 종류(<see cref="BuildingKinds"/>) → 레벨별 명세. 인덱스 0 = L1.</summary>
         public Dictionary<string, List<BuildingLevel>> BuildingLevels { get; set; }
@@ -95,6 +99,59 @@ namespace DesertSettlement.Core.Config
         public int FreeHouses { get; set; }
         /// <summary>건설 슬롯 1개당 기본 인부 수. 기본 인부는 공사에만 일하고, 물은 안 쓰고 식량은 먹으며, 떠나지 않는다(막힘 방지).</summary>
         public double CrewPerConstructionSlot { get; set; }
+        /// <summary>주민 1명이 한 시간에 마시는 기호품(맥주·와인 합, 결정 FD3). 없어도 배고프지 않고 생활 수준만 덜 오른다.</summary>
+        public double DrinkPerResidentPerHour { get; set; }
+    }
+
+    /// <summary>
+    /// 생활 수준(−100~100, 결정 LS1~LS7). 매시간 목표를 계산하고 지금 값이 그쪽으로 천천히 움직인다(아무 일 없으면 목표 0).
+    /// 목표 = 먹고 마신 재화의 등급 점수 평균(<c>goods.*.standardPoints</c>) × 상위 재화 종류 수 배율 × 향신료(충족률만큼 1 + <see cref="SpiceBonus"/>), 100에서 자름.
+    /// 식량 충족률과 주택 물 공급률(주민 가중 평균) 중 낮은 쪽이 1보다 모자라면 목표는 음수: −100 × 모자람 ÷ (1 − <see cref="ShortageFloor"/>).
+    /// </summary>
+    public sealed class LivingSettings
+    {
+        /// <summary>목표가 더 높을 때 시간당 오르는 폭.</summary>
+        public double RisePerHour { get; set; }
+        /// <summary>목표가 더 낮을 때 시간당 내려가는 폭.</summary>
+        public double FallPerHour { get; set; }
+        /// <summary>충족률이 이 값 이하면 목표 −100(0.5 = 50%).</summary>
+        public double ShortageFloor { get; set; }
+        /// <summary>이번 시간 먹은 상위 재화 종류 수(1·2·3…)의 배율. 종류 수가 목록보다 많으면 마지막 값.</summary>
+        public List<double> DiversityMultipliers { get; set; }
+        /// <summary>향신료가 다 채워지면 목표에 곱하는 몫(0.5 = ×1.5, 결정 SP2).</summary>
+        public double SpiceBonus { get; set; }
+        /// <summary>상위 재화(등급 점수 > 0) 소비 1단위마다 함께 드는 향신료.</summary>
+        public double SpicePerUpperGoods { get; set; }
+        /// <summary>상위 재화로 셀 최소 비율(먹은 양 중 이 비율보다 적으면 종류 수에 안 넣음).</summary>
+        public double MinShareToCount { get; set; }
+        /// <summary>+100일 때 떠나는 속도 배율(−100이면 그 역수), 돌아오는 속도는 반대(결정 LS5).</summary>
+        public double LeaveFactorAtMax { get; set; }
+        /// <summary>±100일 때 생산 효율 가산(0.1 = ±10%, 결정 LS6).</summary>
+        public double ProductionAtMax { get; set; }
+    }
+
+    /// <summary>
+    /// 재화 하나의 수치(결정 FD1~FD8). 식량은 <see cref="FoodValue"/>·<see cref="EatWeight"/>, 기호품은 <see cref="DrinkWeight"/>로 소비된다.
+    /// 재고가 있는 재화끼리 가중치 비율로 수요를 나눠 먹고(모자란 몫은 다른 재화가 채움), 실제 소비량 = 맡은 몫 ÷ 식량 효율.
+    /// </summary>
+    public sealed class GoodsSettings
+    {
+        /// <summary>1단위가 채우는 식량(곡물 = 1). 식량이 아니면 0.</summary>
+        public double FoodValue { get; set; }
+        /// <summary>식량 소비 가중치(재고가 있는 식량끼리의 비율).</summary>
+        public double EatWeight { get; set; }
+        /// <summary>기호품 소비 가중치(맥주·와인).</summary>
+        public double DrinkWeight { get; set; }
+        /// <summary>생활 수준 등급 점수(1등급 100·2등급 70·3등급 40, 곡물 0, 결정 LS2).</summary>
+        public double StandardPoints { get; set; }
+        /// <summary>식품 창고가 넘칠 때 남기는 순위(클수록 나중에 버림, 결정 FD5).</summary>
+        public int KeepRank { get; set; }
+        /// <summary>시장 판매 기준가(시장이 있을 때 판매만, 결정 FD6). 곡물은 <c>purchase.food</c>를 쓴다.</summary>
+        public double SellPrice { get; set; }
+        /// <summary>판매 압력이 이 값에 이르면 판매가 0(2차 곡선).</summary>
+        public double SellLimit { get; set; }
+
+        public static readonly GoodsSettings Default = new GoodsSettings { FoodValue = 1 };
     }
 
     public sealed class PurchaseSettings
@@ -205,6 +262,8 @@ namespace DesertSettlement.Core.Config
         public double OpenLandWeight { get; set; }
         /// <summary>주민 가치 가중치(결정 CL1). 주민 가치 = 사는 인원 × <c>auctionSeed.valuePerResident</c> × 이 값, 광물 기반 가치에 더한다. 이주 사업가만 크게.</summary>
         public double PopulationWeight { get; set; } = 1;
+        /// <summary>생활 수준 가중치(결정 LS7): 가치 × (1 + 이 값 × 생활 수준 ÷ 100). 이주 사업가·부동산 개발업자만, 나머지 0.</summary>
+        public double LivingStandardWeight { get; set; }
         /// <summary>공사 중 시설 종류별 개발 중 자산 가중치(없는 종류는 1).</summary>
         public Dictionary<string, double> DevelopmentWeights { get; set; }
         /// <summary>현금으로 주는 비율. 1보다 작으면 그만큼 다음 정착지 혜택으로 보상한다.</summary>
@@ -290,6 +349,10 @@ namespace DesertSettlement.Core.Config
         public double? BuildWorkers { get; set; }
         /// <summary>병원 병상 수(결정 EV3). 전염병 환자가 병상만큼 병원에서 빨리 회복한다.</summary>
         public double? Beds { get; set; }
+        /// <summary>과수원·목축지·제분소·양조장·포도주 공방·허브 농장의 시간당 재화 생산(결정 FD2). 경작지는 <see cref="FoodProduction"/>(곡물).</summary>
+        public double? GoodsProduction { get; set; }
+        /// <summary>가공 시설이 재화 1단위를 만드는 데 쓰는 원료(목축지·제분소·양조장 = 곡물, 포도주 공방 = 과일).</summary>
+        public double? InputPerOutput { get; set; }
 
         public double? WaterSupply { get; set; }
         public double? WaterDemand { get; set; }

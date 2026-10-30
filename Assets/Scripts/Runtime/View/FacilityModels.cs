@@ -172,6 +172,12 @@ namespace DesertSettlement.Runtime
                 case BuildingKinds.Warehouse: Warehouse(m, body); break;
                 case BuildingKinds.Market: Market(m, body); break;
                 case BuildingKinds.House: House(m, body); break;
+                case BuildingKinds.Orchard: Orchard(m, body); break;
+                case BuildingKinds.Pasture: Pasture(m, body); break;
+                case BuildingKinds.HerbFarm: HerbFarm(m, body); break;
+                case BuildingKinds.Mill: Mill(m, body); break;
+                case BuildingKinds.Brewery: Brewery(m, body, new Color(0.62f, 0.42f, 0.2f)); break;
+                case BuildingKinds.Winery: Brewery(m, body, new Color(0.45f, 0.15f, 0.3f)); break;
                 default: Part(m, PrimitiveType.Cube, body, new Vector3(0, 0.2f, 0), new Vector3(0.6f, 0.4f, 0.6f)); break;
             }
             Scaffolding(m, kind == BuildingKinds.Farm ? 0.25f : 0.75f);
@@ -360,6 +366,80 @@ namespace DesertSettlement.Runtime
             Part(m, PrimitiveType.Cube, roof, new Vector3(0.26f, 0.23f, 0.32f), new Vector3(0.34f, 0.03f, 0.28f), level: 2);
             Part(m, PrimitiveType.Cube, body, new Vector3(0.24f, 0.36f, -0.08f), new Vector3(0.24f, 0.2f, 0.2f), level: 3);
             Part(m, PrimitiveType.Cube, Cream, new Vector3(-0.2f, 0.24f, -0.2f), new Vector3(0.4f, 0.02f, 0.16f), new Vector3(-15, 0, 0), level: 3);
+        }
+
+        // 과수원(결정 FD2): 흙 바닥 + 나무 넷(줄기 + 몸체 색 수관). L2 다섯째 나무, L3 과일 바구니.
+        private static void Orchard(FacilityModel m, Color body)
+        {
+            Part(m, PrimitiveType.Cube, Soil, new Vector3(0, 0.03f, 0), new Vector3(1.1f, 0.06f, 1.0f));
+            Vector3[] trees = { new Vector3(-0.28f, 0, -0.25f), new Vector3(0.28f, 0, -0.25f), new Vector3(-0.28f, 0, 0.27f), new Vector3(0.28f, 0, 0.27f) };
+            foreach (Vector3 t in trees)
+            {
+                Part(m, PrimitiveType.Cylinder, Wood, t + new Vector3(0, 0.16f, 0), new Vector3(0.06f, 0.12f, 0.06f));
+                Part(m, PrimitiveType.Sphere, body, t + new Vector3(0, 0.36f, 0), new Vector3(0.3f, 0.26f, 0.3f), role: FacilityPartRole.Crop);
+            }
+            Part(m, PrimitiveType.Cylinder, Wood, new Vector3(0, 0.16f, 0.01f), new Vector3(0.06f, 0.12f, 0.06f), level: 2);
+            Part(m, PrimitiveType.Sphere, body, new Vector3(0, 0.38f, 0.01f), new Vector3(0.28f, 0.24f, 0.28f), level: 2);
+            Part(m, PrimitiveType.Cylinder, DarkWood, new Vector3(0.46f, 0.07f, -0.44f), new Vector3(0.14f, 0.06f, 0.14f), level: 3);
+            Part(m, PrimitiveType.Sphere, new Color(0.95f, 0.5f, 0.2f), new Vector3(0.46f, 0.13f, -0.44f), new Vector3(0.12f, 0.06f, 0.12f), level: 3);
+        }
+
+        // 목축지(결정 FD2): 풀밭 + 나무 울타리 + 가축(흰 상자) 셋 + 여물통. L2 가축 하나 더, L3 축사.
+        private static void Pasture(FacilityModel m, Color body)
+        {
+            Part(m, PrimitiveType.Cube, body, new Vector3(0, 0.02f, 0), new Vector3(1.1f, 0.04f, 1.0f));
+            foreach (float z in new[] { -0.46f, 0.46f }) Part(m, PrimitiveType.Cube, Wood, new Vector3(0, 0.1f, z), new Vector3(1.05f, 0.03f, 0.03f));
+            foreach (float x in new[] { -0.52f, 0.52f }) Part(m, PrimitiveType.Cube, Wood, new Vector3(x, 0.1f, 0), new Vector3(0.03f, 0.03f, 0.95f));
+            Vector3[] animals = { new Vector3(-0.2f, 0, -0.1f), new Vector3(0.18f, 0, 0.15f), new Vector3(0.25f, 0, -0.25f) };
+            foreach (Vector3 a in animals)
+            {
+                Part(m, PrimitiveType.Cube, Cream, a + new Vector3(0, 0.12f, 0), new Vector3(0.2f, 0.12f, 0.1f));
+                Part(m, PrimitiveType.Cube, Cream, a + new Vector3(0.12f, 0.16f, 0), new Vector3(0.07f, 0.07f, 0.07f));
+            }
+            Part(m, PrimitiveType.Cube, DarkWood, new Vector3(-0.3f, 0.06f, 0.3f), new Vector3(0.24f, 0.06f, 0.08f));
+            Part(m, PrimitiveType.Cube, Cream, new Vector3(-0.3f, 0.12f, -0.32f), new Vector3(0.2f, 0.12f, 0.1f), level: 2);
+            Part(m, PrimitiveType.Cube, Wood, new Vector3(0.32f, 0.16f, 0.32f), new Vector3(0.3f, 0.32f, 0.26f), level: 3);
+            Part(m, PrimitiveType.Cube, DarkWood, new Vector3(0.32f, 0.34f, 0.32f), new Vector3(0.34f, 0.04f, 0.3f), level: 3);
+        }
+
+        // 허브 농장(결정 SP1): 돌 계단 밭 위 덤불 여섯. L2 말리는 시렁, L3 바구니.
+        private static void HerbFarm(FacilityModel m, Color body)
+        {
+            Part(m, PrimitiveType.Cube, Stone, new Vector3(0, 0.06f, 0.15f), new Vector3(0.9f, 0.12f, 0.4f));
+            Part(m, PrimitiveType.Cube, Stone, new Vector3(0, 0.03f, -0.25f), new Vector3(0.9f, 0.06f, 0.4f));
+            for (int i = 0; i < 3; i++)
+            {
+                float x = -0.28f + 0.28f * i;
+                Part(m, PrimitiveType.Sphere, body, new Vector3(x, 0.17f, 0.15f), new Vector3(0.16f, 0.1f, 0.16f), role: FacilityPartRole.Crop);
+                Part(m, PrimitiveType.Sphere, body, new Vector3(x, 0.11f, -0.25f), new Vector3(0.16f, 0.1f, 0.16f), role: FacilityPartRole.Crop);
+            }
+            Part(m, PrimitiveType.Cube, Wood, new Vector3(0.44f, 0.25f, 0), new Vector3(0.03f, 0.3f, 0.5f), level: 2);
+            Part(m, PrimitiveType.Cylinder, DarkWood, new Vector3(-0.44f, 0.08f, -0.42f), new Vector3(0.12f, 0.05f, 0.12f), level: 3);
+        }
+
+        // 제분소(결정 FD2): 돌 건물 + 지붕 + 앞의 풍차 날개 넷. L2 곡물 자루, L3 옆 창고.
+        private static void Mill(FacilityModel m, Color body)
+        {
+            Part(m, PrimitiveType.Cylinder, body, new Vector3(0, 0.25f, 0.05f), new Vector3(0.42f, 0.25f, 0.42f));
+            Part(m, PrimitiveType.Cylinder, DarkWood, new Vector3(0, 0.53f, 0.05f), new Vector3(0.46f, 0.03f, 0.46f));
+            Part(m, PrimitiveType.Cube, DarkWood, new Vector3(0, 0.58f, 0.05f), new Vector3(0.3f, 0.12f, 0.3f), new Vector3(0, 45, 0));
+            for (int i = 0; i < 4; i++)
+                Part(m, PrimitiveType.Cube, Cream, new Vector3(0, 0.42f, -0.2f), new Vector3(0.06f, 0.5f, 0.01f), new Vector3(0, 0, 45 + 90 * i));
+            Part(m, PrimitiveType.Cube, Cream, new Vector3(0.38f, 0.08f, -0.3f), new Vector3(0.12f, 0.16f, 0.1f), level: 2);
+            Part(m, PrimitiveType.Cube, body, new Vector3(-0.42f, 0.14f, 0.2f), new Vector3(0.24f, 0.28f, 0.34f), level: 3);
+        }
+
+        // 양조장·포도주 공방(결정 FD2): 나무 건물 + 박공지붕 + 앞에 통 셋(통 색으로 구분). L2 통 하나 더, L3 굴뚝.
+        private static void Brewery(FacilityModel m, Color body, Color barrel)
+        {
+            Part(m, PrimitiveType.Cube, body, new Vector3(0, 0.18f, 0.12f), new Vector3(0.76f, 0.36f, 0.5f));
+            Part(m, PrimitiveType.Cube, DarkWood, new Vector3(0, 0.36f, 0.12f), new Vector3(0.8f, 0.36f, 0.36f), new Vector3(45, 0, 0));
+            Part(m, PrimitiveType.Cube, Dark, new Vector3(0, 0.11f, -0.135f), new Vector3(0.16f, 0.22f, 0.02f));
+            foreach (float x in new[] { -0.3f, 0.3f })
+                Part(m, PrimitiveType.Cylinder, barrel, new Vector3(x, 0.09f, -0.34f), new Vector3(0.16f, 0.09f, 0.16f), new Vector3(90, 0, 0));
+            Part(m, PrimitiveType.Cylinder, barrel, new Vector3(0.3f, 0.24f, -0.34f), new Vector3(0.14f, 0.07f, 0.14f), new Vector3(90, 0, 0));
+            Part(m, PrimitiveType.Cylinder, barrel, new Vector3(-0.3f, 0.24f, -0.34f), new Vector3(0.14f, 0.07f, 0.14f), new Vector3(90, 0, 0), level: 2);
+            Part(m, PrimitiveType.Cylinder, Stone, new Vector3(0.28f, 0.55f, 0.3f), new Vector3(0.08f, 0.18f, 0.08f), level: 3);
         }
 
         // 시장(2026-10-27 이슈 #18): 천막 노점 셋(몸체 색 천막 + 나무 기둥 + 좌판 위 상자·자루). 개량 없음.

@@ -29,7 +29,28 @@
     "leavePerHour": 0.04,
     "returnPerHour": 0.02,
     "freeHouses": 1,
-    "crewPerConstructionSlot": 1
+    "crewPerConstructionSlot": 1,
+    "drinkPerResidentPerHour": 0.05
+  },
+  "goods": {
+    "grain": { "foodValue": 1.0, "eatWeight": 1, "standardPoints": 0, "keepRank": 0 },
+    "fruit": { "foodValue": 0.8, "eatWeight": 2, "standardPoints": 40, "keepRank": 1, "sellPrice": 1.5, "sellLimit": 80 },
+    "bread": { "foodValue": 1.5, "eatWeight": 3, "standardPoints": 70, "keepRank": 2, "sellPrice": 2.5, "sellLimit": 60 },
+    "meat": { "foodValue": 2.0, "eatWeight": 3, "standardPoints": 100, "keepRank": 3, "sellPrice": 4, "sellLimit": 50 },
+    "beer": { "drinkWeight": 2, "standardPoints": 70, "keepRank": 2, "sellPrice": 2.5, "sellLimit": 60 },
+    "wine": { "drinkWeight": 1, "standardPoints": 100, "keepRank": 3, "sellPrice": 4, "sellLimit": 40 },
+    "spice": { "keepRank": 3, "sellPrice": 5, "sellLimit": 30 }
+  },
+  "living": {
+    "risePerHour": 3,
+    "fallPerHour": 3,
+    "shortageFloor": 0.5,
+    "diversityMultipliers": [0.4, 0.6, 0.8, 0.9, 1.0],
+    "spiceBonus": 0.5,
+    "spicePerUpperGoods": 0.1,
+    "minShareToCount": 0.03,
+    "leaveFactorAtMax": 0.5,
+    "productionAtMax": 0.2
   },
   "purchase": {
     "food": {
@@ -161,6 +182,7 @@
         "openLandWeight": 0.8,
         "developmentWeights": { "auctionHall": 1.0, "warehouse": 1.0, "hospital": 1.0, "house": 1.5, "mine": 0.3 },
         "populationWeight": 0.6,
+        "livingStandardWeight": 0.2,
         "cashShare": 0.95,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "auctionHall": 1 }
@@ -174,6 +196,7 @@
         "infraWeight": 1.4,
         "developmentWeights": { "house": 2.0, "farm": 0.8, "well": 0.8, "mine": 0.4 },
         "populationWeight": 2.5,
+        "livingStandardWeight": 0.3,
         "cashShare": 0.92,
         "nextSettlementFoodBonus": 0,
         "nextSettlementFreeBuilds": { "house": 1 }
@@ -345,6 +368,36 @@
         "foodUse": 1.2,
         "upkeep": 1.1
       }
+    ],
+    "orchard": [
+      { "stone": 7, "hours": 6, "waterDemand": 25, "goodsProduction": 3, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
+      { "stone": 10, "hours": 8, "waterDemand": 30, "goodsProduction": 4.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.375 },
+      { "stone": 16, "hours": 12, "waterDemand": 35, "goodsProduction": 6.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
+    ],
+    "pasture": [
+      { "stone": 8, "hours": 8, "waterDemand": 30, "goodsProduction": 1.5, "inputPerOutput": 1.5, "workers": 2, "buildWorkers": 2, "upkeep": 0.3 },
+      { "stone": 11, "hours": 9, "waterDemand": 35, "goodsProduction": 2.2, "inputPerOutput": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.425 },
+      { "stone": 17, "hours": 13, "waterDemand": 40, "goodsProduction": 3.2, "inputPerOutput": 1.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.6 }
+    ],
+    "herbFarm": [
+      { "stone": 6, "hours": 6, "waterDemand": 15, "goodsProduction": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.2 },
+      { "stone": 8, "hours": 8, "waterDemand": 20, "goodsProduction": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.3 },
+      { "stone": 13, "hours": 10, "waterDemand": 25, "goodsProduction": 2.2, "workers": 4, "buildWorkers": 3, "upkeep": 0.45 }
+    ],
+    "mill": [
+      { "stone": 7, "hours": 6, "goodsProduction": 2, "inputPerOutput": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
+      { "stone": 10, "hours": 8, "goodsProduction": 3, "inputPerOutput": 1, "workers": 3, "buildWorkers": 2, "upkeep": 0.35 },
+      { "stone": 14, "hours": 10, "goodsProduction": 4.5, "inputPerOutput": 1, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
+    ],
+    "brewery": [
+      { "stone": 7, "hours": 6, "goodsProduction": 1.5, "inputPerOutput": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
+      { "stone": 10, "hours": 8, "goodsProduction": 2.2, "inputPerOutput": 1, "workers": 3, "buildWorkers": 2, "upkeep": 0.35 },
+      { "stone": 14, "hours": 10, "goodsProduction": 3.2, "inputPerOutput": 1, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
+    ],
+    "winery": [
+      { "stone": 8, "hours": 8, "goodsProduction": 1.2, "inputPerOutput": 1.5, "workers": 2, "buildWorkers": 2, "upkeep": 0.3 },
+      { "stone": 11, "hours": 9, "goodsProduction": 1.8, "inputPerOutput": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.4 },
+      { "stone": 17, "hours": 12, "goodsProduction": 2.6, "inputPerOutput": 1.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
     ],
     "quarry": [
       {

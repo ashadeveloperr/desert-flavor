@@ -51,14 +51,17 @@ namespace DesertSettlement.Core.Economy
         public readonly double BaseValue;
         /// <summary>그중 주민 가치 = 사는 인원 × 1인 가치 × 입찰자 주민 가중치(결정 CL1).</summary>
         public readonly double PopulationValue;
-        /// <summary>가치 V = (광물 가치 + 주민 가치) × 식량·석재·인프라·빈 땅 배율.</summary>
+        /// <summary>생활 수준 배율 = 1 + 입찰자 생활 수준 가중치 × 생활 수준 ÷ 100(결정 LS7). 대부분의 입찰자는 1.</summary>
+        public readonly double LivingMultiplier;
+        /// <summary>가치 V = (광물 가치 + 주민 가치) × 식량·석재·인프라·빈 땅·생활 수준 배율.</summary>
         public readonly double Value;
 
         public ValuationResult(string bidderId, double ore, double devOre, double food, double stone,
             double mf, double ms, double mi, double baseValue, double oreRaw = double.NaN, bool stoneFromCapacity = false, double mo = 1,
-            double population = 0)
+            double population = 0, double ml = 1)
         {
             PopulationValue = population;
+            LivingMultiplier = ml;
             BidderId = bidderId;
             OreLast24h = ore;
             OreRawLast24h = double.IsNaN(oreRaw) ? ore : oreRaw;
@@ -71,7 +74,7 @@ namespace DesertSettlement.Core.Economy
             InfraMultiplier = mi;
             OpenLandMultiplier = mo;
             BaseValue = baseValue;
-            Value = baseValue * mf * ms * mi * mo;
+            Value = baseValue * mf * ms * mi * mo * ml;
         }
 
         /// <summary>입찰가 = V × 배율(시세 등).</summary>
@@ -89,6 +92,7 @@ namespace DesertSettlement.Core.Economy
     /// - 석재 배율(다 지은 뒤 채석장 철거 방지): 평가 창 평균과 가동 중 채석장의 생산 능력 중 큰 값.
     /// - 입찰자 성향(결정 A2): 광물 가중치, 배율 가중치(1을 넘는 부분에 곱함), 공사 중 시설 종류별 개발 가중치.
     /// - 주민(결정 CL1·CL2): 사는 인원 × 1인 가치 × 입찰자 주민 가중치를 광물 가치에 더하고, 주택은 거주율만큼 인프라 배율에 들어간다.
+    /// - 생활 수준(결정 LS7): 입찰자 생활 수준 가중치만큼 가치에 1 ± 비율을 곱한다(이주 사업가·부동산 개발업자).
     /// </summary>
     public static class SettlementValuation
     {
@@ -169,7 +173,8 @@ namespace DesertSettlement.Core.Economy
             double population = s.Residents * seed.ValuePerResident * bidder.PopulationWeight;
             double baseValue = seed.OreProduction24hValueFactor * (ore + devOre) * bidder.OreWeight + population;
             double mo = 1 + bidder.OpenLandWeight * (OpenLandShare(s) - seed.OpenLandShareCenter);
-            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity, Math.Max(0, mo), population);
+            double ml = Math.Max(0, 1 + bidder.LivingStandardWeight * s.LivingStandard / 100.0); // 생활 수준(결정 LS7)
+            return new ValuationResult(bidder.Id, ore, devOre, food, stone, mf, ms, mi, baseValue, oreRaw, stoneFromCapacity, Math.Max(0, mo), population, ml);
         }
 
         /// <summary>
@@ -223,14 +228,16 @@ namespace DesertSettlement.Core.Economy
                 }
 
                 ResourceKind resource = SettlementRules.ResourceOf(f.Kind);
-                if (resource == ResourceKind.None) continue;
+                if (resource == ResourceKind.None || resource == ResourceKind.Goods) continue; // 기호품·향신료는 식량 배율에 넣지 않는다(결정 FD7)
                 if (assumed == null) assumed = s.SolveWaterAssumingJobsComplete();
 
                 BuildingLevel lv = s.Rules.Level(f.Kind, s.AssumedLevelOf(f));
                 double rate = (lv.WaterDemand ?? 0) > 0 ? assumed.RateOf(WaterIds.Of(f)) : 1.0;
                 // 완공 가정 물 배분의 기대 생산 × 실적이 없던 시간 × 진행률 × 비율. 막 지은 시설이므로 숙성 시작 비율을 곱한다.
+                double output = s.Rules.MaxOutput(f.Kind, lv);
+                double perHour = resource == ResourceKind.Food ? s.Rules.NetFoodValue(f.Kind, output, lv) : output; // 식량은 순 식량 가치(결정 FD7)
                 double amount = s.Rules.Efficiency(rate, s.ExpectedWorkforce(f, job != null)) * missingHours * progress * ratio * s.Rules.MaturityStartRatio
-                                * s.Rules.MaxOutput(f.Kind, lv);
+                                * perHour;
                 list.Add(new DevelopmentAsset(f.Id, f.Kind,
                     resource == ResourceKind.Ore ? amount : 0, resource == ResourceKind.Food ? amount : 0, resource == ResourceKind.Stone ? amount : 0, 0));
             }

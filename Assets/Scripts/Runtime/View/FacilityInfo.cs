@@ -23,8 +23,8 @@ namespace DesertSettlement.Runtime
                 case TerrainType.WaterSource: return "수원 (우물)";
                 case TerrainType.OreVein: return "광맥 (광산)";
                 case TerrainType.Bedrock: return "암반 (채석장)";
-                case TerrainType.Obstacle: return "장애물 (건설 불가)";
-                default: return "사막 (농장·주택·창고·경매장)";
+                case TerrainType.Obstacle: return "산지 (허브 농장만)";
+                default: return "사막 (경작지·과수원·목축지·주택·가공 시설·창고·경매장)";
             }
         }
 
@@ -69,9 +69,9 @@ namespace DesertSettlement.Runtime
                 case DisasterManager.Sandstorm:
                     return $"수로 손실 ×{s.Disasters.CanalLossFactor:0.##}, 공사 속도 {s.Disasters.ConstructionSpeed:P0}";
                 case DisasterManager.Locusts:
-                    return $"농장 생산 {1 - (1 - c.Locusts.FarmProduction) * r.LocustDamageMultiplier:P0} (시작 때 식량 재고 −{c.Locusts.FoodStockLoss * r.LocustDamageMultiplier:P0})";
+                    return $"작물 시설 생산 {1 - (1 - c.Locusts.FarmProduction) * r.LocustDamageMultiplier:P0} (시작 때 식량 재고 전부 −{c.Locusts.FoodStockLoss * r.LocustDamageMultiplier:P0})";
                 case DisasterManager.Blight:
-                    return $"농장 생산 {1 - (1 - c.Blight.FarmProduction) * r.BlightDamageMultiplier:P0}";
+                    return $"작물 시설 생산 {1 - (1 - c.Blight.FarmProduction) * r.BlightDamageMultiplier:P0}";
                 default:
                     return "";
             }
@@ -110,8 +110,38 @@ namespace DesertSettlement.Runtime
             FacilityOutput o = s.OutputOf(f);
             if (!o.IsProducer) return null;
             string hands = s.Rules.LaborOn ? "일손" : "F";
-            return $"생산: {ResourceName(o.Resource)} {o.ProducedPerHour:0.00}/h (최대 {o.MaxPerHour:0.00} · 물 {o.WaterRate:P0} · {hands} {o.Workforce:P0})";
+            Goods? goods = SettlementRules.GoodsOf(f.Kind);
+            string name = goods.HasValue ? GoodsCatalog.Name(goods.Value) : ResourceName(o.Resource);
+            string line = $"생산: {name} {o.ProducedPerHour:0.00}/h (최대 {o.MaxPerHour:0.00} · 물 {o.WaterRate:P0} · {hands} {o.Workforce:P0})";
+            // 가공 시설: 원료와 지난 시간 원료가 있던 비율(결정 FD4).
+            Goods? input = SettlementRules.InputOf(f.Kind);
+            if (input.HasValue)
+            {
+                double per = s.LevelOf(f).InputPerOutput ?? 0;
+                line += $"\n  원료: {GoodsCatalog.Name(input.Value)} {o.MaxPerHour * per:0.0}/h 필요 · 재고 {s.Stock(input.Value):0}" +
+                        (f.InputRatio < 0.999 ? $" — ⚠ 원료 부족(지난 시간 {f.InputRatio:P0} 가동, 주민이 먼저 먹음)" : "");
+            }
+            return line;
         }
+
+        /// <summary>재화 색(식품 창고 원형 그래프·범례).</summary>
+        public static UnityEngine.Color GoodsColor(Goods g)
+        {
+            switch (g)
+            {
+                case Goods.Grain: return new UnityEngine.Color(0.86f, 0.76f, 0.42f);
+                case Goods.Fruit: return new UnityEngine.Color(0.96f, 0.56f, 0.26f);
+                case Goods.Bread: return new UnityEngine.Color(0.74f, 0.50f, 0.27f);
+                case Goods.Meat: return new UnityEngine.Color(0.82f, 0.32f, 0.30f);
+                case Goods.Beer: return new UnityEngine.Color(0.95f, 0.74f, 0.20f);
+                case Goods.Wine: return new UnityEngine.Color(0.62f, 0.24f, 0.48f);
+                default: return new UnityEngine.Color(0.45f, 0.70f, 0.38f);
+            }
+        }
+
+        /// <summary>식품 창고의 재화별 재고 한 줄(이름 n). 비어 있는 재화는 뺀다.</summary>
+        public static string PantryLine(Settlement s) =>
+            string.Join(" · ", GoodsCatalog.All.Where(g => s.Stock(g) >= 0.05).Select(g => $"{GoodsCatalog.Name(g)} {s.Stock(g):0}"));
 
         /// <summary>사람 수 표시(소수 한 자리, 정수면 정수).</summary>
         public static string People(double n) => n.ToString("0.#");
@@ -160,7 +190,7 @@ namespace DesertSettlement.Runtime
         public static string FarmDeficitText(Settlement s, Facility f)
         {
             FacilityOutput o = s.OutputOf(f);
-            return o.FarmBelowOwnUpkeep ? $"식량 생산 {o.ProducedPerHour:0.00} < 소비 {o.FoodUsePerHour:0.00} (이 농장만으로 적자)" : null;
+            return o.FarmBelowOwnUpkeep ? $"식량 생산 {o.ProducedPerHour:0.00} < 소비 {o.FoodUsePerHour:0.00} (이 경작지만으로 적자)" : null;
         }
 
         /// <summary>

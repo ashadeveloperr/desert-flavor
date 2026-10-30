@@ -80,7 +80,7 @@ namespace DesertSettlement.Core.Economy
         {
             LaborSettings l = Rules.Labor;
             double cap = Rules.Level(BuildingKinds.House, level).Residents ?? 0;
-            double people = assumeComplete ? cap : Math.Min(cap, house.Residents + l.ReturnPerHour * cap);
+            double people = assumeComplete ? cap : Math.Min(cap, house.Residents + l.ReturnPerHour * ReturnFactor * cap);
             return l.WaterPerResidentPerHour * people;
         }
 
@@ -171,8 +171,8 @@ namespace DesertSettlement.Core.Economy
                 double cap = HouseCapacity(house);
                 double waterRate = l.WaterPerResidentPerHour <= 0 ? 1 : water.RateOf(WaterIds.Of(house));
                 double target = cap * Math.Min(waterRate, foodRatio);
-                if (house.Residents > target) house.Residents = Math.Max(target, house.Residents - l.LeavePerHour * cap);
-                else if (house.State == FacilityState.Operating) house.Residents = Math.Min(target, house.Residents + l.ReturnPerHour * cap);
+                if (house.Residents > target) house.Residents = Math.Max(target, house.Residents - l.LeavePerHour * LeaveFactor * cap);
+                else if (house.State == FacilityState.Operating) house.Residents = Math.Min(target, house.Residents + l.ReturnPerHour * ReturnFactor * cap);
             }
         }
 

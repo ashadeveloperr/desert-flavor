@@ -110,7 +110,7 @@ namespace DesertSettlement.Core.Tests
         public void SellingStopsAtZeroPrice()
         {
             Settlement s = NewSettlement(1, r => r.BaseFoodStorage = 500);
-            typeof(Settlement).GetProperty(nameof(Settlement.Food)).SetValue(s, 300.0);
+            s.BuyFood(300); // 식량 = 곡물(결정 FD6), 재고 300
             Assert.AreEqual(100, s.SellFood(300), "압력이 한도(100)에 이르면 값 0 → 멈춤");
             Assert.AreEqual(0, s.NextSellPrice(true), 1e-9);
         }

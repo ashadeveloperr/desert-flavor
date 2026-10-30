@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -190,6 +191,80 @@ namespace DesertSettlement.Runtime.UI
                 UnityEngine.Object.Destroy(child);
             }
         }
+
+        private static Sprite _circle;
+
+        /// <summary>원형 그래프용 원 스프라이트(코드로 한 번 만듦).</summary>
+        private static Sprite Circle
+        {
+            get
+            {
+                if (_circle != null) return _circle;
+                const int n = 128;
+                var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+                var px = new Color32[n * n];
+                float r = n / 2f;
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float d = Mathf.Sqrt((x + 0.5f - r) * (x + 0.5f - r) + (y + 0.5f - r) * (y + 0.5f - r));
+                        px[y * n + x] = new Color32(255, 255, 255, (byte)(255 * Mathf.Clamp01(r - d)));
+                    }
+                tex.SetPixels32(px);
+                tex.Apply();
+                return _circle = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100f);
+            }
+        }
+
+        /// <summary>
+        /// 원형 그래프(결정 FD5 식품 창고 표시). 바닥은 빈 칸 색 원, 그 위에 조각마다 '앞 조각까지의 합'만큼 채운 원을 겹친다(12시부터 시계 방향).
+        /// </summary>
+        public sealed class PieChart
+        {
+            private readonly Image[] _slices;
+
+            internal PieChart(Transform parent, float size, int slices, Color empty)
+            {
+                RectTransform root = Rect("Pie", parent);
+                root.gameObject.AddComponent<LayoutElement>().preferredWidth = size;
+                root.GetComponent<LayoutElement>().preferredHeight = size;
+                root.sizeDelta = new Vector2(size, size);
+                Image Ring(string name, Color c)
+                {
+                    RectTransform r = Rect(name, root);
+                    Stretch(r, Vector2.zero);
+                    Image img = r.gameObject.AddComponent<Image>();
+                    img.sprite = Circle;
+                    img.color = c;
+                    img.type = Image.Type.Filled;
+                    img.fillMethod = Image.FillMethod.Radial360;
+                    img.fillOrigin = (int)Image.Origin360.Top;
+                    img.fillClockwise = true;
+                    img.raycastTarget = false;
+                    return img;
+                }
+                Ring("Empty", empty).fillAmount = 1;
+                _slices = new Image[slices];
+                // 뒤에서부터 그린다: 마지막 조각이 가장 많이 채워지므로 먼저 만들어 뒤에 깔린다.
+                for (int i = slices - 1; i >= 0; i--) _slices[i] = Ring("Slice " + i, Color.white);
+            }
+
+            /// <summary>조각 값(0~1, 원 전체 대비)과 색. 합이 1보다 작으면 나머지는 빈 칸 색.</summary>
+            public void Set(IReadOnlyList<float> shares, IReadOnlyList<Color> colors)
+            {
+                float sum = 0;
+                for (int i = 0; i < _slices.Length; i++)
+                {
+                    float share = i < shares.Count ? Mathf.Max(0, shares[i]) : 0;
+                    sum = Mathf.Min(1, sum + share);
+                    _slices[i].fillAmount = sum;
+                    _slices[i].color = i < colors.Count ? colors[i] : Color.white;
+                    _slices[i].enabled = share > 0;
+                }
+            }
+        }
+
+        public static PieChart Pie(Transform parent, float size, int slices) => new PieChart(parent, size, slices, Theme.PanelLight);
 
         public static string Hex(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c);
 

@@ -153,6 +153,14 @@ namespace DesertSettlement.Core.Config
                 }
             }
 
+            if (config.Goods != null)
+            {
+                foreach (string id in config.Goods.Keys)
+                    if (DesertSettlement.Core.Economy.GoodsCatalog.FromId(id) == null) problems.Add($"goods.{id}: 알 수 없는 재화입니다(grain·fruit·bread·meat·beer·wine·spice).");
+                if (config.Goods.TryGetValue("grain", out GoodsSettings grain) && grain != null && Math.Abs(grain.FoodValue - 1) > 1e-9)
+                    problems.Add("goods.grain.foodValue는 1이어야 합니다(식량 효율의 기준, 원본 v0.8 회귀).");
+            }
+
             LaborSettings labor = config.Labor;
             if (labor != null)
             {

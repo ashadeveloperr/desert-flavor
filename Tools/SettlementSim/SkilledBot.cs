@@ -50,6 +50,8 @@ namespace SettlementSim
                     }
                     var bids = a.CurrentAuction.Bids.ToList();
                     BeforeSell?.Invoke(a.CurrentAuction);
+                    LivingAtSale += s.LivingStandard;
+                    SalesSeen++;
                     a.Sell(bids.IndexOf(bids.OrderByDescending(b => b.Cash).First()));
                     return c.State == CampaignState.Shopping;
                 }
@@ -88,9 +90,23 @@ namespace SettlementSim
         private static void SellOverflow(Settlement s)
         {
             if (!s.HasMarket || s.Rules.Trade == null) return;
+            // 식품 창고가 차면 곡물 밖의 재화부터 판다(재화마다 10개는 남김, 판매가가 기준의 30% 밑이면 멈춤, 결정 FD6).
+            if (s.PantryUsed >= s.FoodCapacity * 0.8)
+            {
+                foreach (Goods g in GoodsCatalog.All.Where(x => x != Goods.Grain))
+                {
+                    double floor = GoodsCatalog.Settings(s.Rules.Config, g).SellPrice * 0.3;
+                    while (s.PantryUsed > s.FoodCapacity * 0.6 && s.Stock(g) >= 11 && s.NextSellPrice(g) >= Math.Max(1e-9, floor))
+                    {
+                        double before = s.Cash;
+                        if (s.SellGoods(g, 1) == 0) break;
+                        SalesIncome += s.Cash - before;
+                    }
+                }
+            }
             void Sell(bool food)
             {
-                double stock = food ? s.Food : s.Stone, cap = food ? s.FoodCapacity : s.StoneCapacity;
+                double stock = food ? s.PantryUsed : s.Stone, cap = food ? s.FoodCapacity : s.StoneCapacity;
                 if (stock < cap * 0.8) return;
                 var p = food ? s.Rules.Config.Purchase.Food : s.Rules.Config.Purchase.Stone;
                 double floor = p.BaseCost * p.SellRatio * 0.3;
@@ -123,8 +139,51 @@ namespace SettlementSim
             if (hungry)
             {
                 Facility farm = Upgradable(s, BuildingKinds.Farm).FirstOrDefault();
-                if (farm != null && Enough(s, farm)) s.RequestUpgrade(farm.Id);
+                if (farm != null && Enough(s, farm)) { s.RequestUpgrade(farm.Id); return; }
             }
+            if (Diet && !hungry) AddDietFacility(s);
+        }
+
+        /// <summary>
+        /// 식품 다양화 측정(결정 FD·LS, `smart diet`): 굶지 않을 때 차례로 하나씩 — 과수원 → 제분소 → 목축지 → 양조장 → 포도주 공방 → 경작지 하나 더.
+        /// 물이 드는 시설은 수로가 닿은 빈 사막에, 가공 시설은 아무 빈 사막에. 이미 지었으면 건너뜀.
+        /// </summary>
+        public static bool Diet;
+        /// <summary>측정 출력용: 매각 순간 생활 수준 합과 매각 수.</summary>
+        public static double LivingAtSale;
+        public static int SalesSeen;
+        public static int DietBuilds;
+
+        private static readonly string[] DietOrder =
+            { BuildingKinds.Orchard, BuildingKinds.Mill, BuildingKinds.Pasture, BuildingKinds.Brewery, BuildingKinds.Winery, BuildingKinds.Farm };
+
+        private static void AddDietFacility(Settlement s)
+        {
+            // 사람처럼 광산을 먼저 지킨다: 광산을 우선 고용(결정 LB7), 광산 물이 모자라면 물을 쓰는 새 시설은 짓지 않는다.
+            foreach (Facility mine in s.OperatingOf(BuildingKinds.Mine))
+                if (!s.HirePriority.Contains(mine.Id)) s.PrioritizeHiring(mine.Id);
+            bool minesDry = s.OperatingOf(BuildingKinds.Mine).Any(m => s.WaterRateOf(m) < 0.99);
+            foreach (string kind in DietOrder)
+            {
+                int want = kind == BuildingKinds.Farm ? 2 : 1;
+                if (s.Facilities.Count(f => f.Kind == kind) >= want) continue;
+                if (s.Stone < (s.Rules.Config.GetLevel(kind, 1).Stone ?? 0) + 10) return;
+                bool wet = (s.Rules.Config.GetLevel(kind, 1).WaterDemand ?? 0) > 0;
+                if (wet && minesDry) continue;
+                HexCoord? site = WetDesert(s, kind, wet);
+                if (site != null && s.RequestBuild(kind, site.Value).Success) DietBuilds++;
+                return;
+            }
+        }
+
+        private static HexCoord? WetDesert(Settlement s, string kind, bool needWater)
+        {
+            var wet = new HashSet<VertexId>(s.Facilities.Where(f => f.Kind == BuildingKinds.CanalEdge && f.IsOperating)
+                .SelectMany(f => new[] { f.Edge.Value.VertexA, f.Edge.Value.VertexB }));
+            List<HexCoord> wells = s.OperatingOf(BuildingKinds.Well).Select(w => w.Tile).ToList();
+            return s.Map.Tiles.Where(t => s.CanBuild(kind, t.Coord).Success && (!needWater || HexTopology.VerticesOf(t.Coord).Any(wet.Contains)))
+                .OrderBy(t => wells.Count == 0 ? 0 : wells.Min(w => w.DistanceTo(t.Coord))).ThenBy(t => t.Coord.Q).ThenBy(t => t.Coord.R)
+                .Select(t => (HexCoord?)t.Coord).FirstOrDefault();
         }
 
         /// <summary>

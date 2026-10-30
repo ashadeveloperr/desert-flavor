@@ -46,7 +46,7 @@ namespace DesertSettlement.Runtime.UI
             _demolish = Btn(actions.transform, "철거", () => Do(f => _ui.Session.Settlement.RequestDemolish(f.Id)), 100);
             _close = Btn(actions.transform, "폐쇄", () => Do(f => _ui.Session.Settlement.SetClosed(f.Id, f.State == FacilityState.Operating)), 110);
 
-            // 우선 고용(결정 LB1~): 사람이 필요한 시설(우물·농장·채석장·광산)만 보인다.
+            // 우선 고용(결정 LB7): 사람이 필요한 시설(레벨표에 workers가 있는 시설)만 보인다.
             HorizontalLayoutGroup hiring = Row(_panel, 6);
             _hireRow = hiring.gameObject;
             _hire = Btn(hiring.transform, "우선 고용", () => Do(f => _ui.Session.Settlement.PrioritizeHiring(f.Id)), 120);

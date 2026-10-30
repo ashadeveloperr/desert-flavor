@@ -29,6 +29,7 @@ namespace DesertSettlement.Core.Progression
         public const string SellStone = "sellStone";        // Amount
         public const string Hire = "hire";                  // Id = 시설 (우선 고용, 결정 LB7)
         public const string Unhire = "unhire";              // Id
+        public const string SellGoods = "sellGoods";        // Kind = 재화 id, Amount (곡물 밖의 재화 판매, 결정 FD6)
         public const string Sell = "sell";                  // Index = 입찰
         public const string Hold = "hold";
         public const string BuyEquipment = "buyEquipment";  // Kind = 장비 id
@@ -164,6 +165,7 @@ namespace DesertSettlement.Core.Progression
                 case GameCommand.SellStone: return s.SellStone(cmd.Amount) > 0;
                 case GameCommand.Hire: return s.PrioritizeHiring(cmd.Id).Success;
                 case GameCommand.Unhire: return s.ClearHiringPriority(cmd.Id).Success;
+                case GameCommand.SellGoods: return GoodsCatalog.FromId(cmd.Kind) is Goods g && s.SellGoods(g, cmd.Amount) > 0;
                 case GameCommand.Sell:
                     if (!c.Auctions.IsOpen) return false;
                     c.Auctions.Sell(cmd.BidIndex);

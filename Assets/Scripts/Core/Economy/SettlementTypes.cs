@@ -66,6 +66,8 @@ namespace DesertSettlement.Core.Economy
         public double TankFlowLastHour { get; internal set; }
         /// <summary>주택에 사는 주민 수(주택만 의미 있음, 결정 LB1~). 소수로 서서히 늘고 준다(화면은 반올림).</summary>
         public double Residents { get; internal set; }
+        /// <summary>가공 시설이 지난 시간 원료가 있어 돌린 비율(1 = 다 돌림, 결정 FD4). 가공 시설만 의미 있음.</summary>
+        public double InputRatio { get; internal set; } = 1;
 
         public bool IsOperating => State == FacilityState.Operating;
         public override string ToString() => $"#{Id} {Kind} L{Level} {State} @{(Edge.HasValue ? Edge.ToString() : Tile.ToString())}";
@@ -122,9 +124,12 @@ namespace DesertSettlement.Core.Economy
     public enum ResourceKind
     {
         None,
+        /// <summary>식량 재화(곡물·과일·빵·고기).</summary>
         Food,
         Stone,
         Ore,
+        /// <summary>기호품·향신료(맥주·와인·향신료).</summary>
+        Goods,
     }
 
     /// <summary>
@@ -180,6 +185,15 @@ namespace DesertSettlement.Core.Economy
         public double EpidemicSickShare;
         /// <summary>노동력(결정 LB1~): 정산 뒤 주택 주민 합, 이 시간 공사·시설에 배치된 인원(기본 인부 포함), 필요 인원 합. 꺼져 있으면 0.</summary>
         public double Residents, WorkersAssigned, WorkersNeeded;
+        /// <summary>
+        /// 재화(결정 FD1~, 인덱스 = <see cref="Goods"/>): 이 시간 만든 양, 먹고 마신 몫(식량은 식량 단위, 기호품은 단위).
+        /// FoodProduced는 순 식량 가치(식량 효율로 환산, 가공에 쓴 원료는 뺌), FoodDemand·FoodDeficit은 식량 단위.
+        /// </summary>
+        public double[] GoodsProduced, GoodsConsumed;
+        /// <summary>정산 끝 생활 수준과 목표(결정 LS1~).</summary>
+        public double LivingStandard, LivingTarget;
+        /// <summary>기호품 수요와 마신 양(주민 × 1인당).</summary>
+        public double DrinkDemand, Drunk;
     }
 
     /// <summary>

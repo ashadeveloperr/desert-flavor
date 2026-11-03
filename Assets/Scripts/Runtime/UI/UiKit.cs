@@ -15,6 +15,8 @@ namespace DesertSettlement.Runtime.UI
         {
             public static readonly Color Panel = new Color(0.10f, 0.09f, 0.08f, 0.86f);
             public static readonly Color PanelLight = new Color(0.20f, 0.18f, 0.15f, 0.92f);
+            /// <summary>결과창처럼 뒤 지도가 비치면 읽기 어려운 창(결정 UV4).</summary>
+            public static readonly Color PanelSolid = new Color(0.12f, 0.11f, 0.09f, 0.98f);
             public static readonly Color Text = new Color(0.94f, 0.91f, 0.85f);
             public static readonly Color Muted = new Color(0.68f, 0.63f, 0.56f);
             public static readonly Color Accent = new Color(0.90f, 0.72f, 0.42f);
@@ -25,7 +27,7 @@ namespace DesertSettlement.Runtime.UI
             public static readonly Color ButtonOn = new Color(0.62f, 0.47f, 0.24f, 1f);
             public static readonly Color Water = new Color(0.42f, 0.78f, 0.92f);
             // 글자 크기(px, 1920×1080 기준). 2026-10-23 검토 UX1: 12px이 작아 Small 12 → 14, Body 14 → 15, Title 16 → 17.
-            public const int Big = 20, Title = 17, Body = 15, Small = 14;
+            public const int Huge = 24, Big = 20, Title = 17, Body = 15, Small = 14;
         }
 
         private static Font _font;
@@ -78,6 +80,10 @@ namespace DesertSettlement.Runtime.UI
             t.color = color ?? Theme.Text;
             t.alignment = align;
             t.supportRichText = true;
+            // 지도 위에서도 읽히게 글자에 옅은 그림자(결정 UV4).
+            var shadow = r.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.65f);
+            shadow.effectDistance = new Vector2(1f, -1f);
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.text = text;

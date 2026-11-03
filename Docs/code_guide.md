@@ -39,8 +39,8 @@ Assets/Scripts/
   Runtime/             DesertSettlement.Runtime — MonoBehaviour
     (루트)               GameSession(진입점, + .Commands 캠페인 명령·.SaveLoad 저장·.FallbackMap 대체 지형), BuildInputController(마우스 도구), StrategyCameraRig(카메라),
                          DebugSessionBuilder(씬 구성 한 벌을 코드로), RecordBook(최고 기록), HudInputBlocker(UI 위 클릭 차단)
-    UI/                  정식 화면(uGUI를 코드로 만든다). GameUi가 뿌리, 구역마다 *View 하나, UiKit = 버튼·글자 만드는 도구 + Theme(색·크기), Hotkeys = 단축키 표
-    View/                맵 표시: SettlementView(타일·시설·수로, + .Lanterns 등불·.Labels 머리 위 글자), FacilityModels(시설 모양), FacilityInfo(한국어 문구),
+    UI/                  정식 화면(uGUI를 코드로 만든다). GameUi가 뿌리, 구역마다 *View 하나, UiKit = 버튼·글자 만드는 도구 + Theme(색·크기), Icons = 코드로 그리는 아이콘, Hotkeys = 단축키 표
+    View/                맵 표시: SettlementView(타일·시설·수로, + .Lanterns 등불·.Labels 머리 위 글자 — 정식 UI보다 아래 캔버스), FacilityModels(시설 모양), FacilityInfo(한국어 문구),
                          DayNightLighting, WaterPathOverlay, BuildableOverlay, DesertBackdrop, WorldVisuals(머티리얼·메시 도우미)
     Tools/               MapSketch(예시 맵 그리기), HexMapDebugView(Gizmo 확인용)
   Editor/              DebugSessionMenu(메뉴·SetupSampleScene), MapSketchEditor

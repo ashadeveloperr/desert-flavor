@@ -46,20 +46,21 @@ namespace DesertSettlement.PlayMode.Tests
             yield return null;
             yield return null;
             Camera cam = _result.MainCamera != null ? _result.MainCamera : Camera.main;
-            Canvas canvas = _result.Session.transform.Find("Game UI")?.GetComponent<Canvas>();
-            CanvasScaler scaler = canvas != null ? canvas.GetComponent<CanvasScaler>() : null;
+            // 화면 위 캔버스(정식 UI·시설 머리 위 글자, 결정 UV1)를 모두 카메라에 그리게 바꿨다가 되돌린다. 정렬 순서가 낮은 캔버스를 더 멀리.
+            var canvases = _result.Session.GetComponentsInChildren<Canvas>(true).Where(c => c.isRootCanvas).OrderByDescending(c => c.sortingOrder).ToList();
+            var saved = canvases.Select(c => (c, c.renderMode, c.GetComponent<CanvasScaler>(), c.GetComponent<CanvasScaler>()?.uiScaleMode)).ToList();
             var rt = new RenderTexture(width, height, 24);
-            RenderMode mode = canvas != null ? canvas.renderMode : RenderMode.ScreenSpaceOverlay;
-            CanvasScaler.ScaleMode scaleMode = scaler != null ? scaler.uiScaleMode : CanvasScaler.ScaleMode.ConstantPixelSize;
             cam.targetTexture = rt;
-            if (canvas != null)
+            for (int i = 0; i < canvases.Count; i++)
             {
+                Canvas canvas = canvases[i];
+                CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
                 // 배치 모드의 가상 화면 크기로 배율을 잡으면 글자가 작게 그려진 뒤 늘어나 번진다 → 캡처 해상도로 실제 게임과 같은 배율을 계산해 고정한다
                 // (ScaleWithScreenSize, 폭·높이 0.5 로그 평균. 1920×1080이면 1, 16:10 1920×1200이면 약 1.054).
                 if (scaler != null) { scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize; scaler.scaleFactor = ScaleFactor(width, height); }
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = cam;
-                canvas.planeDistance = cam.nearClipPlane + 0.5f;
+                canvas.planeDistance = cam.nearClipPlane + 0.5f + 0.1f * i;
             }
             yield return null; // 캔버스 크기·레이아웃을 새 해상도로
             GameUi ui = _result.Session.GetComponent<GameUi>();
@@ -78,8 +79,11 @@ namespace DesertSettlement.PlayMode.Tests
             File.WriteAllBytes(Path.Combine(OutDir, name + ".png"), tex.EncodeToPNG());
 
             cam.targetTexture = null;
-            if (canvas != null) canvas.renderMode = mode;
-            if (scaler != null) scaler.uiScaleMode = scaleMode;
+            foreach ((Canvas c, RenderMode m, CanvasScaler sc, CanvasScaler.ScaleMode? sm) in saved)
+            {
+                c.renderMode = m;
+                if (sc != null && sm.HasValue) sc.uiScaleMode = sm.Value;
+            }
             Object.Destroy(tex);
             rt.Release();
             Object.Destroy(rt);

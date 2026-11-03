@@ -31,10 +31,10 @@ namespace DesertSettlement.Runtime.UI
         public ModalView(GameUi ui, Transform canvas)
         {
             _ui = ui;
-            _shade = Panel("Modal Shade", canvas, new Color(0, 0, 0, 0.45f));
+            _shade = Panel("Modal Shade", canvas, new Color(0, 0, 0, 0.6f));
             Stretch(_shade, Vector2.zero);
 
-            RectTransform window = Panel("Modal Window", _shade, Theme.Panel).Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(WindowWidth, MaxHeight));
+            RectTransform window = Panel("Modal Window", _shade, Theme.PanelSolid).Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(WindowWidth, MaxHeight));
             _window = window;
             RectTransform viewport = Rect("Viewport", window);
             Stretch(viewport, new Vector2(12, 12));

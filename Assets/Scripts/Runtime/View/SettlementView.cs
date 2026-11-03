@@ -181,6 +181,7 @@ namespace DesertSettlement.Runtime
             Settlement s = _session.Settlement;
             UpdateGreening(s);
             UpdateLanternMaterials();
+            UpdateLabels(s); // 시설 머리 위 글자(정식 UI 아래 캔버스)
 
             // 시설 생성·삭제 동기화.
             var alive = new HashSet<int>();

@@ -206,7 +206,7 @@
     ]
   },
   "bidderModifiers": {
-    "_note": "입찰자가 매각 보상으로 주는 영구 모디파이어(결정 BM1~BM4). pool = 입찰자 id(전용) 또는 general(범용). weight = 같은 목록 안에서 뽑힐 비중(기본 1). maxStacks = 캠페인에서 받을 수 있는 최대 횟수(그만큼 받으면 더 뽑히지 않음, 없으면 defaultMaxStacks). 효과 형식은 지역 모디파이어와 같다(곱연산).",
+    "_note": "입찰자가 매각 보상으로 주는 영구 모디파이어(결정 BM1~BM4). pool = 입찰자 id(전용) 또는 general(범용). weight = 같은 목록 안에서 뽑힐 비중(기본 1). maxStacks = 캠페인에서 받을 수 있는 최대 횟수(그만큼 받으면 더 뽑히지 않음, 없으면 defaultMaxStacks). 효과 형식은 지역 모디파이어와 같다(곱연산). startingCash는 캠페인 보유 자금 전체에 곱해 겹치면 복리처럼 불어나므로 1번만(결정 BM5).",
     "exclusiveChance": 0.7,
     "defaultMaxStacks": 5,
     "definitions": [
@@ -239,7 +239,7 @@
       { "id": "locust", "pool": "general", "maxStacks": 3, "effects": {"locustDamageMultiplier": 0.8} },
       { "id": "generalUpkeep", "pool": "general", "effects": {"upkeepMultiplier": 0.97} },
       { "id": "output", "pool": "general", "effects": {"outputMultiplier": 1.03} },
-      { "id": "startingCash", "pool": "general", "effects": {"startingCashMultiplier": 1.05} }
+      { "id": "startingCash", "pool": "general", "maxStacks": 1, "effects": {"startingCashMultiplier": 1.05} }
     ]
   },
   "disasters": {

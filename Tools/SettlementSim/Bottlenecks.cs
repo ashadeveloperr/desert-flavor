@@ -12,7 +12,7 @@ using DesertSettlement.Core.Water;
 
 namespace SettlementSim
 {
-    // 병목·파산 측정: dotnet run --project Tools/SettlementSim -- bottleneck [campaigns=20] [n=40] [maps=5] [diet] [nodisaster] [wells=0] [diag=k] [d.키=값] [m.키=값]
+    // 병목·파산 측정: dotnet run --project Tools/SettlementSim -- bottleneck [campaigns=20] [n=40] [maps=5] [hold=k] [sc.mult=x sc.stacks=k sc.bonus=x] [diet] [nodisaster] [wells=0] [diag=k] [d.키=값] [m.키=값]
     // 숙련 봇 캠페인(`-- mods campaign … smart`과 같은 규칙, 캠페인 시드 1~campaigns)을 정착지 n개까지 돌리며
     // 스테이지마다 본선이 고르지 않은 후보 맵 maps곳(기본 5)도 같은 자금·모디파이어로 플레이해 표본을 늘린다(본선 진행은 그대로).
     // 매 시간 어떤 병목에 걸려 있는지 세고, 정착지(스테이지)마다 순이익·최저 자금·광산 물 공급률·긴급 매각·파산을 기록한다.
@@ -42,6 +42,8 @@ namespace SettlementSim
             // 시간 구간(24시간)별 병목 시간 수와 그 구간의 시간 수.
             public readonly Dictionary<int, int[]> BySegment = new Dictionary<int, int[]>();
             public readonly Dictionary<int, int> SegmentHoursSeen = new Dictionary<int, int>();
+            // 하루(24시간)가 끝날 때의 중립 경매 가치·자금과 그 하루의 운영비 합(보유 곡선, hold=k).
+            public readonly Dictionary<int, double> DayValue = new Dictionary<int, double>(), DayCash = new Dictionary<int, double>(), DayUpkeep = new Dictionary<int, double>();
             public double Share(int i) => Hours == 0 ? 0 : (double)Counts[i] / Hours;
             public string Main()
             {
@@ -104,7 +106,10 @@ namespace SettlementSim
                 return l.Count == 0 ? $"D{b}:-" : $"D{b}:{l.Average(x => x.Profit):+0;-0;0}/{l.Sum(x => x.MineWaterSum) / Math.Max(1, l.Sum(x => x.MineWaterSamples)):P0}"
                     + $"/실패{(double)all.Count(x => x.Failed || x.End == "긴급") / all.Count:P0}({all.Count})";
             }));
-            return $"■ 요약: 파산 {fails.Count}/{campaigns} · 파산 중앙값 {median} · 처음 평균 적자 #{firstLoss} · 끝까지 {stages.Count(x => !x.Side && x.N == stages.Max(y => y.N))}개 · D 구간 순이익/광산 물/긴급·실패율(표본 수) {bands}";
+            var main = stages.Where(x => !x.Side).ToList();
+            var ends = main.GroupBy(x => x.Campaign).Select(g => g.OrderBy(x => x.N).Last()).Where(x => !x.Failed).Select(x => x.StartCash + x.Profit).OrderBy(x => x).ToList();
+            string runaway = $" · 끝까지 간 캠페인 끝 자금 {(ends.Count == 0 ? "-" : $"중앙 {ends[ends.Count / 2]:0} 최대 {ends.Last():0}")} · 본선 최고 D {main.Max(x => x.D):0.0}";
+            return $"■ 요약: 파산 {fails.Count}/{campaigns}{runaway} · 파산 중앙값 {median} · 처음 평균 적자 #{firstLoss} · 끝까지 {stages.Count(x => !x.Side && x.N == stages.Max(y => y.N))}개 · D 구간 순이익/광산 물/긴급·실패율(표본 수) {bands}";
         }
 
         /// <summary>
@@ -126,7 +131,14 @@ namespace SettlementSim
                     if (hit[i]) { st.Counts[i]++; segCounts[i]++; }
                 foreach (Facility m in x.OperatingOf(BuildingKinds.Mine)) { st.MineWaterSum += x.WaterRateOf(m); st.MineWaterSamples++; }
                 st.Hours++;
-                st.Upkeep += x.History[x.History.Count - 1].Upkeep;
+                double upkeep = x.History[x.History.Count - 1].Upkeep;
+                st.Upkeep += upkeep;
+                st.DayUpkeep[seg] = (st.DayUpkeep.TryGetValue(seg, out double u) ? u : 0) + upkeep;
+                if (x.CurrentHour % SegmentHours == 0)
+                {
+                    st.DayValue[seg] = SettlementValuation.Evaluate(x, x.CurrentHour).Value;
+                    st.DayCash[seg] = x.Cash;
+                }
                 if (x.Cash < st.MinCash) { st.MinCash = x.Cash; st.MinCashHour = x.CurrentHour; }
             };
             int holdsBefore = SkilledBot.Holds, salesBefore = c.Sales.Count;
@@ -150,7 +162,7 @@ namespace SettlementSim
         /// 곁가지 표본: 매각 직후(행선지 선택) 캠페인을 복제해, 본선이 고른 후보(pick) 말고 다른 후보 맵 count곳에 각각 들어가 플레이한다.
         /// 후보 수(regionChoices)를 잠시 늘려 맵을 더 받는다 — 앞쪽 후보는 늘려도 같으므로 본선은 바뀌지 않는다.
         /// </summary>
-        private static List<StageRecord> PlaySideMaps(Campaign c, int pick, int count, int seed, int n)
+        private static List<StageRecord> PlaySideMaps(Campaign c, int pick, int count, int seed, int n, int holds)
         {
             var result = new List<StageRecord>();
             ProceduralMapConfig proc = (ProceduralMapConfig)typeof(Campaign).GetField("_procedural", PrivateField).GetValue(c);
@@ -162,12 +174,38 @@ namespace SettlementSim
                 foreach (int i in Enumerable.Range(0, count + 1).Where(i => i != pick).Take(count))
                 {
                     Campaign fork = Fork(c);
-                    fork.StartNextSettlement(i);
-                    result.Add(PlayStage(fork, seed, n, side: true));
+                    Enter(fork, i);
+                    SkilledBot.ForceHolds = holds;
+                    try { result.Add(PlayStage(fork, seed, n, side: true)); }
+                    finally { SkilledBot.ForceHolds = -1; }
                 }
             }
             finally { proc.RegionChoices = choices; }
             return result;
+        }
+
+        /// <summary>
+        /// 보유 곡선(hold=k): D 구간마다 하루가 끝날 때 (중립 경매 가치 + 자금 − 시작 자금)의 평균과 그 하루의 운영비.
+        /// 이 값이 가장 큰 날이 '팔기 가장 좋은 때'의 대략값이다(실제 입찰가 = 가치 × 입찰자 배율). 하루 끝까지 버틴 표본만 센다.
+        /// </summary>
+        private static void HoldCurve(List<StageRecord> side)
+        {
+            Line("");
+            Line("■ 보유 곡선(곁가지 표본) — 날마다 '가치 + 자금 − 시작 자금' 평균 [그날 운영비] (표본 수), ▲ = 가장 큰 날");
+            foreach (var band in side.GroupBy(x => (int)Math.Floor(x.D)).OrderBy(g => g.Key))
+            {
+                int maxDay = band.SelectMany(x => x.DayValue.Keys).DefaultIfEmpty(-1).Max();
+                var cells = new List<(double Net, double Upkeep, int N)>();
+                for (int d = 0; d <= maxDay; d++)
+                {
+                    var l = band.Where(x => x.DayValue.ContainsKey(d)).ToList();
+                    cells.Add(l.Count == 0 ? (double.NaN, 0, 0)
+                        : (l.Average(x => x.DayValue[d] + x.DayCash[d] - x.StartCash), l.Average(x => x.DayUpkeep.TryGetValue(d, out double u) ? u : 0), l.Count));
+                }
+                int peak = cells.Count == 0 ? -1 : cells.Select((c, i) => (c, i)).Where(t => t.c.N >= 3).OrderByDescending(t => t.c.Net).Select(t => t.i).DefaultIfEmpty(-1).First();
+                Line($"  D{band.Key}~{band.Key + 1} ({band.Count()}곳, 긴급·실패 {(double)band.Count(x => x.Failed || x.End == "긴급") / band.Count():P0}): "
+                     + string.Join(" ", cells.Select((c, i) => c.N == 0 ? $"{i + 1}일 -" : $"{i + 1}일 {c.Net:+0;-0;0}{(i == peak ? "▲" : "")}[{c.Upkeep:0}]({c.N})")));
+            }
         }
 
         /// <summary>diag=k: 매각 직전 시설·광산 물·우물 물 흐름·걸린 효과.</summary>
@@ -182,6 +220,40 @@ namespace SettlementSim
             Line($"         우물 L{string.Join(",", s.OperatingOf(BuildingKinds.Well).Select(f => f.Level))} 공급 {w.TotalSupply:0} 방출 {w.TotalReleased:0} 전달 {w.TotalDelivered:0} 손실 {w.TotalLoss:0}"
                  + $" · 물 쓰는 시설 {string.Join(",", s.Facilities.Where(f => f.IsOperating && (s.LevelOf(f).WaterDemand ?? 0) > 0).GroupBy(f => f.Kind).Select(g => $"{g.Key}{g.Count()}({g.Sum(f => s.LevelOf(f).WaterDemand ?? 0):0})"))}"
                  + $" · 효과 {s.Rules.AppliedEffects.Describe()}");
+        }
+
+        /// <summary>
+        /// 시작 자금 모디파이어 후보(sc.*): sc.mult=배율, sc.stacks=최대 중첩, sc.bonus=X(배율 대신 받은 개수 × X를 시작 자금에 더함).
+        /// 머리글에 붙일 글을 돌려준다. 고정 보너스는 측정용으로 정착지 자금을 반사로 더한다(<see cref="Enter"/>).
+        /// </summary>
+        private static string OverrideStartingCash(EconomyConfig config, string[] args)
+        {
+            BidderModifierDefinition def = config.BidderModifiers?.Definitions.FirstOrDefault(d => d.Id == "startingCash");
+            var applied = new List<string>();
+            foreach (string a in args.Where(a => a.StartsWith("sc.")))
+            {
+                string[] kv = a.Substring(3).Split('=');
+                double v = double.Parse(kv[1], CultureInfo.InvariantCulture);
+                if (def == null) throw new ArgumentException("startingCash 모디파이어가 없습니다.");
+                if (kv[0] == "mult") def.Effects.StartingCashMultiplier = v;
+                else if (kv[0] == "stacks") def.MaxStacks = (int)v;
+                else if (kv[0] == "bonus") { StartingCashBonus = v; def.Effects.StartingCashMultiplier = 1; }
+                else throw new ArgumentException($"알 수 없는 키: {a}");
+                applied.Add(a);
+            }
+            return applied.Count == 0 ? "" : ", " + string.Join(" ", applied);
+        }
+
+        private static double StartingCashBonus;
+
+        /// <summary>다음 정착지에 들어간다. sc.bonus 후보면 받은 시작 자금 모디파이어 개수 × 보너스를 정착지 자금에 더한다.</summary>
+        private static void Enter(Campaign c, int offer)
+        {
+            Settlement s = c.StartNextSettlement(offer);
+            int owned = c.Modifiers.Count(m => m.Id == "startingCash");
+            if (StartingCashBonus <= 0 || owned == 0) return;
+            var cash = typeof(Settlement).GetProperty(nameof(Settlement.Cash));
+            cash.SetValue(s, s.Cash + StartingCashBonus * owned);
         }
 
         private const System.Reflection.BindingFlags PrivateField = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
@@ -212,12 +284,14 @@ namespace SettlementSim
             SkilledBot.Diet = args.Contains("diet");
             DiagLeft = int.Parse(Arg("diag") ?? "0", inv);
             SkilledBot.UpgradeWells = Arg("wells") != "0";
-            string overrides = OverrideProcedural(proc, args);
+            string overrides = OverrideProcedural(proc, args) + OverrideStartingCash(config, args);
             int sideMaps = int.Parse(Arg("maps") ?? "5", inv);
+            // hold=k : 곁가지 표본은 정기 경매를 k번 보류한 뒤 판다(-1 = 숙련 봇 판단). 보유를 오래 끌 때 가치·자금이 어떻게 가는지 본다.
+            int holdSide = int.Parse(Arg("hold") ?? "-1", inv);
             var maps = LoadMaps();
 
             Header($"병목·파산 — 숙련 봇 캠페인 {campaigns}개 × 정착지 최대 {maxN}개 (DPerSettlement {proc.Difficulty.DPerSettlement}, CashPerD {proc.Difficulty.CashPerD}"
-                   + $"{(SkilledBot.Diet ? ", 식품 시설" : "")}{(SkilledBot.UpgradeWells ? "" : ", 우물 개량 안 함")}{(config.Disasters == null ? ", 재해 없음" : "")}{overrides}, 스테이지마다 본선 + 다른 후보 맵 {sideMaps}곳)");
+                   + $"{(SkilledBot.Diet ? ", 식품 시설" : "")}{(SkilledBot.UpgradeWells ? "" : ", 우물 개량 안 함")}{(config.Disasters == null ? ", 재해 없음" : "")}{overrides}, 스테이지마다 본선 + 다른 후보 맵 {sideMaps}곳{(holdSide >= 0 ? $"(정기 경매 {holdSide}번 보류)" : "")})");
             var stages = new List<StageRecord>();
             for (int seed = 1; seed <= campaigns; seed++)
             {
@@ -242,8 +316,8 @@ namespace SettlementSim
                     else
                     {
                         int pick = BidderChoice.PickOffer(c);
-                        stages.AddRange(PlaySideMaps(c, pick, sideMaps, seed, n + 1));
-                        c.StartNextSettlement(pick);
+                        stages.AddRange(PlaySideMaps(c, pick, sideMaps, seed, n + 1, holdSide));
+                        Enter(c, pick);
                     }
                 }
                 Line(line.ToString());
@@ -297,6 +371,7 @@ namespace SettlementSim
                      + $" · 표본 {sample.Count,3}곳 {(alive.Count == 0 ? 0 : alive.Average(x => x.Profit)),6:+0;-0;0} 긴급·실패 {(double)sample.Count(x => x.Failed || x.End == "긴급") / sample.Count,4:P0}");
             }
 
+            if (holdSide >= 0) HoldCurve(stages.Where(x => x.Side).ToList());
             Line("");
             Line(Summary(stages, campaigns));
             Line("");

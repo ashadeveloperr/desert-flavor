@@ -36,6 +36,8 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "botdiag") return BotDiagnose(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "funboost") return FunBoost(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "labor") return LaborTuning(args.Skip(1).ToArray());
+            // dotnet run --project Tools/SettlementSim -- selltime : 매각 시점별 이익 곡선(SellTiming.cs).
+            if (args.Length > 0 && args[0] == "selltime") return SellTiming(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "qa") return BalanceQa(args.Skip(1).ToArray());
 
             EconomyRegression();

@@ -163,12 +163,13 @@ namespace DesertSettlement.Core.Tests
         {
             Settlement s = NewTown();
             DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
-            while (!d.Epidemic.Active || d.Epidemic.Sick < 3) s.AdvanceHour();
+            while (!d.Epidemic.Active || d.Epidemic.SickPeople < 3) s.AdvanceHour();
             s.AdvanceHour();
             LaborAssignment labor = s.LastLabor;
             Assert.Greater(labor.Sick, 2);
             Assert.AreEqual(labor.Residents - labor.Sick, labor.IdleResidents, 1e-9, "일터가 없으면 아프지 않은 주민만 남는다");
-            Assert.AreEqual(d.Epidemic.Sick, labor.Sick, 1e-6, "화면 배치(LastLabor)는 정산이 끝난 뒤의 환자 수로 다시 계산된다");
+            Assert.AreEqual(d.Epidemic.SickPeople, labor.Sick, 1e-6, "화면 배치(LastLabor)는 정산이 끝난 뒤의 환자 수로 다시 계산된다");
+            Assert.AreEqual(Math.Round(labor.Sick), labor.Sick, 1e-12, "환자도 온전한 사람 수(결정 PI1)");
         }
 
         [Test]

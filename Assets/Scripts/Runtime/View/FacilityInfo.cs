@@ -144,8 +144,28 @@ namespace DesertSettlement.Runtime
         public static string PantryLine(Settlement s) =>
             string.Join(" · ", GoodsCatalog.All.Where(g => s.Stock(g) >= 0.05).Select(g => $"{GoodsCatalog.Name(g)} {s.Stock(g):0}"));
 
-        /// <summary>사람 수 표시(소수 한 자리, 정수면 정수).</summary>
-        public static string People(double n) => n.ToString("0.#");
+        /// <summary>
+        /// tile의 kind 시설이 받는(지으면 받을) 인접 보너스 한 줄(결정 AJ1~AJ4). 받을 수 있는 보너스가 없는 종류면 null.
+        /// 창고는 정착지 전체 부패율을 보여 준다(지을 때는 지은 뒤가 아니라 지금 값).
+        /// </summary>
+        public static string AdjacencyLine(Settlement s, string kind, HexCoord tile)
+        {
+            AdjacencySettings a = s.Rules.Adjacency;
+            if (kind == BuildingKinds.Warehouse && s.Rules.Spoilage != null)
+                return $"창고 밀집: 식품 부패 {s.FoodSpoilagePerDay:0.##%}/일 (창고 평균 이웃 {s.AverageWarehouseNeighbors():0.#}칸, 창고끼리 붙이면 줄어듦)";
+            if (a == null) return null;
+            var parts = new List<string>();
+            if (a.ClusterKinds != null && a.ClusterKinds.Contains(kind))
+                parts.Add($"생산 +{s.ClusterBonus(kind, tile):P0}(같은 시설 {s.NeighborCount(tile, kind)}칸 × {a.ClusterOutputPerNeighbor:P0})");
+            if (a.InputSources != null && a.InputSources.TryGetValue(kind, out string source))
+                parts.Add($"원료 −{s.InputSaving(kind, tile):P0}({KindName(source)} {s.NeighborCount(tile, source)}칸 × {a.InputSavingPerNeighbor:P0}, 최대 {a.InputSavingMax:P0})");
+            if (kind == BuildingKinds.House)
+                parts.Add($"유입 +{s.HouseArrivalBonus(tile):P0}(주택 {s.NeighborCount(tile, kind)}칸 × {a.HouseArrivalPerNeighbor:P0})");
+            return parts.Count == 0 ? null : "인접 보너스: " + string.Join(" · ", parts);
+        }
+
+        /// <summary>사람 수 표시(온전한 사람 수, 결정 PI1).</summary>
+        public static string People(double n) => n.ToString("0");
 
         /// <summary>완공까지 남은 시간(분 단위, 예: 4시간 30분). 공사가 늦어지면 늘어난다(결정 JQ4).</summary>
         public static string TimeLeft(Settlement s, ConstructionJob job)
@@ -179,9 +199,11 @@ namespace DesertSettlement.Runtime
             double cap = s.HouseCapacity(f);
             double food = s.FoodSatisfaction;
             double water = s.HouseWaterRate(f);
-            string trend = s.IsLeaving(f) ? " — ⚠ 떠나는 중"
+            // 주민 수는 온전한 사람 수, 진행도는 다음 1명이 들어오거나 떠나기까지(결정 PI1)
+            string trend = s.IsLeaving(f) ? $" — ⚠ 떠나는 중(다음 1명 떠나기까지 {Math.Max(0, f.Residents - f.ResidentFill):P0})"
                 : water < 0.999 && s.StartGraceHoursLeft > 0 ? $" — 개척 유예 {s.StartGraceHoursLeft:0}시간: 물이 없어도 아직 떠나지 않음"
-                : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating ? $" — 들어오는 중(시간당 +{s.ArrivalPerHour(cap):0.0#}명, 생활 수준 ×{s.ReturnFactor:0.0#})" : "";
+                : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating
+                    ? $" — 들어오는 중(다음 1명까지 {Math.Max(0, f.ResidentFill - f.Residents):P0}, 시간당 +{s.ArrivalPerHour(f):0.0#}명분, 생활 수준 ×{s.ReturnFactor:0.0#})" : "";
             return $"주민: {People(f.Residents)} / {People(cap)}명 (물 {water:P0} · 식량 {food:P0}){trend}";
         }
 
@@ -191,7 +213,7 @@ namespace DesertSettlement.Runtime
             DisasterManager d = s.Disasters;
             if (d == null || !d.Epidemic.Active) return null;
             EpidemicState ep = d.Epidemic;
-            if (f.Kind == BuildingKinds.House) return $"전염병: 정착지 주민 {ep.SickShare:P0}가 아파 일하지 못함";
+            if (f.Kind == BuildingKinds.House) return $"전염병: 정착지 주민 {ep.SickPeopleShare:P0}가 아파 일하지 못함";
             if (f.Kind == BuildingKinds.Hospital) return $"전염병: 환자 {ep.Hospitalized:0.#}명 입원 / 병상 {d.HospitalBeds:0} (집보다 빨리 회복)";
             return null;
         }
@@ -244,6 +266,8 @@ namespace DesertSettlement.Runtime
             if (workers != null) lines.Add(workers);
             string house = HouseLine(s, f);
             if (house != null) lines.Add(house);
+            string adjacency = f.Edge.HasValue ? null : AdjacencyLine(s, f.Kind, f.Tile);
+            if (adjacency != null) lines.Add(adjacency);
             string epidemic = EpidemicLine(s, f);
             if (epidemic != null) lines.Add(epidemic);
 

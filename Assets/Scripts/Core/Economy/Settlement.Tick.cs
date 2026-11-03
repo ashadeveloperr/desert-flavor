@@ -88,6 +88,7 @@ namespace DesertSettlement.Core.Economy
             FoodSatisfaction = foodRatio;
             foreach ((Facility f, double capacity, double maturity) in processors)
                 Process(f, capacity, produced, ref food, ref foodValued, maturity);
+            double spoiled = Spoil(); // 식품 부패(창고 밀집이 줄임, 결정 DC1·DC2)
 
             upkeep *= Rules.UpkeepMultiplier;
             Cash -= upkeep;
@@ -128,10 +129,10 @@ namespace DesertSettlement.Core.Economy
                 FoodDemand = demand, FoodDeficit = deficit, Upkeep = upkeep,
                 GoodsProduced = produced, GoodsConsumed = eaten, DrinkDemand = drinkDemand, Drunk = drunkTotal,
                 OreValued = oreValued, FoodValued = foodValued, StoneValued = stoneValued,
-                EpidemicSickShare = Disasters?.Epidemic.SickShare ?? 0,
+                EpidemicSickShare = Disasters?.Epidemic.SickPeopleShare ?? 0,
                 Residents = Residents, WorkersAssigned = LastLabor.Assigned, WorkersNeeded = LastLabor.Needed,
                 LivingStandard = LivingStandard, LivingTarget = LivingTarget,
-                AutoSaleIncome = _autoIncomeSinceRecord, Discarded = _discardedSinceRecord,
+                AutoSaleIncome = _autoIncomeSinceRecord, Discarded = _discardedSinceRecord, Spoiled = spoiled,
             };
             _autoIncomeSinceRecord = 0;
             _discardedSinceRecord = 0;

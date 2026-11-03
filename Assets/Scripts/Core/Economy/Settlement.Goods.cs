@@ -10,6 +10,7 @@ namespace DesertSettlement.Core.Economy
     /// - 먹기(<see cref="Eat"/>): 재고가 있는 식량끼리 소비 가중치 비율로 식량 수요를 나눠 먹고, 모자란 몫은 다른 식량이 채운다. 실제 소비량 = 맡은 몫 ÷ 식량 효율.
     /// - 마시기: 기호품도 같은 방식(1인당 수요, 없어도 배고프지 않음).
     /// - 가공(<see cref="Process"/>): 주민이 먼저 먹고 남은 원료로 목축지·제분소·양조장·포도주 공방이 만든다(시설 번호 순).
+    /// - 부패(<see cref="Spoil"/>): 가공 뒤 모든 식품 재고가 하루 부패율의 1/24씩 준다(창고 밀집이 줄임, 결정 DC1·DC2).
     /// - 넘침(<see cref="SellOrDiscardOverflow"/>): 창고가 넘치면 보관 순위가 낮은 재화(곡물 → 과일 → 빵·맥주 → 고기·와인·향신료)부터
     ///   시장에 자동으로 팔고(결정 AS1, 시장이 있을 때), 팔지 못한 몫은 버린다.
     /// 원본 v0.8(곡물만)과 같은 결과가 나오도록 곡물 하나일 때는 예전 '식량' 계산과 같다. 정착지 전체 설명은 Settlement.cs.
@@ -88,22 +89,39 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>
         /// 가공 시설: 시간당 능력(최대 × 물 × 일손 × 재해) 중 남은 원료로 만들 수 있는 만큼 만든다(시설 번호 순).
+        /// 원료 비율은 레벨표 inputPerOutput × (1 − 연계 원료 절약, <see cref="InputSaving"/>).
         /// 만든 양을 produced에 더하고, 원료가 모자란 비율을 시설에 남긴다(화면 표시).
         /// </summary>
         private void Process(Facility f, double capacity, double[] produced, ref double netFood, ref double netFoodValued, double maturity)
         {
             Goods output = SettlementRules.GoodsOf(f.Kind).Value;
             Goods input = SettlementRules.InputOf(f.Kind).Value;
-            double per = LevelOf(f).InputPerOutput ?? 0;
+            double saving = InputSaving(f.Kind, f.Tile); // 옆 원료 시설이 원료를 아낀다(결정 AJ2)
+            double per = (LevelOf(f).InputPerOutput ?? 0) * (1 - saving);
             double made = capacity;
             if (per > 0) made = Math.Min(capacity, _stock[(int)input] / per);
             f.InputRatio = capacity > 1e-12 ? made / capacity : 1;
             _stock[(int)input] -= made * per;
             AddGoods(output, made);
             produced[(int)output] += made;
-            double net = Rules.NetFoodValue(f.Kind, made, LevelOf(f));
+            double net = Rules.NetFoodValue(f.Kind, made, LevelOf(f), saving);
             netFood += net;
             netFoodValued += net * maturity;
+        }
+
+        /// <summary>식품 부패(결정 DC1): 모든 식품 재고가 지금 부패율(<see cref="FoodSpoilagePerDay"/>) ÷ 24만큼 준다. 썩은 양(재화 단위 합)을 돌려준다.</summary>
+        private double Spoil()
+        {
+            double rate = FoodSpoilagePerDay / 24.0;
+            if (rate <= 0) return 0;
+            double total = 0;
+            foreach (Goods g in GoodsCatalog.All)
+            {
+                double lost = _stock[(int)g] * rate;
+                _stock[(int)g] -= lost;
+                total += lost;
+            }
+            return total;
         }
 
         /// <summary>

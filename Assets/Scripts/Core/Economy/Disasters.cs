@@ -42,8 +42,12 @@ namespace DesertSettlement.Core.Economy
         public bool Active { get; internal set; }
         /// <summary>주민 수(마지막 갱신 기준).</summary>
         public double Residents { get; internal set; }
-        /// <summary>아픈 주민(집 + 병원).</summary>
+        /// <summary>아픈 주민(집 + 병원)의 진행도(소수, 감염·회복 모형이 움직이는 값).</summary>
         public double Sick { get; internal set; }
+        /// <summary>일하지 못하는 환자 수(온전한 사람 수, 결정 PI1). <see cref="Sick"/>이 1명분을 다 채우거나 다 비워야 바뀐다.</summary>
+        public double SickPeople { get; internal set; }
+        /// <summary>환자 수 비율(0~1) = SickPeople ÷ 주민. 일하지 못한 몫(HourRecord·화면).</summary>
+        public double SickPeopleShare => Residents > 1e-9 ? SickPeople / Residents : 0;
         /// <summary>그중 병원 병상에 든 환자(병상 수까지).</summary>
         public double Hospitalized { get; internal set; }
         /// <summary>면역인 주민(회복했거나 방역 장비).</summary>
@@ -217,6 +221,8 @@ namespace DesertSettlement.Core.Economy
                 Epidemic.Immune *= _settings.Epidemic.ImmunityCarryover; // 지난 전염병의 면역은 일부만 남는다(결정 EV4)
                 ApplyImmuneFloor();
                 Epidemic.Sick = Epidemic.Susceptible * Math.Min(1, _settings.Epidemic.InitialInfectedShare);
+                Epidemic.SickPeople = 0;
+                UpdateSickPeople();
                 Epidemic.Hospitalized = Math.Min(Epidemic.Sick, HospitalBeds);
                 Epidemic.NewCasesLastHour = Epidemic.Sick;
                 Epidemic.RecoveredLastHour = 0;
@@ -231,7 +237,11 @@ namespace DesertSettlement.Core.Economy
         public double HospitalBeds => _settlement.OperatingOf(BuildingKinds.Hospital).Sum(h => _settlement.LevelOf(h).Beds ?? 0);
 
         /// <summary>지금 일하지 못하는 아픈 주민(전염병 중). 인원 배치가 주민에서 뺀다.</summary>
-        public double SickResidents => Epidemic.Active ? Math.Min(Epidemic.Sick, _settlement.Residents) : 0;
+        public double SickResidents => Epidemic.Active ? Math.Min(Epidemic.SickPeople, _settlement.Residents) : 0;
+
+        /// <summary>환자 진행도가 바뀐 뒤 온전한 환자 수를 맞춘다(결정 PI1).</summary>
+        private void UpdateSickPeople() =>
+            Epidemic.SickPeople = Math.Min(WholePeople.Next(Epidemic.SickPeople, Epidemic.Sick), Epidemic.Residents);
 
         /// <summary>
         /// 주민 수 변화를 반영한다: 늘어난 주민은 걸릴 수 있음, 줄어든 주민은 아픔·면역 비율대로 떠난다.
@@ -249,6 +259,7 @@ namespace DesertSettlement.Core.Economy
             Epidemic.Residents = now;
             Epidemic.Sick = Math.Min(Epidemic.Sick, now);
             Epidemic.Immune = Math.Min(Epidemic.Immune, now - Epidemic.Sick);
+            UpdateSickPeople();
         }
 
         /// <summary>방역 장비: 아프지 않은 주민 중 이 비율은 처음부터 면역(회복으로 얻은 면역이 더 크면 그쪽, 결정 EV5).</summary>
@@ -306,6 +317,7 @@ namespace DesertSettlement.Core.Economy
             double recovered = Math.Min(Epidemic.Sick,
                 inHospital * p.HospitalRecoveryPerHour + (Epidemic.Sick - inHospital) * p.HomeRecoveryPerHour);
             Epidemic.Sick = Math.Max(0, Epidemic.Sick + newCases - recovered);
+            UpdateSickPeople();
             Epidemic.Immune = Math.Min(n - Epidemic.Sick, Epidemic.Immune + recovered);
             Epidemic.Hospitalized = Math.Min(Epidemic.Sick, beds);
             Epidemic.NewCasesLastHour = newCases;
@@ -315,6 +327,7 @@ namespace DesertSettlement.Core.Economy
             {
                 Epidemic.Immune = Math.Min(n, Epidemic.Immune + Epidemic.Sick);
                 Epidemic.Sick = 0;
+                Epidemic.SickPeople = 0;
                 Epidemic.Hospitalized = 0;
                 Epidemic.Active = false;
                 if (_currentEpidemic != null)

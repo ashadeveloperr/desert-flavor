@@ -179,7 +179,7 @@ namespace DesertSettlement.Core.Tests
             a.BiddersAnnounced += _ => announcements++;
 
             s.AdvanceHours(63);
-            Assert.AreEqual(60, s.AuctionHallCompletedHour, "샘플 배치(주택 포함 — 공사 인원 LB8, 빈 채로 차는 주택 HI1·HI4, 생활 수준 LS1~, 시작 유예 BQ3) — 시뮬레이터 `-- labor sample`의 건설 시간 ×1 값");
+            Assert.AreEqual(61, s.AuctionHallCompletedHour, "샘플 배치(주택 포함 — 공사 인원 LB8, 빈 채로 차는 주택 HI1·HI4, 생활 수준 LS1~, 시작 유예 BQ3) — 시뮬레이터 `-- labor sample`의 건설 시간 ×1 값");
             Assert.AreEqual(s.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, a.NextAuctionHour, "완공 + 경매 간격(결정 AU1)");
             Assert.AreEqual(1, announcements, "경매장 완공 직후 예고");
             Assert.AreEqual(_config.Auction.AttendeesWithOneAuctionHall, a.AnnouncedBidders.Count, "경매장 1개의 입찰자 수(결정 AH1)");
@@ -197,8 +197,8 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Regular, e.Kind);
-            Assert.AreEqual(108, e.Hour);
-            Assert.AreEqual(108, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
+            Assert.AreEqual(109, e.Hour);
+            Assert.AreEqual(109, s.CurrentHour, "경매가 열리면 그 시간은 정산하지 않고 멈춘다");
             CollectionAssert.AreEqual(announced, e.Bids.Select(b => b.Bidder.Id).ToList(), "예고된 입찰자가 온다");
             AuctionSettings cfg = _config.Auction;
             Assert.That(e.Market, Is.InRange(cfg.MarketCenter * (1 - cfg.MarketSwing), cfg.MarketCenter * (1 + cfg.MarketSwing)));
@@ -219,11 +219,11 @@ namespace DesertSettlement.Core.Tests
             a.BiddersAnnounced += _ => announcements++;
 
             a.Hold();
-            Assert.AreEqual(108 + 48, a.NextAuctionHour);
+            Assert.AreEqual(109 + 48, a.NextAuctionHour);
             Assert.AreEqual(1, announcements, "보류 직후 다음 경매 예고");
             RunUntilEvent(s, a);
             Assert.IsTrue(a.IsOpen);
-            Assert.AreEqual(156, a.CurrentAuction.Hour);
+            Assert.AreEqual(157, a.CurrentAuction.Hour);
         }
 
         [Test]
@@ -281,7 +281,7 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(a.IsOpen);
             AuctionEvent e = a.CurrentAuction;
             Assert.AreEqual(AuctionKind.Emergency, e.Kind);
-            Assert.Less(e.Hour, 108, "정기 경매(108h) 전에 자금이 바닥남");
+            Assert.Less(e.Hour, 109, "정기 경매(109h) 전에 자금이 바닥남");
             Assert.LessOrEqual(s.Cash, 0);
             Assert.AreEqual(0.2, e.Penalty, 1e-9);
             foreach (AuctionBid bid in e.Bids) Assert.AreEqual(bid.Valuation.Value * e.Market * 0.8, bid.TotalOffer, 1e-6);

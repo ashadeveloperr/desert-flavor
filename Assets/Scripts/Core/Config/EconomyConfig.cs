@@ -28,6 +28,10 @@ namespace DesertSettlement.Core.Config
         public Dictionary<string, GoodsSettings> Goods { get; set; }
         /// <summary>생활 수준(결정 LS1~). 없거나 노동력이 꺼져 있으면 생활 수준은 0에 머문다.</summary>
         public LivingSettings Living { get; set; }
+        /// <summary>인접 보너스(결정 AJ1~). 없으면 보너스 없음.</summary>
+        public AdjacencySettings Adjacency { get; set; }
+        /// <summary>식품 부패(결정 DC1~). 없으면 썩지 않는다.</summary>
+        public SpoilageSettings Spoilage { get; set; }
 
         /// <summary>시설 종류(<see cref="BuildingKinds"/>) → 레벨별 명세. 인덱스 0 = L1.</summary>
         public Dictionary<string, List<BuildingLevel>> BuildingLevels { get; set; }
@@ -107,6 +111,36 @@ namespace DesertSettlement.Core.Config
         /// 첫 주민이 들어오는 동안 우물·수로가 아직 이어지지 않았기 때문. 0이면 유예 없음.
         /// </summary>
         public double StartGraceHours { get; set; }
+    }
+
+    /// <summary>
+    /// 인접 보너스(결정 AJ1~AJ4). 맞닿은 6칸의 운영 중 시설만 세고, 한 시설이 받는 보너스는 모두 더한다.
+    /// </summary>
+    public sealed class AdjacencySettings
+    {
+        /// <summary>군집: 이 종류의 시설 옆 같은 종류 1칸당 생산 증가(0.05 = +5%).</summary>
+        public double ClusterOutputPerNeighbor { get; set; }
+        /// <summary>군집 보너스를 받는 시설 종류(원료 생산 시설).</summary>
+        public List<string> ClusterKinds { get; set; }
+        /// <summary>연계: 가공 시설 옆 원료 시설 1칸당 원료 소모 감소(0.1 = −10%).</summary>
+        public double InputSavingPerNeighbor { get; set; }
+        /// <summary>연계 원료 절약의 상한(0.5 = 원료가 절반까지만 준다).</summary>
+        public double InputSavingMax { get; set; }
+        /// <summary>가공 시설 종류 → 옆에 붙으면 원료를 아끼는 원료 시설 종류.</summary>
+        public Dictionary<string, string> InputSources { get; set; }
+        /// <summary>주택 밀집: 맞닿은 주택 1칸당 주민 유입 속도 증가(0.1 = +10%).</summary>
+        public double HouseArrivalPerNeighbor { get; set; }
+    }
+
+    /// <summary>
+    /// 식품 부패(결정 DC1~DC2). 식품 재고(곡물·과일·빵·고기·맥주·와인·향신료)가 매시간 하루 비율의 1/24씩 준다. 석재는 썩지 않는다.
+    /// </summary>
+    public sealed class SpoilageSettings
+    {
+        /// <summary>하루 부패 비율(0.01 = 1%/일).</summary>
+        public double FoodPerDay { get; set; }
+        /// <summary>창고들의 이웃 창고 수 평균 1칸당 하루 부패 감소(0.001 = −0.1%p).</summary>
+        public double WarehouseNeighborReductionPerDay { get; set; }
     }
 
     /// <summary>

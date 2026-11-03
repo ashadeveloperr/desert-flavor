@@ -59,10 +59,12 @@ namespace DesertSettlement.Core.Tests
         {
             Settlement s = RunSample(200);
             Facility mine = s.Facilities.Single(f => f.Kind == BuildingKinds.Mine);
-            HourRecord justBuilt = s.History.First(h => h.Hour == mine.CompletedHour);
+            // 완공 시간에 일손이 아직 다른 시설에 있을 수 있어(1명 단위 배치, 결정 PI1) 처음 생산한 시간을 본다.
+            HourRecord justBuilt = s.History.First(h => h.Hour >= mine.CompletedHour && h.OreProduced > 0);
             HourRecord mature = s.History.First(h => h.Hour == mine.CompletedHour + 60);
-            Assert.Greater(justBuilt.OreProduced, 0);
-            Assert.AreEqual(justBuilt.OreProduced * 0.7, justBuilt.OreValued, 1e-9, "완공 직후 70%");
+            Assert.Less(justBuilt.Hour - mine.CompletedHour, 12, "곧 생산을 시작한다");
+            Assert.AreEqual(0.7, s.Rules.MaturityStartRatio, 1e-9);
+            Assert.AreEqual(justBuilt.OreProduced * s.Rules.Maturity(justBuilt.Hour - mine.CompletedHour), justBuilt.OreValued, 1e-9, "완공 직후 70%에서 오른다");
             Assert.AreEqual(mature.OreProduced, mature.OreValued, 1e-9, "48시간 뒤 100%");
         }
 

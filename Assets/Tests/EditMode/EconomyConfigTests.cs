@@ -36,7 +36,7 @@ namespace DesertSettlement.Core.Tests
             Assert.IsNull(wellL1.WaterDemand, "우물은 물 수요 필드가 없다");
 
             Assert.AreEqual(3, config.MaxLevel(BuildingKinds.Mine));
-            Assert.AreEqual(25.0, config.GetLevel(BuildingKinds.Mine, 3).OreProduction);
+            Assert.AreEqual(21.0, config.GetLevel(BuildingKinds.Mine, 3).OreProduction);
             Assert.AreEqual(100.0, config.GetLevel(BuildingKinds.CanalEdge, 1).CapacityPerHour);
             Assert.IsNull(config.GetLevel(BuildingKinds.Hospital, 2), "없는 레벨은 null");
             Assert.AreEqual(1.2, config.AuctionSeed.Infra.Maximum);

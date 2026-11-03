@@ -197,7 +197,7 @@ namespace DesertSettlement.Runtime.UI
                 EpidemicState ep = d.Epidemic;
                 // 감염·회복 모형(결정 EV1~): 아픈 주민은 일하지 못하고, 병상만큼 병원에서 빨리 낫는다.
                 if (ep.Active)
-                    list.Add(($"☣ 전염병 {(ep.Weakening ? "↓ 약해지는 중" : "↑ 확산 중")} — 아픈 주민 {ep.Sick:0}명({ep.SickShare:P0}, 일 못 함) · " +
+                    list.Add(($"☣ 전염병 {(ep.Weakening ? "↓ 약해지는 중" : "↑ 확산 중")} — 아픈 주민 {ep.SickPeople:0}명({ep.SickPeopleShare:P0}, 일 못 함) · " +
                               $"병원 {ep.Hospitalized:0}/{d.HospitalBeds:0}병상 · 면역 {ep.Immune:0}명",
                         ep.Weakening ? Theme.Warn : Theme.Danger));
             }

@@ -113,6 +113,9 @@ namespace DesertSettlement.Runtime.UI
                         if ((lv.Residents ?? 0) > 0) labor.Add($"주민 {FacilityInfo.People(lv.Residents.Value)}명 입주 · 수로 물 필요");
                         if (labor.Count > 0) lines.Add(Paint("  " + string.Join(" · ", labor), Theme.Muted));
                     }
+                    // 인접 보너스(결정 AJ1~AJ4): 이 칸에 지으면 받을 보너스.
+                    string adjacency = input.HoverTile.HasValue ? FacilityInfo.AdjacencyLine(s, kind, input.HoverTile.Value) : null;
+                    if (adjacency != null) lines.Add(Paint("  " + adjacency, Theme.Good));
                 }
             }
             return string.Join("\n", lines);

@@ -25,6 +25,8 @@ namespace DesertSettlement.Core.Tests
         {
             EconomyConfig config = TestData.Economy();
             config.Labor.WaterPerResidentPerHour = 0;
+            config.Adjacency = null; // 재고·가공량을 정확히 보는 테스트라 인접 보너스·부패는 끈다(AdjacencyTests)
+            config.Spoilage = null;
             foreach (string k in new[] { BuildingKinds.Orchard, BuildingKinds.Pasture, BuildingKinds.HerbFarm, BuildingKinds.Mill, BuildingKinds.Brewery, BuildingKinds.Winery })
                 foreach (BuildingLevel lv in config.BuildingLevels[k]) lv.WaterDemand = null;
             configure?.Invoke(config);

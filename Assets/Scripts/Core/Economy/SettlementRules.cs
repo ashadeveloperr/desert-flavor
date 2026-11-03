@@ -75,6 +75,10 @@ namespace DesertSettlement.Core.Economy
         /// 켜져 있으면 F는 1로 고정되고 효율 자리에 배치율(배치 ÷ 필요 인원)이 들어간다.
         /// </summary>
         public LaborSettings Labor { get; set; }
+        /// <summary>인접 보너스(결정 AJ1~). null이면 보너스 없음(원본 v0.8).</summary>
+        public AdjacencySettings Adjacency { get; set; }
+        /// <summary>식품 부패(결정 DC1~). null이면 썩지 않음(원본 v0.8).</summary>
+        public SpoilageSettings Spoilage { get; set; }
         /// <summary>유지비 배율.</summary>
         public double UpkeepMultiplier { get; set; } = 1.0;
         /// <summary>처음부터 면역인 주민 비율(방역 장비, 결정 EV5). 0~1.</summary>
@@ -140,6 +144,8 @@ namespace DesertSettlement.Core.Economy
                 StartJobsOnCommand = c.StartJobsOnCommand,
                 Trade = config.Purchase?.Trade,
                 Labor = config.Labor,
+                Adjacency = config.Adjacency,
+                Spoilage = config.Spoilage,
                 StartingCash = p.StartingCash,
                 StarterStone = p.SiteStarterStone,
                 StarterFood = p.SiteStarterFood,
@@ -176,6 +182,8 @@ namespace DesertSettlement.Core.Economy
             r.StartJobsOnCommand = false;                // 다음 정각에 착공(게임 값은 결정 JQ2: 명령 순간)
             r.Trade = null;                              // 시장 없이 어디서나 같은 값에 구매, 판매 없음(게임 값은 결정 MK1~MK9)
             r.Labor = null;                              // 주택·노동력 없음: 시설 foodUse와 식량 계수 F(게임 값은 결정 LB1~)
+            r.Adjacency = null;                          // 인접 보너스 없음(게임 값은 결정 AJ1~)
+            r.Spoilage = null;                           // 식품 부패 없음(게임 값은 결정 DC1~)
             return r;
         }
 
@@ -185,8 +193,9 @@ namespace DesertSettlement.Core.Economy
         /// <summary>건설 슬롯 수 × 슬롯당 기본 인부(공사 전용, 떠나지 않음). 노동력이 꺼져 있으면 0.</summary>
         public double BaseCrew => LaborOn ? ConstructionSlots * Labor.CrewPerConstructionSlot : 0;
 
-        /// <summary>이 시설 종류가 운영에 사람을 쓰는지(레벨표에 <c>workers</c>가 있음). 노동력이 꺼져 있으면 false.</summary>
-        public bool NeedsWorkers(string kind) => LaborOn && (Config.GetLevel(kind, 1)?.Workers ?? 0) > 0;
+        /// <summary>이 시설 종류가 어느 레벨에서든 운영에 사람을 쓰는지(레벨표 <c>workers</c>, 1단계 우물처럼 0인 레벨도 있음). 노동력이 꺼져 있으면 false.</summary>
+        public bool NeedsWorkers(string kind) =>
+            LaborOn && Enumerable.Range(1, Config.MaxLevel(kind)).Any(lv => (Config.GetLevel(kind, lv)?.Workers ?? 0) > 0);
 
         /// <summary>작업 하나에 필요한 인원: 건설·개량은 목표 레벨, 철거는 L1의 <c>buildWorkers</c>. 노동력이 꺼져 있으면 0.</summary>
         public double JobWorkers(JobType type, string kind, int targetLevel) =>
@@ -305,15 +314,15 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>
         /// 경매 식량 배율이 보는 순 식량 가치(결정 FD7): 시간당 생산 × 그 재화 식량 효율 − 쓰는 원료 × 원료 식량 효율.
-        /// 기호품 시설(양조장·포도주 공방)은 원료만 빼서 음수가 될 수 있다.
+        /// 기호품 시설(양조장·포도주 공방)은 원료만 빼서 음수가 될 수 있다. inputSaving = 연계 원료 절약(결정 AJ2).
         /// </summary>
-        public double NetFoodValue(string kind, double output, BuildingLevel lv)
+        public double NetFoodValue(string kind, double output, BuildingLevel lv, double inputSaving = 0)
         {
             Goods? g = GoodsOf(kind);
             if (g == null) return 0;
             double value = output * FoodValue(g.Value);
             Goods? input = InputOf(kind);
-            if (input != null) value -= output * (lv.InputPerOutput ?? 0) * FoodValue(input.Value);
+            if (input != null) value -= output * (lv.InputPerOutput ?? 0) * (1 - inputSaving) * FoodValue(input.Value);
             return value;
         }
 

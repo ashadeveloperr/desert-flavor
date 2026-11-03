@@ -95,7 +95,7 @@ namespace DesertSettlement.Runtime.UI
             bool canal = f.Kind == BuildingKinds.CanalEdge;
             _close.SetText(f.State == FacilityState.Closed ? (canal ? "수로 열기" : "재개") : (canal ? "수로 닫기" : "폐쇄"));
 
-            _hireRow.SetActive(s.Rules.NeedsWorkers(f.Kind));
+            _hireRow.SetActive(s.WorkersNeeded(f) > 0);
             Set(_hire, s.CanPrioritizeHiring(f.Id));
             _unhire.gameObject.SetActive(s.CanClearHiringPriority(f.Id).Success);
         }

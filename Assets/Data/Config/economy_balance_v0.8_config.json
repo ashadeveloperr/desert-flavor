@@ -309,13 +309,25 @@
       "endBelowSickShare": 0.01
     }
   },
+  "adjacency": {
+    "clusterOutputPerNeighbor": 0.05,
+    "clusterKinds": ["farm", "orchard", "pasture", "herbFarm", "quarry", "mine"],
+    "inputSavingPerNeighbor": 0.1,
+    "inputSavingMax": 0.5,
+    "inputSources": { "mill": "farm", "brewery": "farm", "pasture": "farm", "winery": "orchard" },
+    "houseArrivalPerNeighbor": 0.1
+  },
+  "spoilage": {
+    "foodPerDay": 0.01,
+    "warehouseNeighborReductionPerDay": 0.001
+  },
   "buildingLevels": {
     "well": [
       {
         "stone": 8,
         "hours": 10,
         "waterSupply": 100,
-        "workers": 1,
+        "workers": 0,
         "buildWorkers": 2,
         "foodUse": 0.25,
         "upkeep": 0.6
@@ -333,7 +345,7 @@
         "stone": 30,
         "hours": 14,
         "waterSupply": 190,
-        "workers": 1,
+        "workers": 2,
         "buildWorkers": 3,
         "foodUse": 0.4,
         "upkeep": 1.25
@@ -364,7 +376,7 @@
         "stone": 26,
         "hours": 12,
         "waterDemand": 40,
-        "foodProduction": 8.5,
+        "foodProduction": 7,
         "workers": 4,
         "buildWorkers": 3,
         "foodUse": 1.2,
@@ -374,32 +386,32 @@
     "orchard": [
       { "stone": 7, "hours": 6, "waterDemand": 12, "goodsProduction": 3, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
       { "stone": 10, "hours": 8, "waterDemand": 15, "goodsProduction": 4.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.375 },
-      { "stone": 16, "hours": 12, "waterDemand": 18, "goodsProduction": 6.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
+      { "stone": 16, "hours": 12, "waterDemand": 18, "goodsProduction": 5.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
     ],
     "pasture": [
       { "stone": 8, "hours": 8, "waterDemand": 15, "goodsProduction": 1.5, "inputPerOutput": 1.5, "workers": 2, "buildWorkers": 2, "upkeep": 0.3 },
       { "stone": 11, "hours": 9, "waterDemand": 18, "goodsProduction": 2.2, "inputPerOutput": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.425 },
-      { "stone": 17, "hours": 13, "waterDemand": 20, "goodsProduction": 3.2, "inputPerOutput": 1.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.6 }
+      { "stone": 17, "hours": 13, "waterDemand": 20, "goodsProduction": 2.7, "inputPerOutput": 1.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.6 }
     ],
     "herbFarm": [
       { "stone": 6, "hours": 6, "waterDemand": 8, "goodsProduction": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.2 },
       { "stone": 8, "hours": 8, "waterDemand": 10, "goodsProduction": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.3 },
-      { "stone": 13, "hours": 10, "waterDemand": 12, "goodsProduction": 2.2, "workers": 4, "buildWorkers": 3, "upkeep": 0.45 }
+      { "stone": 13, "hours": 10, "waterDemand": 12, "goodsProduction": 1.8, "workers": 4, "buildWorkers": 3, "upkeep": 0.45 }
     ],
     "mill": [
       { "stone": 7, "hours": 6, "waterDemand": 15, "goodsProduction": 2, "inputPerOutput": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
       { "stone": 10, "hours": 8, "waterDemand": 18, "goodsProduction": 3, "inputPerOutput": 1, "workers": 3, "buildWorkers": 2, "upkeep": 0.35 },
-      { "stone": 14, "hours": 10, "waterDemand": 20, "goodsProduction": 4.5, "inputPerOutput": 1, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
+      { "stone": 14, "hours": 10, "waterDemand": 20, "goodsProduction": 3.7, "inputPerOutput": 1, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
     ],
     "brewery": [
       { "stone": 7, "hours": 6, "waterDemand": 15, "goodsProduction": 1.5, "inputPerOutput": 0.5, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
       { "stone": 10, "hours": 8, "waterDemand": 18, "goodsProduction": 2.2, "inputPerOutput": 0.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.35 },
-      { "stone": 14, "hours": 10, "waterDemand": 20, "goodsProduction": 3.2, "inputPerOutput": 0.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
+      { "stone": 14, "hours": 10, "waterDemand": 20, "goodsProduction": 2.7, "inputPerOutput": 0.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
     ],
     "winery": [
       { "stone": 8, "hours": 8, "waterDemand": 15, "goodsProduction": 1.2, "inputPerOutput": 0.75, "workers": 2, "buildWorkers": 2, "upkeep": 0.3 },
       { "stone": 11, "hours": 9, "waterDemand": 18, "goodsProduction": 1.8, "inputPerOutput": 0.75, "workers": 3, "buildWorkers": 2, "upkeep": 0.4 },
-      { "stone": 17, "hours": 12, "waterDemand": 20, "goodsProduction": 2.6, "inputPerOutput": 0.75, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
+      { "stone": 17, "hours": 12, "waterDemand": 20, "goodsProduction": 2.2, "inputPerOutput": 0.75, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
     ],
     "quarry": [
       {
@@ -426,7 +438,7 @@
         "stone": 28,
         "hours": 13,
         "waterDemand": 35,
-        "stoneProduction": 2.4,
+        "stoneProduction": 1.9,
         "workers": 4,
         "buildWorkers": 3,
         "foodUse": 1.35,
@@ -458,7 +470,7 @@
         "stone": 44,
         "hours": 18,
         "waterDemand": 55,
-        "oreProduction": 25,
+        "oreProduction": 21,
         "workers": 8,
         "buildWorkers": 4,
         "foodUse": 2.8,
@@ -499,7 +511,7 @@
       {
         "stone": 12,
         "hours": 8,
-        "residents": 14,
+        "residents": 12,
         "buildWorkers": 3,
         "upkeep": 0.3
       }
@@ -510,7 +522,7 @@
         "hours": 6,
         "buildWorkers": 2,
         "foodStorageBonus": 150,
-        "stoneStorageBonus": 150,
+        "stoneStorageBonus": 60,
         "foodUse": 0,
         "upkeep": 0.2
       },
@@ -519,7 +531,7 @@
         "hours": 8,
         "buildWorkers": 2,
         "foodStorageBonus": 300,
-        "stoneStorageBonus": 300,
+        "stoneStorageBonus": 120,
         "foodUse": 0,
         "upkeep": 0.35
       }

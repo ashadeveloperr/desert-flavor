@@ -123,12 +123,13 @@ namespace DesertSettlement.Core.Economy
         }
 
         /// <summary>
-        /// 운영 중인 시설의 시간당 생산량 = 최대 생산(<see cref="SettlementRules.MaxOutput"/>) × 효율(물 공급률 × 일손, 상한) × 재해 배율.
+        /// 운영 중인 시설의 시간당 생산량 = 최대 생산(<see cref="SettlementRules.MaxOutput"/>) × 효율(물 공급률 × 일손, 상한) × 재해 배율 × 생활 수준 × (1 + 군집 보너스).
         /// 일손은 배치율(노동력 꺼짐이면 F). 정각 정산(<see cref="AdvanceHour"/>)과 화면 예상치(<see cref="OutputOf"/>)가 함께 쓴다. 생산 시설이 아니면 0.
         /// </summary>
         private double ProductionPerHour(Facility f, double waterRate, double workforce) =>
             Rules.MaxOutput(f.Kind, LevelOf(f)) * Rules.Efficiency(waterRate, workforce) * (Disasters?.ProductionFactor(f) ?? 1)
-            * LivingProductivity; // 생활 수준 ±10%(결정 LS6)
+            * LivingProductivity                    // 생활 수준 ±10%(결정 LS6)
+            * (1 + ClusterBonus(f.Kind, f.Tile));   // 같은 종류 군집(결정 AJ1)
 
         /// <summary>시설의 시간당 생산·식량 소비 예상치(최근 물 배분·인원 배치 기준). 운영 중이 아니면 생산·소비 모두 0.</summary>
         public FacilityOutput OutputOf(Facility f)

@@ -26,6 +26,9 @@ namespace SettlementSim
         /// <summary>매각 직전 경매(측정용, 재미 보강 측정 2026-10-24). null이면 아무것도 안 함.</summary>
         public static Action<AuctionEvent> BeforeSell;
 
+        /// <summary>매각 시점 측정(`-- selltime`): 0 이상이면 HoldPays 대신 정기 경매를 이 횟수만큼 보류한 뒤 판다. -1 = 보통 판단.</summary>
+        public static int ForceHolds = -1;
+
         public static bool PlayCampaignSettlement(Campaign c, int maxHours = 900)
         {
             List<MapBuildEntry> plan = ReferenceBot.Plan(c.CurrentMap, BotStrategy.Multi);
@@ -41,7 +44,7 @@ namespace SettlementSim
                 if (a.IsFinished) return false;
                 if (a.IsOpen)
                 {
-                    if (a.CurrentAuction.Kind == AuctionKind.Regular && a.Holds == 0 && HoldPays(s, a))
+                    if (a.CurrentAuction.Kind == AuctionKind.Regular && (ForceHolds >= 0 ? a.Holds < ForceHolds : a.Holds == 0 && HoldPays(s, a)))
                     {
                         a.Hold();
                         Holds++;

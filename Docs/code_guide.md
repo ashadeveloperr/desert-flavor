@@ -28,7 +28,7 @@ Assets/Scripts/
     Hex/                 HexCoord(axial 좌표), HexLayout(월드 좌표), HexMap(지형), VertexId/EdgeId(꼭짓점·변 키), HexTopology(타일↔변↔꼭짓점)
     Canal/               CanalGraph: 변 위 수로·레벨·막힌 변, 꼭짓점 사이 경로
     Water/               WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과), WaterRoutes(물길 표시용 조회)
-    Economy/             Settlement(정착지 하나, partial 9개 — 아래), SettlementRules(규칙 값), SettlementTypes,
+    Economy/             Settlement(정착지 하나, partial 12개 — 아래), SettlementRules(규칙 값), SettlementTypes,
                          SettlementValuation(경매 가치), FacilityCatalog(시설 종류 목록), EconomyEffects(장비·모디파이어 효과 묶음),
                          Disasters(DisasterManager: 재해 일정·전염병), WaterIds(물 배분에 넘기는 id 규칙)
     Auction/             AuctionManager: 경매 일정·예고·입찰·긴급 매각·파산
@@ -51,7 +51,7 @@ Tools/SettlementSim/   .NET 시뮬레이터: Core 파일을 링크해 회귀 검
 Tools/unity-tests.sh   테스트 전용 사본에서 Unity 테스트 실행(열린 에디터와 무관)
 ```
 
-**`Settlement` partial 파일:** 상태·조회·시장 가격 = `Settlement.cs` · 명령 처리(`Do*`·`Can*`) = `.Actions.cs` · 공개 명령 진입점·기록 = `.Commands.cs` · 경제 틱 = `.Tick.cs` · 작업 큐(착공·완공 시각·공사 지연·진행률) = `.Jobs.cs` · 물 계산 = `.Water.cs` · 물탱크 = `.WaterTanks.cs` · 구매·판매 = `.Market.cs` · 주택·노동력(주민·배치·우선 고용) = `.Labor.cs` · 식품 창고·먹기·가공 = `.Goods.cs` · 생활 수준·향신료 = `.Living.cs`. 재화 목록은 `Goods.cs`(`GoodsCatalog`).
+**`Settlement` partial 파일:** 상태·조회·시장 가격 = `Settlement.cs` · 명령 처리(`Do*`·`Can*`) = `.Actions.cs` · 공개 명령 진입점·기록 = `.Commands.cs` · 경제 틱 = `.Tick.cs` · 작업 큐(착공·완공 시각·공사 지연·진행률) = `.Jobs.cs` · 물 계산 = `.Water.cs` · 물탱크 = `.WaterTanks.cs` · 구매·판매 = `.Market.cs` · 주택·노동력(주민·배치·우선 고용) = `.Labor.cs` · 식품 창고·먹기·가공 = `.Goods.cs` · 생활 수준·향신료 = `.Living.cs` · 인접 보너스·식품 부패율 = `.Adjacency.cs`. 재화 목록은 `Goods.cs`(`GoodsCatalog`).
 
 ## 3. 흐름
 
@@ -112,6 +112,10 @@ JSON `living`(오르내리는 속도, 부족 하한, 종류 배율, 향신료 �
 
 ### 노동력 수치 바꾸기(이슈 #31)
 JSON `labor`(1인당 식량·물, 떠남·유입 속도, 무료 주택 수(지금 0), 슬롯당 기본 인부), `living.arrivalFactorAtMax`(유입 속도의 생활 수준 배율)와 `buildingLevels.*.workers`·`buildWorkers`·`house[].residents`. 후보 비교는 `Tools/SettlementSim/LaborTuning.cs`의 `LaborCandidates`에 한 줄 더하고 `-- mods campaign 0.25 14000 30 smart lab=이름`(여러 개는 `+`). 흐름 진단 `-- labor [D] [간격]`. 샘플 배치 시각이 바뀌면 `-- labor sample` 값으로 `AuctionCampaignTests`·`DebugSessionSmokeTests` 기대값을 고친다.
+주민·환자는 늘 온전한 사람 수다(결정 PI1): 움직이는 값은 `Facility.ResidentFill`·`EpidemicState.Sick`(소수 진행도)이고, 사람 수는 `WholePeople.Next`로 정한다. 사람 수를 새로 쓰는 계산은 `Residents`·`SickPeople`을 쓴다(진행도를 쓰면 0.x명이 다시 생긴다).
+
+### 인접 보너스·부패 수치 바꾸기(결정 AJ1~AJ4·DC1~DC2)
+JSON `adjacency`(군집 대상 `clusterKinds`·칸당 생산, 가공 시설 → 원료 시설 `inputSources`·칸당 원료 절약·상한, 주택 밀집 유입)와 `spoilage`(하루 부패율, 창고 평균 이웃 1칸당 감소). 계산은 `Settlement.Adjacency.cs` 한 곳이고 생산(`ProductionPerHour`)·가공(`Process`)·유입(`ArrivalPerHour(Facility)`)·경매 개발 중 자산이 부른다. 화면 문구는 `FacilityInfo.AdjacencyLine`(정보창·건설 미리보기). 설정의 시설 이름은 `AdjacencyTests.Config_AdjacencyKindsExist`가 확인한다. 원본 v0.8 회귀(`SettlementRules.ForV08Regression`)는 둘 다 끈다.
 
 ### 새 플레이어 명령
 1. `Settlement.Actions.cs`에 `Can*`(불가 이유)·`Do*` 2. `Settlement.Commands.cs`에 공개 메서드 — `Run(() => Do…, 명령)`으로 감싼다(수량을 돌려주는 명령은 처음에 `SyncClock()`, 성공하면 `Record`) ⚠(`Record`를 안 부르면 저장에서 빠지고 순간 착공도 안 됨, `SyncClock`을 빠뜨리면 명령 시각의 분이 틀어져 그 사이 완공한 공사를 못 보고 처리함)
@@ -199,6 +203,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
   — 난이도 기준은 `smart`(숙련 봇). `halls=k` 봇이 경매장 k개, `late=…`는 후반 가속 값 덮어쓰기(모두 0 = 가속 없음), `trade=off` 시장 규칙 없음, `market=0`·`sell=0` 봇이 시장을 안 짓거나 안 팖.
   기준 측정: `mods campaign 0.25 14000 30 smart`(결과 해석은 `Docs/handoff.md` 3절)
 - 새 시스템 밸런스 QA `qa [static|marginal] [D마다 맵 수] [water2] [lab=후보]`(`BalanceQa.cs`): `static` = 시설 L1~L3 수치표(순 식량 가치·판매 부가가치·일손당·물당)와 재화별 시장 최대 수입, `marginal` = 생성 맵마다 봇 계획 뒤 시설(+ 주택)·우물 개량을 더 해서 첫 경매 최종 자금을 같은 맵끼리 비교(재화 먹기·팔기, 생활 효과 끈 갈래, 기준 갈래의 생활 수준·물 여유 진단). `water2` = 우물·수로 ×2(물 경쟁 없이 시설 자체의 값), `lab=` = `LaborCandidates`의 후보를 모든 갈래에 건다
+- 매각 시점 `selltime [n=2,4] [holds=4] [hold=x] [diet] [lab=…]`(`SellTiming.cs`): 숙련 봇 캠페인에서 n번째 정착지만 정기 경매를 k번 보류한 뒤 팔아 순이익을 비교(언제 파는 게 이득인지의 곡선, `hold=` = 보류 시세 감소 후보)
 - 결정이 끝난 측정(다시 잴 일이 있을 때만, 머리 주석에 '결정 완료'): `exploit`, `funboost`, `bidders`. 전염병 후보 비교 `epidemic [맵 수]`·`epidemic sweep`(감염·회복 모형, 결정 EV7), 노동력 `labor`(진단·`sample`)와 `mods campaign … lab=후보`(결정 LB13). 진단 도구: `botdiag`(측정 봇 보완용). 예전 72h 경매를 전제한 `funcheck`·`upgrades`는 지웠다(결정 SM1)
 - 여러 후보를 동시에 재려면 `dotnet build Tools/SettlementSim -c Release` 뒤 `dotnet Tools/SettlementSim/bin/Release/net10.0/SettlementSim.dll mods campaign …`을 병렬로. 콘솔 출력은 cp949라 Git Bash에서는 `iconv -f cp949 -t utf-8`
 - 설정 값을 바꿔 비교 측정할 때는 JSON을 바꾼 뒤 **반드시 되돌린다**(`git diff Assets/Data/Config/`)

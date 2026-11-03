@@ -114,7 +114,7 @@ namespace DesertSettlement.Core.Economy
                         Facility down = GetFacility(job.FacilityId);
                         _stateBeforeDemolish[down.Id] = down.State;
                         down.State = FacilityState.Demolishing;
-                        down.Residents = 0; // 철거하는 주택의 주민은 떠난다
+                        down.Residents = down.ResidentFill = 0; // 철거하는 주택의 주민은 떠난다
                         break;
                 }
                 running++;

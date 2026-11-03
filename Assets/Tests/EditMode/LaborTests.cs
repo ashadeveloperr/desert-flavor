@@ -74,9 +74,38 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(FacilityState.Operating, built.State);
             double cap = Capacity(s);
             Assert.AreEqual(1, s.ReturnFactor, 1e-9, "곡물만 먹어 생활 수준 0 → 배율 1");
-            Assert.AreEqual(Labor(s).ReturnPerHour * cap, built.Residents, 1e-9, "빈 채로 완공되고 완공한 시간에 한 시간 몫만 들어옴");
+            Assert.AreEqual(Labor(s).ReturnPerHour * cap, built.ResidentFill, 1e-9, "빈 채로 완공되고 완공한 시간에 한 시간 몫만 들어옴");
+            Assert.AreEqual(Math.Floor(built.ResidentFill), built.Residents, "주민은 1명분이 다 차야 센다(결정 PI1)");
             s.AdvanceHour();
-            Assert.AreEqual(2 * Labor(s).ReturnPerHour * cap, built.Residents, 1e-9);
+            Assert.AreEqual(2 * Labor(s).ReturnPerHour * cap, built.ResidentFill, 1e-9);
+            Assert.AreEqual(Math.Floor(built.ResidentFill), built.Residents);
+        }
+
+        [Test]
+        public void WholePeople_ChangeOnlyWhenAWholePersonArrivesOrLeaves()
+        {
+            // 결정 PI1: 늘 때는 내림, 줄 때는 올림.
+            Assert.AreEqual(4, WholePeople.Next(4, 4.7));
+            Assert.AreEqual(5, WholePeople.Next(4, 5.0));
+            Assert.AreEqual(6, WholePeople.Next(6, 5.4), "떠나는 중이어도 1명분이 다 빠지기 전엔 그대로");
+            Assert.AreEqual(5, WholePeople.Next(6, 5.0));
+            Assert.AreEqual(4, WholePeople.Next(4, 3.6), "들어오다 다시 떠나도 남은 사람은 그대로");
+            Assert.AreEqual(3, WholePeople.Next(4, 3.0));
+        }
+
+        [Test]
+        public void Labor_AssignsWholePeopleOnly()
+        {
+            // 결정 PI1: 일손은 1명 단위. 진행도가 남아도 0.x명은 배치되지 않는다.
+            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 1000, instantHouse: false);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.House, HouseTile).Success);
+            for (int i = 0; i < 40; i++)
+            {
+                s.AdvanceHour();
+                Assert.AreEqual(Math.Round(s.Residents), s.Residents, 1e-12, $"{s.CurrentHour}h 주민 수가 정수");
+                foreach (double n in s.LastLabor.Facilities.Values.Concat(s.LastLabor.Jobs.Values))
+                    Assert.AreEqual(Math.Round(n), n, 1e-12, $"{s.CurrentHour}h 배치 인원이 정수");
+            }
         }
 
         [Test]
@@ -93,7 +122,8 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(2, house.Level);
             double cap2 = s.HouseCapacity(house);
             Assert.Greater(cap2, before);
-            Assert.AreEqual(before + Labor(s).ReturnPerHour * s.ReturnFactor * cap2, house.Residents, 1e-9, "개량이 끝난 시간에 한 시간 몫만 들어옴");
+            Assert.AreEqual(before + Labor(s).ReturnPerHour * s.ReturnFactor * cap2, house.ResidentFill, 1e-9, "개량이 끝난 시간에 한 시간 몫만 들어옴");
+            Assert.AreEqual(Math.Floor(house.ResidentFill + 1e-9), house.Residents);
         }
 
         [Test]
@@ -108,17 +138,18 @@ namespace DesertSettlement.Core.Tests
             double cap = Capacity(s);
 
             s.AdvanceHour(); // 수로가 없어 물 0 → 목표 0
-            Assert.AreEqual(cap - Labor(s).LeavePerHour * cap, house.Residents, 1e-9, "한 시간에 정원 × leavePerHour씩 떠난다");
+            Assert.AreEqual(cap - Labor(s).LeavePerHour * cap, house.ResidentFill, 1e-9, "한 시간에 정원 × leavePerHour씩 떠난다");
+            Assert.AreEqual(Math.Ceiling(house.ResidentFill - 1e-9), house.Residents, "1명분이 다 빠져야 한 명 준다(결정 PI1)");
             Assert.IsTrue(s.IsLeaving(house));
             s.AdvanceHours(4);
-            double left = house.Residents;
+            double left = house.ResidentFill;
             Assert.AreEqual(cap - 5 * Labor(s).LeavePerHour * cap, left, 1e-9);
 
             WaterTheHouse(s);
-            double before = house.Residents;
+            double before = house.ResidentFill;
             s.AdvanceHour();
             Assert.AreEqual(1.0, s.HouseWaterRate(house), 1e-9, "우물 옆 꼭짓점에서 물을 받는다");
-            Assert.AreEqual(Math.Min(cap, before + Labor(s).ReturnPerHour * cap), house.Residents, 1e-9, "정원 × returnPerHour씩 돌아온다");
+            Assert.AreEqual(Math.Min(cap, before + Labor(s).ReturnPerHour * cap), house.ResidentFill, 1e-9, "정원 × returnPerHour씩 돌아온다");
         }
 
         [Test]
@@ -144,7 +175,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(0, s.StartGraceHoursLeft, 1e-9);
             Assert.IsTrue(s.IsLeaving(house), "유예가 끝나면 떠나는 중");
             s.AdvanceHour();
-            Assert.Less(house.Residents, cap, "유예가 끝나면 떠나기 시작한다");
+            Assert.Less(house.ResidentFill, cap, "유예가 끝나면 떠나기 시작한다");
             Assert.Less(s.LivingTarget, 0, "물 부족이 생활 수준 목표를 음수로 만든다");
         }
 
@@ -165,7 +196,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Production_ScalesWithStaffRatio()
         {
-            // 농장 L1 필요 인원을 정원보다 크게: 주민 6명 중 우물 1명 → 농장 5/10 = 50%.
+            // 농장 L1 필요 인원을 정원보다 크게: 주민 6명(1단계 우물은 일손 0) → 농장 6/10 = 60%.
             Settlement s = NewSettlement(c => c.BuildingLevels[BuildingKinds.Farm][0].Workers = 10,
                 r => { r.FreeBuilds[BuildingKinds.Well] = 1; r.FreeBuilds[BuildingKinds.Farm] = 1; });
             s.RequestBuild(BuildingKinds.House, HouseTile);
@@ -178,7 +209,7 @@ namespace DesertSettlement.Core.Tests
             HourRecord h = s.AdvanceHour();
             double ratio = s.StaffRatio(farm);
             Assert.Greater(ratio, 0.3);
-            Assert.Less(ratio, 0.6);
+            Assert.LessOrEqual(ratio, 0.6);
             double max = s.Rules.MaxOutput(BuildingKinds.Farm, s.LevelOf(farm));
             Assert.AreEqual(max * s.WaterRateOf(farm) * ratio, h.FoodProduced, 1e-9, "생산 = 최대 × 물 × 배치율");
             FacilityOutput o = s.OutputOf(farm);
@@ -280,8 +311,8 @@ namespace DesertSettlement.Core.Tests
             Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 1);
             s.RequestBuild(BuildingKinds.House, HouseTile);
             TestData.MoveIn(s); // 유예 안에 다 참
-            s.AdvanceHour(); // 유예가 끝나 물이 없어 조금 떠난다 → 거주율 < 1
             Facility house = s.FacilityAt(HouseTile);
+            for (int i = 0; i < 24 && house.Residents >= Capacity(s); i++) s.AdvanceHour(); // 유예가 끝나 물이 없어 한 명이 다 떠날 때까지 → 거주율 < 1
             double occupancy = house.Residents / Capacity(s);
             Assert.Less(occupancy, 1);
             AuctionSeed seed = s.Rules.Config.AuctionSeed;

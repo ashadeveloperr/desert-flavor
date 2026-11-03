@@ -65,8 +65,10 @@ namespace DesertSettlement.Core.Economy
         public WaterTankMode TankMode { get; internal set; }
         /// <summary>물탱크가 지난 시간에 충전(+) 또는 방출(−)한 양.</summary>
         public double TankFlowLastHour { get; internal set; }
-        /// <summary>주택에 사는 주민 수(주택만 의미 있음, 결정 LB1~). 소수로 서서히 늘고 준다(화면은 반올림).</summary>
+        /// <summary>주택에 사는 주민 수(주택만 의미 있음, 결정 LB1~). 늘 온전한 사람 수(정수, 결정 PI1): <see cref="ResidentFill"/>이 1명분을 다 채우거나 다 비워야 바뀐다.</summary>
         public double Residents { get; internal set; }
+        /// <summary>들어오고 떠나는 진행도(소수, 결정 PI1). 늘어날 때는 내림, 줄어들 때는 올림으로 <see cref="Residents"/>를 정한다(<see cref="WholePeople.Next"/>).</summary>
+        public double ResidentFill { get; internal set; }
         /// <summary>가공 시설이 지난 시간 원료가 있어 돌린 비율(1 = 다 돌림, 결정 FD4). 가공 시설만 의미 있음.</summary>
         public double InputRatio { get; internal set; } = 1;
 
@@ -203,6 +205,8 @@ namespace DesertSettlement.Core.Economy
         /// 정산 중 넘침과 그 사이 명령(철거·취소 석재 환급)의 넘침을 함께 센다.
         /// </summary>
         public double AutoSaleIncome, Discarded;
+        /// <summary>이 시간 썩은 식품(재화 단위 합, 결정 DC1).</summary>
+        public double Spoiled;
     }
 
     /// <summary>
@@ -230,5 +234,21 @@ namespace DesertSettlement.Core.Economy
 
         public double OfJob(int jobId) => Jobs.TryGetValue(jobId, out double n) ? n : 0;
         public double OfFacility(int facilityId) => Facilities.TryGetValue(facilityId, out double n) ? n : 0;
+    }
+
+    /// <summary>
+    /// 사람 수를 온전한 1명 단위로 센다(결정 PI1). 진행도(소수)가 늘 때는 내림, 줄 때는 올림이라
+    /// 1명분이 다 차야 한 명 늘고, 1명분이 다 빠져야 한 명 준다(6 → 5.4로 떠나는 중이면 아직 6명).
+    /// </summary>
+    public static class WholePeople
+    {
+        private const double Eps = 1e-9;
+
+        /// <summary>지금 사람 수 current에서 진행도가 fill이 됐을 때의 사람 수.</summary>
+        public static double Next(double current, double fill)
+        {
+            if (fill >= current) return Math.Max(current, Math.Floor(fill + Eps));
+            return Math.Min(current, Math.Ceiling(fill - Eps));
+        }
     }
 }

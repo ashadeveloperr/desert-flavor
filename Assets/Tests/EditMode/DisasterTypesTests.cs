@@ -28,6 +28,7 @@ namespace DesertSettlement.Core.Tests
             var map = new HexMap(3);
             map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
             SettlementRules rules = SettlementRules.FromConfig(_config);
+            rules.Spoilage = null; // 재해가 먹은 식량을 정확히 보려고 부패는 끈다(AdjacencyTests)
             foreach (string id in equipment) rules.ApplyEffects(_config.Equipment.Single(e => e.Id == id).Effects);
             rules.FreeBuilds[BuildingKinds.Farm] = 1;
             var s = new Settlement(map, rules);

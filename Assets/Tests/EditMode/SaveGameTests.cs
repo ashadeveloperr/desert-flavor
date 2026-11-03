@@ -29,7 +29,7 @@ namespace DesertSettlement.Core.Tests
             Settlement s = c.Current;
             string facilities = string.Join(";", s.Facilities.OrderBy(f => f.Id).Select(f => $"{f.Id}{f.Kind}{f.Level}{f.State}"));
             return $"{c.SettlementNumber}|{c.State}|{s.CurrentHour}|{s.Cash:0.000000}|{s.Food:0.0000}|{s.Stone:0.0000}|{s.FoodCoefficient:0.000000}|" +
-                   $"{facilities}|{string.Join(",", c.OwnedEquipment.OrderBy(e => e).Select(e => e + c.EquipmentLevel(e)))}|{c.Auctions.Phase}";
+                   $"{facilities}|{string.Join(",", c.Modifiers.Select(m => m.Id))}|{c.Auctions.Phase}";
         }
 
         [Test]
@@ -44,7 +44,6 @@ namespace DesertSettlement.Core.Tests
             campaign.Auctions.Hold(); // 한 번 보류
             for (int i = 0; i < 1000 && !campaign.Auctions.IsOpen && !campaign.Auctions.IsFinished; i++) first.AdvanceHour();
             campaign.Auctions.Sell(0);
-            Assert.IsTrue(campaign.BuyEquipment("wellPump").Success);
 
             Settlement second = campaign.StartNextSettlement();
             Assert.IsEmpty(campaign.CurrentMap.RequestSampleLayout(second));
@@ -93,7 +92,7 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void SaveInShop_RestoresShoppingState()
+        public void SaveAfterSale_RestoresDestinationStateAndModifiers()
         {
             var campaign = new Campaign(_config, _maps, seed: 5);
             Settlement first = campaign.StartNextSettlement();
@@ -103,8 +102,21 @@ namespace DesertSettlement.Core.Tests
             campaign.Auctions.Sell(0);
 
             SaveGame.ReplayResult restored = SaveGame.Replay(_config, _maps, null, SaveGameJson.Deserialize(SaveGameJson.Serialize(SaveGame.Capture(campaign))));
-            Assert.AreEqual(CampaignState.Shopping, restored.Campaign.State);
+            Assert.AreEqual(CampaignState.ChoosingDestination, restored.Campaign.State);
             Assert.AreEqual(campaign.Cash, restored.Campaign.Cash, 1e-9);
+            CollectionAssert.AreEqual(campaign.Modifiers.Select(m => m.Id), restored.Campaign.Modifiers.Select(m => m.Id), "받은 영구 모디파이어도 같다");
+        }
+
+        [Test]
+        public void OldVersionSave_IsRejectedWithAMessage()
+        {
+            // 결정 SH1: 장비 명령이 든 예전 저장 파일(v1)은 다시 실행할 수 없다.
+            var c = new Campaign(_config, _maps, seed: 1);
+            c.StartNextSettlement();
+            SaveData old = SaveGame.Capture(c);
+            old.Version = 1;
+            var e = Assert.Throws<InvalidOperationException>(() => SaveGame.Replay(_config, _maps, null, old));
+            StringAssert.Contains("예전", e.Message);
         }
 
         [Test]

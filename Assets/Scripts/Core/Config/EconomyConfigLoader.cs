@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace DesertSettlement.Core.Config
@@ -80,7 +81,6 @@ namespace DesertSettlement.Core.Config
                     problems.Add("confirmedRules.postStartCancelStoneRefundRatio는 0~1이어야 합니다.");
                 }
                 if (rules.AuctionHistoryGameHours <= 0) problems.Add("confirmedRules.auctionHistoryGameHours는 0보다 커야 합니다.");
-                if (rules.AuctionRepeatsGameHours <= 0) problems.Add("confirmedRules.auctionRepeatsGameHours는 0보다 커야 합니다.");
             }
 
             if (config.Prototype == null) problems.Add("prototype이 없습니다.");
@@ -94,7 +94,9 @@ namespace DesertSettlement.Core.Config
             {
                 if (auction.Bidders == null || auction.Bidders.Count == 0) problems.Add("auction.bidders가 비어 있습니다.");
                 if (auction.AttendeesMin < 1 || auction.AttendeesMax < auction.AttendeesMin) problems.Add("auction.attendeesMin/Max 범위가 잘못됐습니다.");
-                if (auction.AttendeesWithOneAuctionHall < 1) problems.Add("auction.attendeesWithOneAuctionHall은 1 이상이어야 합니다.");
+                if (auction.AttendeesWithoutAuctionHall < 1) problems.Add("auction.attendeesWithoutAuctionHall은 1 이상이어야 합니다.");
+                if (auction.FirstAuctionHour < 1) problems.Add("auction.firstAuctionHour는 1 이상이어야 합니다.");
+                if (auction.ReauctionHours < 1) problems.Add("auction.reauctionHours는 1 이상이어야 합니다.");
                 if (auction.MarketSwing < 0 || auction.MarketSwing >= 1) problems.Add("auction.marketSwing은 0 이상 1 미만이어야 합니다.");
                 if (auction.EmergencyPenalty < 0 || auction.EmergencyPenalty >= 1) problems.Add("auction.emergencyPenalty는 0 이상 1 미만이어야 합니다.");
                 if (auction.BankruptcyGraceHours < 1) problems.Add("auction.bankruptcyGraceHours는 1 이상이어야 합니다.");
@@ -107,12 +109,16 @@ namespace DesertSettlement.Core.Config
                     }
                 }
             }
-            if (config.Equipment != null)
+            if (config.BidderModifiers != null)
             {
-                foreach (EquipmentDefinition e in config.Equipment)
+                BidderModifierSettings bm = config.BidderModifiers;
+                if (bm.ExclusiveChance < 0 || bm.ExclusiveChance > 1) problems.Add("bidderModifiers.exclusiveChance는 0~1이어야 합니다.");
+                var poolIds = new HashSet<string>((config.Auction?.Bidders ?? new List<BidderProfile>()).Select(b => b.Id)) { BidderModifierSettings.GeneralPool };
+                foreach (BidderModifierDefinition d in bm.Definitions ?? new List<BidderModifierDefinition>())
                 {
-                    if (string.IsNullOrEmpty(e.Id)) problems.Add("equipment에 id 없는 장비가 있습니다.");
-                    if (e.Price < 0) problems.Add($"equipment.{e.Id}.price는 음수일 수 없습니다.");
+                    if (string.IsNullOrEmpty(d.Id)) problems.Add("bidderModifiers.definitions에 id 없는 모디파이어가 있습니다.");
+                    if (!poolIds.Contains(d.Pool ?? "")) problems.Add($"bidderModifiers.{d.Id}.pool '{d.Pool}'은 입찰자 id나 general이어야 합니다.");
+                    if (d.Weight <= 0) problems.Add($"bidderModifiers.{d.Id}.weight는 0보다 커야 합니다.");
                 }
             }
 

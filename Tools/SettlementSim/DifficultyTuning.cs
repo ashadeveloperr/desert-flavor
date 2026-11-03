@@ -26,7 +26,7 @@ namespace SettlementSim
             Header($"난이도 곡선 후보 — 다중 봇 첫 경매 매각 순이익 중앙값 (시작 자금 2000, D마다 {mapsPerD}장)");
             Line("  행: 재해 없음 / +재해 = 설정의 재해 일정(맵 시드, 0~2번 무작위) / +방역 = 재해 + 방역 장비(5-1 재측정, 2026-10-23)");
             Line("  후보 | " + string.Join(" | ", TuneDs.Select(d => $"D{d:0.##}")));
-            EquipmentDefinition vaccination = config.Equipment.Single(e => e.Id == "vaccination");
+            var vaccination = new DesertSettlement.Core.Economy.EconomyEffects { EpidemicImmuneShare = 0.25 }; // 예전 방역 장비 Lv1(결정 EV5 측정 재현용, 장비는 결정 SH1로 폐지)
             foreach (var (name, curve) in candidates)
             {
                 var detail = new List<string>();
@@ -42,7 +42,7 @@ namespace SettlementSim
                         {
                             GeneratedMap g = ProceduralMapGenerator.Generate(p, rules, 50000 + (int)(d * 1000) + i);
                             if (g == null) { fail++; continue; }
-                            var r = ReferenceBot.Run(config, g.Map, x => { x.StartingCash = 2000; if (vaccinated) x.ApplyEffects(vaccination.Effects); },
+                            var r = ReferenceBot.Run(config, g.Map, x => { x.StartingCash = 2000; if (vaccinated) x.ApplyEffects(vaccination); },
                                 seed: g.Seed, strategy: BotStrategy.Multi, disasters: withDisasters ? config.Disasters : null);
                             if (r.AuctionHour >= 0) profits.Add(r.FinalCash - 2000);
                             else { profits.Add(-2000); if (r.Bankrupt) bankrupt++; } // 파산·시간 초과 = 시작 자금 전부 잃음으로 친다

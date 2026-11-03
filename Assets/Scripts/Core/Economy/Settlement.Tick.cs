@@ -78,7 +78,7 @@ namespace DesertSettlement.Core.Economy
             }
 
             // 먹기·마시기(주민이 먼저), 그다음 남은 원료로 가공.
-            if (Rules.LaborOn) demand = (Residents + Rules.BaseCrew) * Rules.Labor.FoodPerResidentPerHour; // 주민·기본 인부가 먹는다
+            if (Rules.LaborOn) demand = (Residents + Rules.BaseCrew) * FoodPerResident; // 주민·기본 인부가 먹는다
             var eaten = new double[GoodsCatalog.All.Length];
             double fed = Eat(demand, eaten);
             double drinkDemand = Rules.LaborOn ? Residents * Rules.Labor.DrinkPerResidentPerHour : 0;

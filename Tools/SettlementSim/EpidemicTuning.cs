@@ -101,7 +101,7 @@ namespace SettlementSim
             var proc = LoadProceduralConfig();
             int maps = args.Length > 0 ? int.Parse(args[0]) : 20;
             EpidemicSettings src = config.Disasters.Epidemic;
-            double vac = config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicImmuneShare;
+            const double vac = 0.25; // 예전 방역 장비 Lv1(결정 EV5 측정 재현용, 장비는 결정 SH1로 폐지)
             double beds = config.GetLevel(BuildingKinds.Hospital, 1).Beds ?? 0;
 
             Header($"전염병 동역학(맵 없음, 주민 20명) — 지속(h) / 정점 아픈 비율 @시각 / 일 못한 시간(주민 1명 기준 h). 끝 = 아픈 비율 {src.EndBelowSickShare:P0} 아래");
@@ -140,7 +140,7 @@ namespace SettlementSim
             if (plan == null) return (-2000, -1, 0);
             SettlementRules rules = SettlementRules.FromConfig(config);
             rules.StartingCash = 2000;
-            if (vaccinated) rules.ApplyEffects(config.Equipment.Single(e => e.Id == "vaccination").Effects);
+            if (vaccinated) rules.ApplyEffects(new EconomyEffects { EpidemicImmuneShare = 0.25 }); // 예전 방역 장비 값
             if (hospital) rules.FreeBuilds[BuildingKinds.Hospital] = 1; // 측정용: 병원을 공짜로 바로 세워 효과만 본다
             var s = new Settlement(def.CreateMap(), rules);
             var a = new AuctionManager(s, 1);

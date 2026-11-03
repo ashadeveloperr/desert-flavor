@@ -89,22 +89,22 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>
         /// 가공 시설: 시간당 능력(최대 × 물 × 일손 × 재해) 중 남은 원료로 만들 수 있는 만큼 만든다(시설 번호 순).
-        /// 원료 비율은 레벨표 inputPerOutput × (1 − 연계 원료 절약, <see cref="InputSaving"/>).
+        /// 원료 비율은 레벨표 inputPerOutput × <see cref="InputFactor"/>(연계 원료 절약과 가공 원료 모디파이어를 곱함).
         /// 만든 양을 produced에 더하고, 원료가 모자란 비율을 시설에 남긴다(화면 표시).
         /// </summary>
         private void Process(Facility f, double capacity, double[] produced, ref double netFood, ref double netFoodValued, double maturity)
         {
             Goods output = SettlementRules.GoodsOf(f.Kind).Value;
             Goods input = SettlementRules.InputOf(f.Kind).Value;
-            double saving = InputSaving(f.Kind, f.Tile); // 옆 원료 시설이 원료를 아낀다(결정 AJ2)
-            double per = (LevelOf(f).InputPerOutput ?? 0) * (1 - saving);
+            double factor = InputFactor(f.Kind, f.Tile); // 연계 원료 절약 × 가공 원료 모디파이어(결정 AJ2·BM3)
+            double per = (LevelOf(f).InputPerOutput ?? 0) * factor;
             double made = capacity;
             if (per > 0) made = Math.Min(capacity, _stock[(int)input] / per);
             f.InputRatio = capacity > 1e-12 ? made / capacity : 1;
             _stock[(int)input] -= made * per;
             AddGoods(output, made);
             produced[(int)output] += made;
-            double net = Rules.NetFoodValue(f.Kind, made, LevelOf(f), saving);
+            double net = Rules.NetFoodValue(f.Kind, made, LevelOf(f), factor);
             netFood += net;
             netFoodValued += net * maturity;
         }

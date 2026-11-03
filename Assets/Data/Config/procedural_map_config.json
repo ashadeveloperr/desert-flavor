@@ -23,7 +23,6 @@
     "cashAtD0": 1000,
     "cashPerD": 14000,
     "dPerSettlement": 0.25,
-    "equipmentSpendInDifficulty": 0,
     "upkeepPerD": 0.5,
     "lateStartD": 4,
     "upkeepLatePerD2": 0.2,

@@ -274,8 +274,8 @@ namespace SettlementSim
             for (int h = 0; h < maxHours && !c.Auctions.IsOpen && !c.Auctions.IsFinished; h++) { UnblockStone(c.Current); c.Current.AdvanceHour(); }
             if (!c.Auctions.IsOpen) return false;
             var bids = c.Auctions.CurrentAuction.Bids.ToList();
-            c.Auctions.Sell(bids.IndexOf(bids.OrderByDescending(b => b.Cash).First()));
-            return c.State == CampaignState.Shopping;
+            c.Auctions.Sell(BidderChoice.PickBid(c.Auctions.CurrentAuction));
+            return c.State == CampaignState.ChoosingDestination;
         }
 
         /// <summary>

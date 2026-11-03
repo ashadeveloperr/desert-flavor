@@ -101,9 +101,13 @@ namespace DesertSettlement.Core.Economy
 
         // ───────────────────────── 조회 ─────────────────────────
 
-        /// <summary>식품 창고 한도(모든 재화가 함께 씀, 결정 FD5) = 기본 + 창고.</summary>
-        public double FoodCapacity => Rules.BaseFoodStorage + OperatingOf(BuildingKinds.Warehouse).Sum(w => LevelOf(w).FoodStorageBonus ?? 0);
-        public double StoneCapacity => Rules.BaseStoneStorage + OperatingOf(BuildingKinds.Warehouse).Sum(w => LevelOf(w).StoneStorageBonus ?? 0);
+        /// <summary>식품 창고 한도(모든 재화가 함께 씀, 결정 FD5) = (기본 + 창고 × 창고 한도 모디파이어) × 저장 한도 모디파이어(결정 BM1).</summary>
+        public double FoodCapacity => (Rules.BaseFoodStorage + WarehouseBonus(lv => lv.FoodStorageBonus)) * Rules.Effects.StorageMultiplier;
+        /// <summary>석재 저장 한도 = (기본 + 창고 × 창고 한도 모디파이어) × 저장 한도 모디파이어(결정 BM1).</summary>
+        public double StoneCapacity => (Rules.BaseStoneStorage + WarehouseBonus(lv => lv.StoneStorageBonus)) * Rules.Effects.StorageMultiplier;
+
+        private double WarehouseBonus(Func<BuildingLevel, double?> bonus) =>
+            OperatingOf(BuildingKinds.Warehouse).Sum(w => bonus(LevelOf(w)) ?? 0) * Rules.Effects.WarehouseStorageMultiplier;
         public int JobsInProgress => _jobs.Count(j => j.State == JobState.InProgress);
 
         public Facility GetFacility(int id) => _facilities.TryGetValue(id, out Facility f) ? f : null;
@@ -142,7 +146,7 @@ namespace DesertSettlement.Core.Economy
             double rate = WaterRateOf(f);
             double workforce = WorkforceOf(f);
             double assigned = LastLabor.OfFacility(f.Id);
-            double foodUse = Rules.LaborOn ? assigned * Rules.Labor.FoodPerResidentPerHour : lv.FoodUse ?? 0;
+            double foodUse = Rules.LaborOn ? assigned * FoodPerResident : lv.FoodUse ?? 0;
             // 가공 시설은 지난 시간 원료가 있던 비율만큼(결정 FD4).
             double produced = ProductionPerHour(f, rate, workforce) * (SettlementRules.InputOf(f.Kind) != null ? f.InputRatio : 1);
             return new FacilityOutput(resource, produced, max, foodUse, rate, workforce, assigned, need);

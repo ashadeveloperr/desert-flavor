@@ -3,7 +3,6 @@
   "_note": "경제 수치. 키마다의 설명은 Assets/Scripts/Core/Config/EconomyConfig.cs 주석, 정한 이유는 Docs/implementation_notes.md(결정 표). 클래스에 없는 키는 불러오기 오류가 된다(설명용 키는 '_'로 시작).",
   "confirmedRules": {
     "auctionHistoryGameHours": 24,
-    "auctionRepeatsGameHours": 48,
     "constructionSlots": 2,
     "postStartCancelStoneRefundRatio": 0.5,
     "gameDayRealSecondsAt1x": 180,
@@ -100,12 +99,13 @@
   },
   "auction": {
     "attendeesMin": 1,
-    "attendeesMax": 4,
-    "attendeesWithOneAuctionHall": 2,
+    "attendeesMax": 7,
+    "attendeesWithoutAuctionHall": 1,
+    "firstAuctionHour": 72,
+    "reauctionHours": 36,
     "marketCenter": 1.05,
     "marketSwing": 0.1,
     "emergencyPenalty": 0.2,
-    "holdMarketPenalty": 0.1,
     "developmentAssetRatio": 0.5,
     "bankruptcyGraceHours": 24,
     "bidders": [
@@ -205,82 +205,41 @@
       }
     ]
   },
-  "equipment": [
-    {
-      "id": "wellPump",
-      "name": "우물 성능 향상",
-      "price": 400,
-      "description": "우물 방출 +10%. 마른 대수층에 대응",
-      "effects": { "wellSupplyMultiplier": 1.1 }
-    },
-    {
-      "id": "miningGear",
-      "name": "광업 강화",
-      "price": 600,
-      "description": "광물 생산 +15%",
-      "effects": { "oreOutputMultiplier": 1.15 }
-    },
-    {
-      "id": "extraCrew",
-      "name": "건설 슬롯 +1",
-      "price": 900,
-      "description": "동시 작업 2 → 3",
-      "maxLevel": 1,
-      "effects": { "extraConstructionSlots": 1 }
-    },
-    {
-      "id": "bigStorage",
-      "name": "대형 창고 설비",
-      "price": 350,
-      "description": "기본 식량·석재 저장 한도 +50",
-      "effects": { "extraStorage": 50 }
-    },
-    {
-      "id": "reinforcedMaterials",
-      "name": "보강 자재",
-      "price": 500,
-      "description": "건설 석재 −10%. 무른 지반에 대응",
-      "effects": { "stoneCostMultiplier": 0.9 }
-    },
-    {
-      "id": "oxygenSupply",
-      "name": "산소 공급기",
-      "price": 450,
-      "description": "생산 효율 상한 +5%p. 산소가 희박한 고지대에 대응(평소엔 효과 없음)",
-      "effects": { "efficiencyCapBonus": 0.05 }
-    },
-    {
-      "id": "windbreak",
-      "name": "수로 방풍막",
-      "price": 450,
-      "description": "수로 손실 −20%, 모래폭풍 중 손실 증가 절반. 모래바람 지대·모래폭풍에 대응",
-      "effects": { "canalLossMultiplier": 0.8, "sandstormDamageMultiplier": 0.5 }
-    },
-    {
-      "id": "irrigation",
-      "name": "관개 장비",
-      "price": 450,
-      "description": "농장 생산 +5%, 작물 탄저병 피해 절반. 염분 토양·탄저병에 대응",
-      "effects": { "foodOutputMultiplier": 1.05, "blightDamageMultiplier": 0.5 }
-    },
-    {
-      "id": "vaccination",
-      "name": "방역 장비",
-      "price": 500,
-      "description": "주민 25%가 처음부터 전염병 면역. 전염병에 대응",
-      "effects": { "epidemicImmuneShare": 0.25 }
-    },
-    {
-      "id": "insectNet",
-      "name": "방충망",
-      "price": 450,
-      "description": "메뚜기떼 피해 절반(농장 50% 가동, 식량 재고 손실 절반). 메뚜기떼에 대응",
-      "effects": { "locustDamageMultiplier": 0.5 }
-    }
-  ],
-  "equipmentUpgrade": {
-    "effectScales": [1.0, 1.3, 1.5],
-    "costMultipliers": [2.0, 3.0]
+  "bidderModifiers": {
+    "_note": "입찰자가 매각 보상으로 주는 영구 모디파이어(결정 BM1~). pool = 입찰자 id(전용) 또는 general(범용). weight = 같은 목록 안에서 뽑힐 비중(기본 1). 효과 형식은 지역 모디파이어와 같다(곱연산).",
+    "exclusiveChance": 0.7,
+    "definitions": [
+      { "id": "ore", "pool": "industrialist", "effects": {"oreOutputMultiplier": 1.08} },
+      { "id": "processingOutput", "pool": "industrialist", "effects": {"processingOutputMultiplier": 1.05} },
+      { "id": "processingInput", "pool": "industrialist", "effects": {"processingInputMultiplier": 0.95} },
+      { "id": "constructionSlot", "pool": "industrialist", "weight": 0.25, "effects": {"extraConstructionSlots": 1} },
+      { "id": "grain", "pool": "farmer", "effects": {"grainOutputMultiplier": 1.06} },
+      { "id": "farmGoods", "pool": "farmer", "effects": {"farmGoodsOutputMultiplier": 1.06} },
+      { "id": "cropGuard", "pool": "farmer", "effects": {"locustDamageMultiplier": 0.7, "blightDamageMultiplier": 0.7} },
+      { "id": "farmWater", "pool": "farmer", "effects": {"farmWaterDemandMultiplier": 0.95} },
+      { "id": "sellPrice", "pool": "distributor", "effects": {"sellPriceMultiplier": 1.08} },
+      { "id": "buyPrice", "pool": "distributor", "effects": {"purchasePriceMultiplier": 0.92} },
+      { "id": "spoilage", "pool": "distributor", "effects": {"spoilageMultiplier": 0.8} },
+      { "id": "storage", "pool": "distributor", "effects": {"storageMultiplier": 1.1} },
+      { "id": "stoneCost", "pool": "builder", "effects": {"stoneCostMultiplier": 0.94} },
+      { "id": "buildTime", "pool": "builder", "effects": {"constructionTimeMultiplier": 0.92} },
+      { "id": "stoneOutput", "pool": "builder", "effects": {"stoneOutputMultiplier": 1.08} },
+      { "id": "wellSupply", "pool": "waterBroker", "effects": {"wellSupplyMultiplier": 1.06} },
+      { "id": "canalLoss", "pool": "waterBroker", "effects": {"canalLossMultiplier": 0.85} },
+      { "id": "sandstorm", "pool": "waterBroker", "effects": {"sandstormDamageMultiplier": 0.7} },
+      { "id": "waterTank", "pool": "waterBroker", "effects": {"waterTankCapacityMultiplier": 1.2} },
+      { "id": "upkeep", "pool": "developer", "effects": {"upkeepMultiplier": 0.96} },
+      { "id": "houseArrival", "pool": "developer", "effects": {"arrivalMultiplier": 1.1} },
+      { "id": "warehouse", "pool": "developer", "effects": {"warehouseStorageMultiplier": 1.15} },
+      { "id": "arrival", "pool": "colonist", "effects": {"arrivalMultiplier": 1.1} },
+      { "id": "ration", "pool": "colonist", "effects": {"foodPerResidentMultiplier": 0.95} },
+      { "id": "epidemic", "pool": "colonist", "effects": {"epidemicTransmissionMultiplier": 0.85} },
+      { "id": "efficiencyCap", "pool": "general", "effects": {"efficiencyCapMultiplier": 1.03} },
+      { "id": "locust", "pool": "general", "effects": {"locustDamageMultiplier": 0.7} },
+      { "id": "generalUpkeep", "pool": "general", "effects": {"upkeepMultiplier": 0.97} },
+      { "id": "output", "pool": "general", "effects": {"outputMultiplier": 1.03} },
+      { "id": "startingCash", "pool": "general", "effects": {"startingCashMultiplier": 1.05} }
+    ]
   },
   "disasters": {
     "graceHours": 36,

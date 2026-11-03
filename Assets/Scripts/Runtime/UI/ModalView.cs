@@ -7,9 +7,9 @@ using static DesertSettlement.Runtime.UI.UiKit;
 namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
-    /// 가운데 창(UI2): 경매(입찰자 카드·매각·보류), 매각 뒤 행선지 선택(후보 카드) → 상점(장비 구매·강화·장착) → 출발, 파산.
+    /// 가운데 창(UI2): 경매(입찰자 카드·매각·보류), 매각 뒤 행선지 선택(후보 카드) → 출발, 파산.
     /// 뒤를 어둡게 덮어 맵 조작을 막는다(시간은 GameSession이 멈춘다). 그리는 내용은 <see cref="ModalContent"/>.
-    /// 다시 그리는 때(결정 UK2): 캠페인 명령 기록이 늘었을 때(매각·보류·장비·출발 등 플레이어 행동은 모두 명령으로 기록된다),
+    /// 다시 그리는 때(결정 UK2): 캠페인 명령 기록이 늘었을 때(매각·보류·출발 등 플레이어 행동은 모두 명령으로 기록된다),
     /// 캠페인 상태나 열린 경매가 바뀌었을 때, 창 안의 버튼이 <see cref="MarkDirty"/>를 불렀을 때(행선지 고르기·안내 문구).
     /// 창이 열린 동안은 시간이 멈춰 있어서 이 밖의 일로는 내용이 바뀌지 않는다.
     /// </summary>
@@ -83,7 +83,7 @@ namespace DesertSettlement.Runtime.UI
             AuctionManager a = _ui.Session.Auctions;
             bool open = c != null && (c.State != CampaignState.InSettlement || (a != null && a.IsOpen));
             _shade.gameObject.SetActive(open);
-            if (c == null || c.State != CampaignState.Shopping) _draw.ClearChoice(); // 행선지 선택은 상점에 있는 동안만(DS1)
+            if (c == null || c.State != CampaignState.ChoosingDestination) _draw.ClearChoice(); // 행선지 선택은 그 상태에 있는 동안만(DS1)
             if (!open) { _dirty = true; return; }
 
             long? auction = a?.CurrentAuction?.Hour;
@@ -102,8 +102,7 @@ namespace DesertSettlement.Runtime.UI
             Clear(_content);
             Clear(_footer);
             if (c.State == CampaignState.Bankrupt) _draw.Bankrupt(c);
-            else if (c.State == CampaignState.Shopping && _draw.ShowsDestination) _draw.Destination(c);
-            else if (c.State == CampaignState.Shopping) _draw.Shop(c);
+            else if (c.State == CampaignState.ChoosingDestination) _draw.Destination(c);
             else _draw.Auction(a.CurrentAuction);
             FitWindow();
         }

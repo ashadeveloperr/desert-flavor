@@ -75,7 +75,8 @@ namespace DesertSettlement.Core.Economy
                     (Level(w).WaterSupply ?? 0) * Rules.WellSupplyMultiplier * (assumeJobsComplete ? 1 : StaffRatio(w)))).ToList();
             List<WaterConsumer> consumers = _facilities.Values
                 .Where(x => Counts(x) && !x.Edge.HasValue && (Level(x).WaterDemand ?? 0) > 0)
-                .Select(x => new WaterConsumer(WaterIds.Of(x), x.Tile, Level(x).WaterDemand.Value)).ToList();
+                .Select(x => new WaterConsumer(WaterIds.Of(x), x.Tile,
+                    Level(x).WaterDemand.Value * (SettlementRules.IsFarming(x.Kind) ? Rules.Effects.FarmWaterDemandMultiplier : 1))).ToList(); // 농업 물 수요(결정 BM1)
             // 주택은 주민 수에 따라 물을 받는다. 개량 중에도 주민이 살아서 계속 받는다.
             if (Rules.LaborOn && Rules.Labor.WaterPerResidentPerHour > 0)
             {

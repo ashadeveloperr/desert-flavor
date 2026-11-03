@@ -55,8 +55,8 @@ namespace SettlementSim
                     BeforeSell?.Invoke(a.CurrentAuction);
                     LivingAtSale += s.LivingStandard;
                     SalesSeen++;
-                    a.Sell(bids.IndexOf(bids.OrderByDescending(b => b.Cash).First()));
-                    return c.State == CampaignState.Shopping;
+                    a.Sell(BidderChoice.PickBid(a.CurrentAuction));
+                    return c.State == CampaignState.ChoosingDestination;
                 }
                 ReferenceBot.UnblockStone(s);
                 if (SellSurplus) SellOverflow(s);
@@ -67,7 +67,7 @@ namespace SettlementSim
             return false;
         }
 
-        /// <summary>보류 + 광산 한 단계 개량의 예상 가치 × (1 − 보류 시세 감소) − 72시간 유지비 − 석재값 &gt; 지금 가치.</summary>
+        /// <summary>보류 + 광산 한 단계 개량의 예상 가치 − 다음 경매까지 유지비 − 석재값 &gt; 지금 가치(보류해도 시세는 그대로, 결정 AN1).</summary>
         private static bool HoldPays(Settlement s, AuctionManager a)
         {
             List<Facility> mines = Upgradable(s, BuildingKinds.Mine).ToList();
@@ -76,8 +76,8 @@ namespace SettlementSim
             double ore = s.OperatingOf(BuildingKinds.Mine).Sum(m => s.LevelOf(m).OreProduction ?? 0);
             double gain = mines.Sum(m => (s.Rules.Config.GetLevel(BuildingKinds.Mine, m.Level + 1).OreProduction ?? 0) - (s.LevelOf(m).OreProduction ?? 0));
             if (ore <= 0) return false;
-            double after = v * (1 + gain / ore) * (1 - s.Rules.Config.Auction.HoldMarketPenalty);
-            double upkeep = s.History.Count > 0 ? s.History[s.History.Count - 1].Upkeep * 72 : 0;
+            double after = v * (1 + gain / ore);
+            double upkeep = s.History.Count > 0 ? s.History[s.History.Count - 1].Upkeep * s.Rules.Config.Auction.ReauctionHours : 0;
             double stone = mines.Sum(m => s.Rules.Config.GetLevel(BuildingKinds.Mine, m.Level + 1).Stone ?? 0) * 4; // 석재 1 ≈ 구매가 4
             return after - upkeep - stone > v;
         }

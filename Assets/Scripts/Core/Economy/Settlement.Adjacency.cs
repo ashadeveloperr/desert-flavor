@@ -46,6 +46,9 @@ namespace DesertSettlement.Core.Economy
             return Math.Min(a.InputSavingMax, a.InputSavingPerNeighbor * NeighborCount(tile, source));
         }
 
+        /// <summary>가공 원료 배율 = (1 − 연계 원료 절약) × 가공 원료 모디파이어(곱연산, 결정 BM3). 1이면 레벨표 그대로.</summary>
+        public double InputFactor(string kind, HexCoord tile) => (1 - InputSaving(kind, tile)) * Rules.Effects.ProcessingInputMultiplier;
+
         /// <summary>tile의 주택이 받는 유입 속도 보너스(0.2 = +20%).</summary>
         public double HouseArrivalBonus(HexCoord tile) =>
             Adjacency == null ? 0 : Adjacency.HouseArrivalPerNeighbor * NeighborCount(tile, BuildingKinds.House);
@@ -57,14 +60,14 @@ namespace DesertSettlement.Core.Economy
             return warehouses.Count == 0 ? 0 : warehouses.Average(w => NeighborCount(w.Tile, BuildingKinds.Warehouse));
         }
 
-        /// <summary>지금 식품 부패율(하루 비율, 0.01 = 1%/일). 부패 설정이 없으면 0.</summary>
+        /// <summary>지금 식품 부패율(하루 비율, 0.01 = 1%/일) = (기본 − 창고 밀집) × 부패 모디파이어. 부패 설정이 없으면 0.</summary>
         public double FoodSpoilagePerDay
         {
             get
             {
                 SpoilageSettings sp = Rules.Spoilage;
                 if (sp == null) return 0;
-                return Math.Max(0, sp.FoodPerDay - sp.WarehouseNeighborReductionPerDay * AverageWarehouseNeighbors());
+                return Math.Max(0, sp.FoodPerDay - sp.WarehouseNeighborReductionPerDay * AverageWarehouseNeighbors()) * Rules.Effects.SpoilageMultiplier;
             }
         }
     }

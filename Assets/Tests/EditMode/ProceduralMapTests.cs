@@ -216,7 +216,7 @@ namespace DesertSettlement.Core.Tests
             for (int h = 0; h < 600 && !campaign.Auctions.IsOpen; h++) s.AdvanceHour();
             Assert.IsTrue(campaign.Auctions.IsOpen, "첫 경매가 열려야 함");
             campaign.Auctions.Sell(0);
-            Assert.AreEqual(CampaignState.Shopping, campaign.State);
+            Assert.AreEqual(CampaignState.ChoosingDestination, campaign.State);
         }
     }
 }

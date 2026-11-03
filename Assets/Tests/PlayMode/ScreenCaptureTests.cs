@@ -170,12 +170,12 @@ namespace DesertSettlement.PlayMode.Tests
                 session.SellTo(bids.Select((b, i) => (b, i)).OrderByDescending(x => x.b.Cash).First().i);
                 yield return new WaitForSecondsRealtime(0.3f);
                 yield return Capture("06_destination");
-                // 행선지 카드를 눌러 상점으로(2026-10-27 이슈 #6).
+                // 행선지 카드를 눌러 고른다(2026-10-27 이슈 #6, 상점은 결정 SH1로 폐지).
                 Button pick = _result.Session.GetComponentsInChildren<Button>().FirstOrDefault(b => b.GetComponentInChildren<Text>()?.text == "이 지역으로");
                 Assert.IsNotNull(pick, "행선지 창에 후보 카드가 있어야 함");
                 pick.onClick.Invoke();
                 yield return new WaitForSecondsRealtime(0.3f);
-                yield return Capture("06b_shop");
+                yield return Capture("06b_destination_chosen");
                 session.GoToNextSettlement();
                 yield return new WaitForSecondsRealtime(0.3f);
                 yield return Capture("07_next_settlement_paused");

@@ -236,7 +236,7 @@ namespace DesertSettlement.Core.Economy
                 // 완공 가정 물 배분의 기대 생산 × 실적이 없던 시간 × 진행률 × 비율. 막 지은 시설이므로 숙성 시작 비율을 곱한다.
                 double output = s.Rules.MaxOutput(f.Kind, lv) * (1 + s.ClusterBonus(f.Kind, f.Tile)); // 군집 보너스(결정 AJ1)
                 double perHour = resource == ResourceKind.Food
-                    ? s.Rules.NetFoodValue(f.Kind, output, lv, s.InputSaving(f.Kind, f.Tile)) : output; // 식량은 순 식량 가치(결정 FD7), 연계 원료 절약(AJ2)
+                    ? s.Rules.NetFoodValue(f.Kind, output, lv, s.InputFactor(f.Kind, f.Tile)) : output; // 식량은 순 식량 가치(결정 FD7), 연계 원료 절약(AJ2)
                 double amount = s.Rules.Efficiency(rate, s.ExpectedWorkforce(f, job != null)) * missingHours * progress * ratio * s.Rules.MaturityStartRatio
                                 * perHour;
                 list.Add(new DevelopmentAsset(f.Id, f.Kind,

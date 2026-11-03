@@ -253,10 +253,10 @@ namespace DesertSettlement.PlayMode.Tests
                 "물이 흐르는 수로 옆 사막이 푸르게 바뀐다(SG4): 지형 색이 아닌 타일이 있어야 한다");
 
             FastForwardToAuction(session);
-            Assert.IsTrue(session.Auctions.IsOpen, "정기 경매(경매장 완공 + 48h, AU1)");
-            Assert.AreEqual(89, s.CurrentHour);
+            Assert.IsTrue(session.Auctions.IsOpen, "정기 경매(정착지 시작 72h, AN1)");
+            Assert.AreEqual(session.Config.Auction.FirstAuctionHour, s.CurrentHour);
             session.Clock.AdvanceGameHours(10);
-            Assert.AreEqual(89, s.CurrentHour, "경매 중에는 정산하지 않는다");
+            Assert.AreEqual(session.Config.Auction.FirstAuctionHour, s.CurrentHour, "경매 중에는 정산하지 않는다");
 
             // 몇 프레임 실시간으로 돌려도 에러가 없어야 한다(경매 패널·HUD·입력·카메라·조명).
             for (int i = 0; i < 10; i++) yield return null;
@@ -278,18 +278,17 @@ namespace DesertSettlement.PlayMode.Tests
                 var bids = session.Auctions.CurrentAuction.Bids;
                 int best = bids.Select((b, i) => (b, i)).OrderByDescending(x => x.b.Cash).First().i;
                 session.SellTo(best);
-                Assert.AreEqual(CampaignState.Shopping, session.Campaign.State);
+                Assert.AreEqual(CampaignState.ChoosingDestination, session.Campaign.State);
                 yield return null;
 
                 if (n == 1)
                 {
-                    Assert.IsTrue(session.BuyEquipment("wellPump").Success);
                     session.Clock.SelectSpeed(2); // 4배속이었어도
                     session.GoToNextSettlement();
                     yield return null;
                     yield return null;
                     Assert.AreEqual("map_02_sand_canyon", session.Campaign.CurrentMap.Id);
-                    Assert.AreEqual(1.1, session.Settlement.Rules.WellSupplyMultiplier, 1e-9);
+                    Assert.AreEqual(bids[best].Modifier != null ? 1 : 0, session.Campaign.Modifiers.Count, "판 입찰자의 영구 모디파이어(BM1)");
                     Assert.AreEqual(session.Map.TileCount, session.transform.Find("Tiles").childCount, "새 맵으로 다시 그림");
                     Assert.AreEqual(0, session.transform.Find("Facilities").childCount, "이전 정착지 시설 표시 제거");
                     Assert.IsTrue(session.Clock.IsPaused, "새 정착지는 일시정지로 시작(CK2)");

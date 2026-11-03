@@ -539,11 +539,6 @@ namespace SettlementSim
                 int best = a.Bids.Select((b, i) => (b, i)).OrderByDescending(x => x.b.Cash).First().i;
                 auctions.Sell(best);
                 Line($"    → {a.Bids[best].Bidder.Name}에게 매각, 캠페인 자금 {campaign.Cash:0.0}");
-                if (n == 0)
-                {
-                    var buy = campaign.BuyEquipment("wellPump");
-                    Line($"    장비 '우물 성능 향상' 구매: {(buy.Success ? "성공" : buy.Message)}, 남은 자금 {campaign.Cash:0.0}");
-                }
             }
             Check(campaign.Sales.Count == 2, $"두 정착지 연속 매각 완료 (최종 자금 {campaign.Cash:0.0})");
         }

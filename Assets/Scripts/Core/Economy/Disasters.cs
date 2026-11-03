@@ -313,7 +313,7 @@ namespace DesertSettlement.Core.Economy
             double n = Epidemic.Residents;
             double beds = HospitalBeds;
             double inHospital = Math.Min(Epidemic.Sick, beds);
-            double newCases = n > 1e-9 ? Math.Min(Epidemic.Susceptible, p.TransmissionPerHour * Intensity * Epidemic.Susceptible * Epidemic.Sick / n) : 0;
+            double newCases = n > 1e-9 ? Math.Min(Epidemic.Susceptible, p.TransmissionPerHour * Intensity * _settlement.Rules.Effects.EpidemicTransmissionMultiplier * Epidemic.Susceptible * Epidemic.Sick / n) : 0;
             double recovered = Math.Min(Epidemic.Sick,
                 inHospital * p.HospitalRecoveryPerHour + (Epidemic.Sick - inHospital) * p.HomeRecoveryPerHour);
             Epidemic.Sick = Math.Max(0, Epidemic.Sick + newCases - recovered);

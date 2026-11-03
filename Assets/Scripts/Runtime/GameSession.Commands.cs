@@ -24,17 +24,10 @@ namespace DesertSettlement.Runtime
             Clock.SetPaused(false);
         }
 
-        public CommandResult BuyEquipment(string id) => Campaign.BuyEquipment(id);
-
-        public CommandResult UpgradeEquipment(string id) => Campaign.UpgradeEquipment(id);
-
-        /// <summary>현장 장비 슬롯에 넣거나 뺀다.</summary>
-        public CommandResult SetEquipped(string id, bool equipped) => Campaign.SetEquipped(id, equipped);
-
-        /// <summary>상점에서 다음 지역 후보(offerIndex)를 골라 들어간다.</summary>
+        /// <summary>행선지 창에서 다음 지역 후보(offerIndex)를 골라 들어간다.</summary>
         public void GoToNextSettlement(int offerIndex = 0)
         {
-            if (Campaign.State != CampaignState.Shopping) return;
+            if (Campaign.State != CampaignState.ChoosingDestination) return;
             BeginSettlement(offerIndex);
         }
 

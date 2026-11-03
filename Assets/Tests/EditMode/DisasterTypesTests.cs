@@ -23,13 +23,13 @@ namespace DesertSettlement.Core.Tests
         }
 
         /// <summary>반경 3 맵, 가운데 수원, 농장 하나(무료 완공). 장비 효과를 걸 수 있다.</summary>
-        private static Settlement NewSettlement(params string[] equipment)
+        private static Settlement NewSettlement(params EconomyEffects[] effects)
         {
             var map = new HexMap(3);
             map.GetTile(HexCoord.Zero).Terrain = TerrainType.WaterSource;
             SettlementRules rules = SettlementRules.FromConfig(_config);
             rules.Spoilage = null; // 재해가 먹은 식량을 정확히 보려고 부패는 끈다(AdjacencyTests)
-            foreach (string id in equipment) rules.ApplyEffects(_config.Equipment.Single(e => e.Id == id).Effects);
+            foreach (EconomyEffects e in effects) rules.ApplyEffects(e); // 재해 피해 배율(입찰자 모디파이어와 같은 형식)
             rules.FreeBuilds[BuildingKinds.Farm] = 1;
             var s = new Settlement(map, rules);
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Farm, FarmTile).Success);
@@ -72,10 +72,10 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Config_HasFourTypes_InsectNet_AndRegionWeights()
+        public void Config_HasFourTypes_CropGuard_AndRegionWeights()
         {
             CollectionAssert.AreEquivalent(new[] { "epidemic", "sandstorm", "locusts", "blight" }, _config.Disasters.Types.Select(t => t.Id));
-            Assert.AreEqual(450, _config.Equipment.Single(e => e.Id == "insectNet").Price, 1e-9);
+            Assert.IsTrue(_config.BidderModifiers.Definitions.Any(m => m.Effects.LocustDamageMultiplier < 1), "메뚜기 피해를 줄이는 모디파이어(결정 BM1)");
             Assert.AreEqual(3, _config.Disasters.RegionWeightMultipliers["sandWind"]["sandstorm"], 1e-9);
             Assert.AreEqual(3, _config.Disasters.RegionWeightMultipliers["salineSoil"]["blight"], 1e-9);
         }
@@ -104,13 +104,13 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Windbreak_HalvesSandstormLossIncrease()
+        public void SandstormDamageHalf_HalvesSandstormLossIncrease()
         {
-            Settlement s = NewSettlement("windbreak");
+            Settlement s = NewSettlement(new EconomyEffects { SandstormDamageMultiplier = 0.5 });
             DisasterManager d = AttachOne(s, DisasterManager.Sandstorm);
             RunUntilActive(s, d, DisasterManager.Sandstorm);
             Assert.AreEqual(1.5, d.CanalLossFactor, 1e-12, "×2 → ×1.5");
-            Assert.AreEqual(0.5, d.ConstructionSpeed, 1e-12, "방풍막은 공사 속도에는 영향 없음(D3)");
+            Assert.AreEqual(0.5, d.ConstructionSpeed, 1e-12, "모래폭풍 피해 배율은 공사 속도에는 영향 없음(D3)");
         }
 
         [Test]
@@ -118,7 +118,7 @@ namespace DesertSettlement.Core.Tests
         {
             foreach (bool net in new[] { false, true })
             {
-                Settlement s = net ? NewSettlement("insectNet") : NewSettlement();
+                Settlement s = net ? NewSettlement(new EconomyEffects { LocustDamageMultiplier = 0.5 }) : NewSettlement();
                 DisasterManager d = AttachOne(s, DisasterManager.Locusts);
                 for (int i = 0; i < 200 && d.Events.Single().State != DisasterState.Warned; i++) s.AdvanceHour();
                 while (s.CurrentHour < d.Events.Single().StartHour) s.AdvanceHour();
@@ -145,10 +145,10 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(0.5, d.ProductionFactor(plain.FacilityAt(FarmTile)), 1e-12);
             Assert.That(d.Events.Single().DurationHours, Is.InRange(48, 96));
 
-            Settlement irrigated = NewSettlement("irrigation");
+            Settlement irrigated = NewSettlement(new EconomyEffects { BlightDamageMultiplier = 0.5 });
             DisasterManager d2 = AttachOne(irrigated, DisasterManager.Blight);
             RunUntilActive(irrigated, d2, DisasterManager.Blight);
-            Assert.AreEqual(0.75, d2.ProductionFactor(irrigated.FacilityAt(FarmTile)), 1e-12, "관개 설비: 피해 절반");
+            Assert.AreEqual(0.75, d2.ProductionFactor(irrigated.FacilityAt(FarmTile)), 1e-12, "탄저병 피해 ×0.5: 피해 절반");
         }
 
         [Test]

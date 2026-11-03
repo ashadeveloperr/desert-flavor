@@ -11,7 +11,6 @@ namespace SettlementSim
     // 매각 시점 측정: dotnet run --project Tools/SettlementSim -- selltime [n=2,4] [holds=4] [diet] [lab=이름…]
     // 숙련 봇 캠페인(`-- mods campaign 0.25 14000 … smart`과 같은 시드)에서 n번째 정착지만 정기 경매를 k번 보류한 뒤 판다(k = 0…holds).
     // 보류하는 동안에도 봇은 평소처럼 개량·주택을 짓는다. '어느 시점에 파는 게 가장 이득인가'의 곡선을 본다.
-    // hold=x : 보류할 때마다 줄어드는 시세(auction.holdMarketPenalty) 후보.
     public static partial class Program
     {
         private static int SellTiming(string[] args)
@@ -26,7 +25,6 @@ namespace SettlementSim
             int maxHolds = int.Parse(Arg("holds") ?? "4", inv);
             SkilledBot.Diet = args.Contains("diet");
             if (Arg("lab") != null) ApplyLaborCandidate(config, Arg("lab"));
-            if (Arg("hold") != null) config.Auction.HoldMarketPenalty = double.Parse(Arg("hold"), inv);
 
             Header($"매각 시점 — n번째 정착지에서 정기 경매를 k번 보류한 뒤 매각(숙련 봇, 캠페인 시드 1~5{(SkilledBot.Diet ? ", 식품 시설" : "")})");
             var maps = LoadMaps();
@@ -61,7 +59,7 @@ namespace SettlementSim
                                 break;
                             }
                             if (!ok) break; // 앞 정착지에서 실패한 캠페인은 이 n에서 뺀다
-                            NextSettlementLikeSmartBot(c, config);
+                            BidderChoice.ChooseNext(c);
                         }
                     }
                     SkilledBot.ForceHolds = -1;
@@ -70,27 +68,6 @@ namespace SettlementSim
                 }
             }
             return 0;
-        }
-
-        /// <summary>`-- mods campaign … smart`의 정착지 사이 행동(장비 구매·강화, 약점이 적은 행선지, 장착)과 같다.</summary>
-        private static void NextSettlementLikeSmartBot(Campaign c, EconomyConfig config)
-        {
-            string[] buyOrder = { "wellPump", "miningGear", "windbreak", "reinforcedMaterials", "oxygenSupply", "irrigation", "extraCrew", "bigStorage", "vaccination", "insectNet" };
-            string[] generalOrder = { "wellPump", "miningGear", "windbreak", "vaccination", "insectNet", "reinforcedMaterials", "extraCrew", "bigStorage", "oxygenSupply", "irrigation" };
-            foreach (string id in buyOrder)
-            {
-                var e = config.Equipment.Single(x => x.Id == id);
-                if (!c.Owns(id) && c.Cash - e.Price >= 2500) c.BuyEquipment(id);
-            }
-            foreach (string id in generalOrder)
-                while (c.UpgradeCost(id) is double cost && c.Cash - cost >= 2500) c.UpgradeEquipment(id);
-            var offers = c.NextOffers();
-            RegionOffer pick = offers.OrderBy(o => o.Weaknesses.Count(w => !CounterOf.ContainsKey(w.Id) || !c.Owns(CounterOf[w.Id])))
-                .ThenByDescending(o => o.Strengths.Count()).First();
-            foreach (string id in c.Loadout.ToList()) c.SetEquipped(id, false);
-            foreach (string id in pick.Weaknesses.Where(w => CounterOf.ContainsKey(w.Id)).Select(w => CounterOf[w.Id]).Concat(generalOrder).Distinct())
-                if (c.Owns(id)) c.SetEquipped(id, true);
-            c.StartNextSettlement(pick.Index);
         }
     }
 }

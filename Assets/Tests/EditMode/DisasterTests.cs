@@ -52,7 +52,6 @@ namespace DesertSettlement.Core.Tests
             Assert.IsTrue(_config.Disasters.Types.Any(t => t.Id == "epidemic"));
             Assert.AreEqual(20, _config.GetLevel(BuildingKinds.Hospital, 1).Stone);
             Assert.Greater(_config.GetLevel(BuildingKinds.Hospital, 1).Beds ?? 0, 0, "병원 병상(결정 EV3)");
-            Assert.Greater(_config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicImmuneShare, 0, "방역 장비 = 처음부터 면역인 주민 비율(결정 EV5)");
             CollectionAssert.Contains(SettlementRules.FromConfig(_config).AllowedTerrain[BuildingKinds.Hospital], TerrainType.Desert);
         }
 
@@ -193,10 +192,10 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Vaccination_MakesAShareImmune_AndLowersPeak()
         {
-            double vaccine = _config.Equipment.Single(e => e.Id == "vaccination").Effects.EpidemicImmuneShare;
+            const double vaccine = 0.25; // 면역 주민 비율 효과(결정 EV5, 예전 방역 장비 값) — 지금 설정에는 이 효과를 주는 모디파이어가 없다
             double Peak(bool vaccinated)
             {
-                Settlement s = NewTown(r => { if (vaccinated) r.ApplyEffects(_config.Equipment.Single(e => e.Id == "vaccination").Effects); });
+                Settlement s = NewTown(r => { if (vaccinated) r.ApplyEffects(new EconomyEffects { EpidemicImmuneShare = vaccine }); });
                 DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
                 while (!d.Epidemic.Active) s.AdvanceHour();
                 if (vaccinated) Assert.GreaterOrEqual(d.Epidemic.Immune, vaccine * (18 - d.Epidemic.Sick) - 1e-9, "처음부터 면역인 주민 비율(결정 EV5)");

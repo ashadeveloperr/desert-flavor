@@ -32,10 +32,6 @@ namespace DesertSettlement.Core.Progression
         public const string SellGoods = "sellGoods";        // Kind = 재화 id, Amount (곡물 밖의 재화 판매, 결정 FD6)
         public const string Sell = "sell";                  // Index = 입찰
         public const string Hold = "hold";
-        public const string BuyEquipment = "buyEquipment";  // Kind = 장비 id
-        public const string UpgradeEquipment = "upgradeEquipment";
-        public const string Equip = "equip";                // Kind
-        public const string Unequip = "unequip";            // Kind
 
         public int Settlement { get; set; }
         public long Hour { get; set; }
@@ -69,7 +65,8 @@ namespace DesertSettlement.Core.Progression
     /// <summary>저장 파일 내용. 캠페인 시드 + 명령 기록 + 저장한 순간의 위치(정착지 번호·시간).</summary>
     public sealed class SaveData
     {
-        public const int CurrentVersion = 1;
+        /// <summary>2 = 장비 상점 폐지·입찰자 모디파이어(결정 SH1). 1 이하는 장비 명령이 들어 있어 다시 실행할 수 없다.</summary>
+        public const int CurrentVersion = 2;
 
         public int Version { get; set; } = CurrentVersion;
         public int Seed { get; set; }
@@ -115,6 +112,7 @@ namespace DesertSettlement.Core.Progression
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
             if (data.Version > SaveData.CurrentVersion) throw new InvalidOperationException($"더 새 버전의 저장 파일입니다(v{data.Version}).");
+            if (data.Version < SaveData.CurrentVersion) throw new InvalidOperationException("예전 규칙(장비 상점)의 저장 파일이라 불러올 수 없습니다.");
             var result = new ReplayResult { Campaign = new Campaign(config, maps, data.Seed, procedural) };
             Campaign c = result.Campaign;
             foreach (GameCommand cmd in data.Commands)
@@ -146,10 +144,6 @@ namespace DesertSettlement.Core.Progression
             switch (cmd.Type)
             {
                 case GameCommand.Start: c.StartNextSettlement(cmd.OfferIndex); return true;
-                case GameCommand.BuyEquipment: return c.BuyEquipment(cmd.Kind).Success;
-                case GameCommand.UpgradeEquipment: return c.UpgradeEquipment(cmd.Kind).Success;
-                case GameCommand.Equip: return c.SetEquipped(cmd.Kind, true).Success;
-                case GameCommand.Unequip: return c.SetEquipped(cmd.Kind, false).Success;
             }
 
             if (c.State != CampaignState.InSettlement || c.SettlementNumber != cmd.Settlement) return false;

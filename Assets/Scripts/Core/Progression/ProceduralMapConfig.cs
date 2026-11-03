@@ -73,8 +73,6 @@ namespace DesertSettlement.Core.Progression
         /// 첫 생성 맵 정착지는 0, 그다음부터 1개마다 이만큼. 수익이 줄어도 난이도가 계속 올라 결국 적자에 닿게 한다.
         /// </summary>
         public double DPerSettlement { get; set; } = 0.25; // 2026-10-23 F5: 0.2 → 0.25(D=1 도달 6번째)
-        /// <summary>난이도 자금 항에 더하는 '지금까지 장비 구매·강화에 쓴 돈'의 비율(2026-10-23 E5). 0이면 보유 자금만 본다.</summary>
-        public double EquipmentSpendInDifficulty { get; set; }
         /// <summary>생성 맵의 유지비 배율 = 1 + 이 값 × D(2026-10-23 H1: 먼 지역일수록 운영비가 비싸짐). 0이면 끔.</summary>
         /// <summary>운영비 배율 계산에 쓰는 D의 하한(0이면 끔). 예: 0.6이면 첫 정착지부터 운영비 × (1 + UpkeepPerD × 0.6).</summary>
         public double UpkeepMinD { get; set; }

@@ -24,9 +24,6 @@ namespace SettlementSim
                 for (int n = 1; n < settlements; n++)
                 {
                     if (!ReferenceBot.PlayCampaignSettlement(c)) break;
-                    foreach (string id in new[] { "wellPump", "miningGear", "windbreak" })
-                        if (!c.Owns(id) && c.Cash - config.Equipment.Single(e => e.Id == id).Price >= 2500) c.BuyEquipment(id);
-                    if (c.UpgradeCost("wellPump") is double cost && c.Cash - cost >= 2500) c.UpgradeEquipment("wellPump");
                     c.StartNextSettlement(n % 2);
                 }
                 if (c.State == CampaignState.InSettlement)
@@ -49,7 +46,7 @@ namespace SettlementSim
                 Campaign b = r.Campaign;
                 string Sig(Campaign x) =>
                     $"정착지 {x.SettlementNumber} {x.State} 시간 {x.Current?.CurrentHour} 자금 {(x.State == CampaignState.InSettlement ? x.Current.Cash : x.Cash):0.000000} " +
-                    $"시설 {x.Current?.Facilities.Count} 석재 {x.Current?.Stone:0.0000} 장비 {string.Join(",", x.OwnedEquipment.OrderBy(e => e).Select(e => e + x.EquipmentLevel(e)))} 명령 {x.CommandLog.Count}";
+                    $"시설 {x.Current?.Facilities.Count} 석재 {x.Current?.Stone:0.0000} 모디파이어 {string.Join(",", x.Modifiers.Select(m => m.Id))} 명령 {x.CommandLog.Count}";
                 string a = Sig(c), bb = Sig(b);
                 bool ok = a == bb && r.Problems.Count == 0;
                 if (!ok) failures++;

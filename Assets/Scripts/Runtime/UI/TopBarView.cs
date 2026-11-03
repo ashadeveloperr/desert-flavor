@@ -11,7 +11,7 @@ namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
     /// 위쪽 띠(UI2): 왼쪽 자원 카드(결정 UV3, Frostpunk 식 — 아이콘 + 큰 숫자 + 시간당 변화, 위험하면 붉게 깜빡임):
-    /// 자금(유지비·버틸 시간)·식품(순 식량·버틸 시간)·석재(생산·한도)·주민(정원·일손, 노동력이 꺼져 있으면 식량 계수)·광물(경매 가치), 가운데 정착지·지역 특성·장비,
+    /// 자금(유지비·버틸 시간)·식품(순 식량·버틸 시간)·석재(생산·한도)·주민(정원·일손, 노동력이 꺼져 있으면 식량 계수)·광물(경매 가치), 가운데 정착지·지역 특성·받은 영구 모디파이어,
     /// 오른쪽 시계·일시정지·배속(` 1 2 3) | 저장(F5)·불러오기(F9).
     /// 좁은 화면에서는 세 구역이 같은 비율로 줄어든다(LY3, 16:10까지는 그대로).
     /// </summary>
@@ -181,8 +181,8 @@ namespace DesertSettlement.Runtime.UI
             _place.text = $"정착지 {c.SettlementNumber} · {place}";
             string traits = string.Join("   ", c.CurrentModifiers.Select(m =>
                 Paint((m.Kind == RegionModifierKind.Weakness ? "약점 " : "강점 ") + m.Name, m.Kind == RegionModifierKind.Weakness ? Theme.Warn : Theme.Good)));
-            string gear = c.Loadout.Count == 0 ? "장비 없음" : "장비 " + string.Join(", ", c.Shop.Where(e => c.IsEquipped(e.Id)).Select(e => e.Name));
-            // 운영비 배율(장비·약점·난이도 H1 포함): 먼 지역일수록 비싸진다.
+            string gear = c.Modifiers.Count == 0 ? "영구 모디파이어 없음" : $"영구 모디파이어 {c.Modifiers.Count}개 — {c.ModifierEffects.Describe()}";
+            // 운영비 배율(영구 모디파이어·약점·난이도 H1 포함): 먼 지역일수록 비싸진다.
             string upkeep = s.Rules.UpkeepMultiplier > 1.005 ? "   " + Paint($"운영비 ×{s.Rules.UpkeepMultiplier:0.00}", Theme.Warn) : "";
             _traits.text = (traits.Length > 0 ? traits + "\n" : "") + gear + upkeep;
 

@@ -53,7 +53,7 @@ namespace DesertSettlement.Core.Economy
             PurchasePrice p = food ? Rules.Config.Purchase.Food : Rules.Config.Purchase.Stone;
             if (p.SellLimit <= 0) return 0;
             double x = (food ? FoodSellPressure : StoneSellPressure) / p.SellLimit;
-            return p.BaseCost * p.SellRatio * Math.Max(0, 1 - x * x);
+            return p.BaseCost * p.SellRatio * Rules.Effects.SellPriceMultiplier * Math.Max(0, 1 - x * x);
         }
 
         /// <summary>식량 구매·판매(곡물)와 석재. 식량 = 곡물(결정 FD6).</summary>
@@ -112,7 +112,7 @@ namespace DesertSettlement.Core.Economy
             GoodsSettings s = GoodsCatalog.Settings(Rules.Config, g);
             if (s.SellPrice <= 0 || s.SellLimit <= 0) return 0;
             double x = _goodsSellPressure[(int)g] / s.SellLimit;
-            return s.SellPrice * Math.Max(0, 1 - x * x);
+            return s.SellPrice * Rules.Effects.SellPriceMultiplier * Math.Max(0, 1 - x * x);
         }
 
         /// <summary>곡물 밖의 재화 판매(1단위씩). 곡물은 <see cref="Sell(int, bool)"/>.</summary>
@@ -185,13 +185,13 @@ namespace DesertSettlement.Core.Economy
             if (g == Goods.Grain)
             {
                 PurchasePrice p = Rules.Config.Purchase.Food;
-                (sold, income) = SellAlongCurve(p.BaseCost * p.SellRatio, p.SellLimit, FoodSellPressure, amount);
+                (sold, income) = SellAlongCurve(p.BaseCost * p.SellRatio * Rules.Effects.SellPriceMultiplier, p.SellLimit, FoodSellPressure, amount);
                 FoodSellPressure += sold;
             }
             else
             {
                 GoodsSettings s = GoodsCatalog.Settings(Rules.Config, g);
-                (sold, income) = SellAlongCurve(s.SellPrice, s.SellLimit, _goodsSellPressure[(int)g], amount);
+                (sold, income) = SellAlongCurve(s.SellPrice * Rules.Effects.SellPriceMultiplier, s.SellLimit, _goodsSellPressure[(int)g], amount);
                 _goodsSellPressure[(int)g] += sold;
             }
             _stock[(int)g] -= sold;
@@ -205,7 +205,7 @@ namespace DesertSettlement.Core.Economy
         {
             if (Rules.Trade == null || !HasMarket) return 0;
             PurchasePrice p = Rules.Config.Purchase.Stone;
-            (double sold, double income) = SellAlongCurve(p.BaseCost * p.SellRatio, p.SellLimit, StoneSellPressure, amount);
+            (double sold, double income) = SellAlongCurve(p.BaseCost * p.SellRatio * Rules.Effects.SellPriceMultiplier, p.SellLimit, StoneSellPressure, amount);
             StoneSellPressure += sold;
             StoneAutoSold += sold;
             AddAutoIncome(income);

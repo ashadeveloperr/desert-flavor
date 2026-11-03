@@ -149,22 +149,22 @@ namespace DesertSettlement.Runtime.UI
                 list.Add(($"경매까지 {left}시간 ({auctions.NextAuctionHour}시간째)", Theme.Text));
                 if (auctions.AnnouncedBidders.Count > 0)
                 {
-                    // 2026-10-26 AH1: 입찰자 수 = 경매장 1개일 때 2명 + 경매장이 하나 늘 때마다 1명(최대 attendeesMax).
+                    // 결정 AN1: 입찰자 수 = 1명 + 경매장 수(최대 attendeesMax). 입찰자마다 팔면 받는 영구 모디파이어(결정 BM1).
                     int max = Mathf.Min(s.Rules.Config.Auction.AttendeesMax, s.Rules.Config.Auction.Bidders.Count);
-                    string more = auctions.AttendeeCount < max ? " · 경매장을 더 지으면 +1명" : "";
-                    list.Add(($"  예고 입찰자 {auctions.AttendeeCount}명(경매장 {auctions.OperatingAuctionHalls}개{more}): " +
-                              string.Join(", ", auctions.AnnouncedBidders.Select(b => b.Name)), Theme.Muted));
+                    string more = auctions.AttendeeCount < max ? " · 경매장을 지으면 +1명" : "";
+                    list.Add(($"  예고 입찰자 {auctions.AttendeeCount}명(경매장 {auctions.OperatingAuctionHalls}개{more})", Theme.Muted));
+                    foreach (BidderProfile b in auctions.AnnouncedBidders)
+                    {
+                        BidderModifierDefinition m = auctions.ModifierOf(b);
+                        list.Add(($"   · {b.Name}" + (m != null ? Paint($"  ◆ {m.Describe()}", Theme.Accent) : ""), Theme.Muted));
+                    }
                 }
-                if (auctions.Holds > 0) list.Add(($"  보류 {auctions.Holds}번 — 시세 ×{auctions.HoldFactor:0.00}", Theme.Warn));
-            }
-            else
-            {
-                list.Add(($"경매장 완공 {s.Rules.Config.ConfirmedRules.AuctionRepeatsGameHours}시간 뒤 첫 경매", Theme.Muted));
+                if (auctions.Holds > 0) list.Add(($"  보류 {auctions.Holds}번(시세는 그대로)", Theme.Muted));
             }
             if (auctions.HoursUntilBankruptcy.HasValue) list.Add(($"⚠ 자금 음수 — {auctions.HoursUntilBankruptcy}시간 뒤 파산", Theme.Danger));
             else if (CashRunsOutIn(s) is double runOut)
             {
-                // 자금 경고(RC4): 지난 3시간 추세로 24시간 안에 0이 되면 미리 알린다. 0 이하가 되면 바로 긴급 매각(경매장·광산이 없으면 파산).
+                // 자금 경고(RC4): 지난 3시간 추세로 24시간 안에 0이 되면 미리 알린다. 0 이하가 되면 바로 긴급 매각(광산이 없으면 파산).
                 list.Add(($"⚠ 이대로면 약 {runOut:0}시간 뒤 자금 0 — 0 이하가 되면 바로 긴급 매각(−{s.Rules.Config.Auction.EmergencyPenalty:P0})", Theme.Warn));
             }
             foreach (string kind in BuildingKinds.All)

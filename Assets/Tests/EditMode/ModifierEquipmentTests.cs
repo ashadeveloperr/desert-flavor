@@ -78,11 +78,15 @@ namespace DesertSettlement.Core.Tests
             }
         }
 
-        /// <summary>규칙의 숫자 속성 전부 + 수로 손실(효과가 규칙에 반영됐는지 비교용).</summary>
+        /// <summary>
+        /// 규칙의 숫자 속성 전부 + 수로 손실 + 정착지가 바로 읽는 효과 묶음(<see cref="SettlementRules.Effects"/>, 결정 BM1)의 숫자 속성 전부.
+        /// </summary>
         private static string RulesSnapshot(SettlementRules r) =>
             string.Join("|", typeof(SettlementRules).GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.GetIndexParameters().Length == 0 && (p.PropertyType == typeof(double) || p.PropertyType == typeof(int)))
-                .Select(p => $"{p.Name}={p.GetValue(r)}")) + $"|loss={r.Water.LossPerWholeEdge}";
+                .Select(p => $"{p.Name}={p.GetValue(r)}")) + $"|loss={r.Water.LossPerWholeEdge}|"
+            + string.Join("|", typeof(EconomyEffects).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.PropertyType == typeof(double) || p.PropertyType == typeof(int)).Select(p => $"e.{p.Name}={p.GetValue(r.Effects)}"));
 
         [Test]
         public void Effects_ChangeSettlementEconomy()
@@ -166,7 +170,7 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Campaign_OffersTwoRegions_WithDifferentWeaknesses_AndAppliesChosenOne()
         {
-            Campaign c = CampaignInShop(cashBoost: 9000);
+            Campaign c = CampaignAfterSale(cashBoost: 9000);
             IReadOnlyList<RegionOffer> offers = c.NextOffers();
             Assert.AreEqual(2, offers.Count, "후보 2곳");
             Assert.AreEqual(offers[0].Params.D, offers[1].Params.D, 1e-12, "같은 난이도");
@@ -183,11 +187,10 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Campaign_PreviewUpkeepMultiplier_MatchesRulesAfterDeparture()
         {
-            // 행선지 창 '운영비 ×'(2026-10-27 이슈 #6) = 들어간 뒤 규칙 값(장착 장비·모디파이어·난이도 비례).
+            // 행선지 창 '운영비 ×'(2026-10-27 이슈 #6) = 들어간 뒤 규칙 값(받은 영구 모디파이어·지역 모디파이어·난이도 비례).
             for (int pick = 0; pick < 2; pick++)
             {
-                Campaign c = CampaignInShop(cashBoost: 9000);
-                foreach (EquipmentDefinition e in c.Shop.Take(3)) Assert.IsTrue(c.BuyEquipment(e.Id).Success, e.Id);
+                Campaign c = CampaignAfterSale(cashBoost: 9000);
                 RegionOffer offer = c.NextOffers()[pick];
                 double preview = c.PreviewUpkeepMultiplier(offer);
                 Settlement s = c.StartNextSettlement(pick);
@@ -210,7 +213,7 @@ namespace DesertSettlement.Core.Tests
         public void Campaign_LateDifficulty_ScalesWeaknessesUpkeepAndDisasters()
         {
             // D가 lateStartD(4)를 넘으면 약점·운영비·재해가 세진다(LD1~LD3). 후보 카드에 보이는 약점 값 = 실제 규칙 값.
-            Campaign c = CampaignInShop(cashBoost: 90000);
+            Campaign c = CampaignAfterSale(cashBoost: 90000);
             RegionOffer offer = c.NextOffers()[0];
             DifficultyCurve curve = _proc.Difficulty;
             double d = offer.Params.D;
@@ -227,7 +230,7 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(started.Rules.UpkeepMultiplier, preview, 1e-12);
             double late = d - curve.LateStartD;
             double upkeepFromD = 1 + curve.UpkeepPerD * d + curve.UpkeepLatePerD2 * late * late;
-            Assert.AreEqual(upkeepFromD * offer.Effects.UpkeepMultiplier, started.Rules.UpkeepMultiplier, 1e-9, "장비 없음: 모디파이어 × (1 + 0.5D + 0.2x²)");
+            Assert.AreEqual(upkeepFromD * offer.Effects.UpkeepMultiplier * c.ModifierEffects.UpkeepMultiplier, started.Rules.UpkeepMultiplier, 1e-9, "지역 × 받은 모디파이어 × (1 + 0.5D + 0.2x²)");
             Assert.AreEqual(1 + curve.DisasterLatePerD * late, c.Disasters.Intensity, 1e-12);
         }
 
@@ -242,28 +245,8 @@ namespace DesertSettlement.Core.Tests
             Assert.IsEmpty(c.CurrentModifiers);
         }
 
-        [Test]
-        public void Campaign_EquipmentSlots_OnlyEquippedGearTakesEffect()
-        {
-            Campaign c = CampaignInShop(cashBoost: 20000);
-            foreach (EquipmentDefinition e in c.Shop) Assert.IsTrue(c.BuyEquipment(e.Id).Success, e.Id);
-            Assert.AreEqual(Campaign.EquipmentSlots, c.Loadout.Count, "산 순서대로 5개까지 자동 장착");
-            string sixth = c.Shop[5].Id;
-            Assert.IsFalse(c.IsEquipped(sixth));
-            Assert.IsFalse(c.SetEquipped(sixth, true).Success, "슬롯이 가득 참");
-
-            Assert.IsTrue(c.SetEquipped("wellPump", false).Success);
-            Assert.IsTrue(c.SetEquipped(sixth, true).Success);
-            Assert.IsFalse(c.SetEquipped("nope", true).Success, "가지지 않은 장비");
-
-            Settlement s = c.StartNextSettlement();
-            Assert.AreEqual(1.0 * c.CurrentModifiers.Aggregate(1.0, (m, x) => m * x.Effects.WellSupplyMultiplier), s.Rules.WellSupplyMultiplier, 1e-12,
-                "우물 장비를 뺐으므로 우물 배율은 모디파이어만");
-            Assert.IsFalse(c.SetEquipped(sixth, false).Success, "정착지 안에서는 바꿀 수 없음");
-        }
-
-        /// <summary>첫 정착지를 샘플 배치로 첫 경매까지 돌려 판 뒤(상점), 시작 자금을 늘려 높은 난이도 후보가 나오게 한다.</summary>
-        private static Campaign CampaignInShop(double cashBoost)
+        /// <summary>첫 정착지를 샘플 배치로 첫 경매까지 돌려 판 뒤(행선지 선택), 시작 자금을 늘려 높은 난이도 후보가 나오게 한다.</summary>
+        private static Campaign CampaignAfterSale(double cashBoost)
         {
             EconomyConfig rich = TestData.Economy();
             rich.Prototype.StartingCash += cashBoost;
@@ -273,7 +256,7 @@ namespace DesertSettlement.Core.Tests
             for (int h = 0; h < 600 && !c.Auctions.IsOpen; h++) s.AdvanceHour();
             Assert.IsTrue(c.Auctions.IsOpen);
             c.Auctions.Sell(0);
-            Assert.AreEqual(CampaignState.Shopping, c.State);
+            Assert.AreEqual(CampaignState.ChoosingDestination, c.State);
             return c;
         }
     }

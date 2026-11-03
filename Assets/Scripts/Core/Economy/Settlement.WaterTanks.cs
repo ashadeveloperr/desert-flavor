@@ -23,7 +23,7 @@ namespace DesertSettlement.Core.Economy
         private const double TankEpsilon = 1e-9;
 
         /// <summary>운영 중인 물탱크의 저장 한도(지금 레벨).</summary>
-        public double TankCapacityOf(Facility tank) => LevelOf(tank).Capacity ?? 0;
+        public double TankCapacityOf(Facility tank) => (LevelOf(tank).Capacity ?? 0) * Rules.Effects.WaterTankCapacityMultiplier;
 
         private void ApplyWaterTanks(CanalGraph canals, WaterAllocation water, List<WaterSource> wells)
         {

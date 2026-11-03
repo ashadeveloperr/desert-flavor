@@ -16,10 +16,8 @@ namespace DesertSettlement.Core.Config
         public AuctionSeed AuctionSeed { get; set; }
         /// <summary>경매 진행·입찰자 성향(4단계, 잠정).</summary>
         public AuctionSettings Auction { get; set; }
-        /// <summary>영구 장비 목록(4단계, 잠정).</summary>
-        public List<EquipmentDefinition> Equipment { get; set; }
-        /// <summary>장비 강화 규칙(2026-10-23). 없으면 기본값(효과 1.0/1.3/1.5배, 비용 가격 ×2.0/×3.0).</summary>
-        public EquipmentUpgradeSettings EquipmentUpgrade { get; set; }
+        /// <summary>입찰자가 주는 영구 모디파이어(결정 BM1~). 없으면 모디파이어 보상 없음.</summary>
+        public BidderModifierSettings BidderModifiers { get; set; }
         /// <summary>재해(2026-10-23: 전염병). 없으면 재해 없음.</summary>
         public DisasterSettings Disasters { get; set; }
         /// <summary>주택·노동력(결정 LB1~). 없으면 원본 v0.8: 시설이 식량을 먹고(<c>foodUse</c>) 식량 계수 F가 효율에 곱해진다.</summary>
@@ -52,7 +50,6 @@ namespace DesertSettlement.Core.Config
     public sealed class ConfirmedRules
     {
         public int AuctionHistoryGameHours { get; set; }
-        public int AuctionRepeatsGameHours { get; set; }
         public int ConstructionSlots { get; set; }
         public double PostStartCancelStoneRefundRatio { get; set; }
         public double GameDayRealSecondsAt1x { get; set; }
@@ -267,20 +264,21 @@ namespace DesertSettlement.Core.Config
     {
         /// <summary>
         /// 경매 한 번에 오는 입찰자 수 범위(입찰자 목록에서 무작위 순서, 중복 없음).
-        /// 2026-10-26 AH1부터 실제 인원 = <see cref="AttendeesWithOneAuctionHall"/> + (가동 중인 경매장 수 − 1)을 이 범위로 제한한 값
-        /// (경매장 1·2·3개 = 2·3·4명, 이전 FB2는 무작위 2~3명).
+        /// 실제 인원 = <see cref="AttendeesWithoutAuctionHall"/> + 가동 중인 경매장 수를 이 범위로 제한한 값(결정 AN1).
         /// </summary>
         public int AttendeesMin { get; set; } = 1;
-        public int AttendeesMax { get; set; } = 4;
-        /// <summary>경매장 1개일 때 입찰자 수(2026-10-26 AH1). 경매장을 하나 더 지을 때마다 +1명.</summary>
-        public int AttendeesWithOneAuctionHall { get; set; } = 2;
+        public int AttendeesMax { get; set; } = 7;
+        /// <summary>경매장이 하나도 없을 때 오는 입찰자 수(결정 AN1). 경매장을 하나 지을 때마다 +1명.</summary>
+        public int AttendeesWithoutAuctionHall { get; set; } = 1;
+        /// <summary>정착지 시작 뒤 첫 정기 경매 시각(시간, 결정 AN1). 경매장이 없어도 열린다.</summary>
+        public int FirstAuctionHour { get; set; } = 72;
+        /// <summary>정기 경매를 보류(판매 거부)하면 이 시간 뒤 다시 경매(결정 AN1). 보류해도 시세는 줄지 않는다.</summary>
+        public int ReauctionHours { get; set; } = 36;
         /// <summary>당일 시세 = MarketCenter × (1 ± MarketSwing 균등 무작위). 경매 당일 공개.</summary>
         public double MarketCenter { get; set; } = 1.0;
         public double MarketSwing { get; set; }
         /// <summary>긴급 매각 입찰가 감액 비율(0.2 = −20%).</summary>
         public double EmergencyPenalty { get; set; }
-        /// <summary>보류 한 번마다 이후 경매 시세에 곱하는 감소율(0.1 = 보류마다 ×0.9). 2026-10-23 게임성 보강: '늘 보류+투자'가 정답이 되지 않게.</summary>
-        public double HoldMarketPenalty { get; set; }
         /// <summary>개발 중 자산 가치 = 기대 생산 × 진행률 × 이 값.</summary>
         public double DevelopmentAssetRatio { get; set; }
         /// <summary>자금 &lt; 0 상태가 이 시간 이상 이어지면 파산(경매장이 있을 때).</summary>
@@ -322,36 +320,27 @@ namespace DesertSettlement.Core.Config
         public static BidderProfile Neutral => new BidderProfile { Id = "neutral", Name = "기준" };
     }
 
-    /// <summary>영구 장비. 정착지를 옮겨도 유지된다.</summary>
-    /// <summary>영구 장비. 정착지에 들어갈 때 현장 장비 슬롯(5개)에 넣은 것만 효과가 있다.</summary>
-    public sealed class EquipmentDefinition
+    /// <summary>입찰자가 매각 보상으로 주는 영구 모디파이어 목록(결정 BM1~BM3).</summary>
+    public sealed class BidderModifierSettings
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public double Price { get; set; }
-        /// <summary>상점에 보일 한 줄 설명(어떤 약점에 대응하는지 등).</summary>
-        public string Description { get; set; }
-        /// <summary>경제 효과(바꿀 항목만 적는다). 형식은 지역 모디파이어와 같다.</summary>
-        public DesertSettlement.Core.Economy.EconomyEffects Effects { get; set; } = new DesertSettlement.Core.Economy.EconomyEffects();
-
-        /// <summary>우물 방출량 배율(1.2 = +20%). Effects에서 읽는다.</summary>
-        public double WellSupplyMultiplier => Effects?.WellSupplyMultiplier ?? 1;
-        /// <summary>강화 최고 레벨(구매 = Lv1). 없으면 강화 설정의 효과 단계 수. 1이면 강화 불가(정수 효과인 추가 작업반 등).</summary>
-        public int? MaxLevel { get; set; }
+        /// <summary>범용 목록의 pool 이름.</summary>
+        public const string GeneralPool = "general";
+        /// <summary>입찰자 전용 목록에서 뽑을 확률(나머지는 범용). 전용 목록이 비어 있으면 늘 범용.</summary>
+        public double ExclusiveChance { get; set; } = 0.7;
+        public List<BidderModifierDefinition> Definitions { get; set; }
     }
 
-    /// <summary>
-    /// 장비 강화(2026-10-23 로드맵 1-④, 수치 잠정). Lv n의 효과 = 기본 효과 × EffectScales[n-1](<see cref="DesertSettlement.Core.Economy.EconomyEffects.Scaled"/>),
-    /// Lv n → n+1 비용 = 가격 × CostMultipliers[n-1]. 근거는 Docs/decision_log_auto.md E1~E5.
-    /// </summary>
-    public sealed class EquipmentUpgradeSettings
+    /// <summary>모디파이어 하나. 효과는 곱연산으로 쌓인다(같은 것을 또 받으면 다시 곱함, 결정 BM3).</summary>
+    public sealed class BidderModifierDefinition
     {
-        // 리스트 기본값을 두지 않는다: Newtonsoft가 기본값 리스트에 JSON 값을 덧붙이는 문제(2026-10-23 재해 설정에서 겪음).
-        public List<double> EffectScales { get; set; }
-        public List<double> CostMultipliers { get; set; }
-
-        public IReadOnlyList<double> EffectiveEffectScales => EffectScales ?? new List<double> { 1.0, 1.3, 1.5 };
-        public IReadOnlyList<double> EffectiveCostMultipliers => CostMultipliers ?? new List<double> { 2.0, 3.0 };
+        public string Id { get; set; }
+        /// <summary>입찰자 id(전용) 또는 <see cref="BidderModifierSettings.GeneralPool"/>.</summary>
+        public string Pool { get; set; }
+        /// <summary>같은 목록 안에서 뽑힐 비중(기본 1).</summary>
+        public double Weight { get; set; } = 1;
+        public DesertSettlement.Core.Economy.EconomyEffects Effects { get; set; } = new DesertSettlement.Core.Economy.EconomyEffects();
+        /// <summary>화면 문구(효과 요약).</summary>
+        public string Describe() => Effects.Describe();
     }
 
     public sealed class InfraMultipliers

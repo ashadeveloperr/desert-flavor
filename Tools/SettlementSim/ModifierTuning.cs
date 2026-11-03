@@ -9,46 +9,24 @@ using DesertSettlement.Core.Progression;
 
 namespace SettlementSim
 {
-    // 지역 모디파이어·장비 수치 측정: dotnet run --project Tools/SettlementSim -- mods
-    // 목표(2026-10-23 확정 + 제안): ① 맞는 대응 장비가 약점 하나의 피해를 대략 절반 줄인다.
+    // 지역 모디파이어·입찰자 모디파이어 수치 측정: dotnet run --project Tools/SettlementSim -- mods
+    // 목표(2026-10-23 확정 + 제안): ① 맞는 대응 모디파이어가 약점 하나의 피해를 대략 절반 줄인다.
     // ② 약점이 쌓이면 숙련자(다중 봇)도 D 3~4 무렵 적자.
     public static partial class Program
     {
-        /// <summary>약점 → 대응 장비(설정 JSON의 장비 id).</summary>
-        internal static readonly Dictionary<string, string> CounterOf = new Dictionary<string, string>
-        {
-            ["softGround"] = "reinforcedMaterials", ["thinAir"] = "oxygenSupply", ["dryAquifer"] = "wellPump",
-            ["sandWind"] = "windbreak", ["salineSoil"] = "irrigation",
-        };
-
         /// <summary>
-        /// Core Campaign 그대로(후보 2곳·장비 슬롯 5·모디파이어) 다중 봇이 정착지를 이어 간다.
-        /// 봇 상점 규칙: 예비금 2500을 남기고 우선순위대로 장비 구매 → 대응 장비로 못 막는 약점이 적은 후보 선택
-        /// → 그 지역 약점의 대응 장비부터 슬롯에 넣고 나머지는 일반 장비.
+        /// Core Campaign 그대로(후보 2곳·지역 모디파이어·입찰자 영구 모디파이어) 다중 봇이 정착지를 이어 간다.
+        /// 봇 규칙(BidderChoice): 현금 × (1 + 모디파이어 점수)가 큰 입찰자에게 팔고, 받은 모디파이어로 못 막는 약점이 적은 후보를 고른다.
         /// </summary>
-        // disasters: false면 재해 없이(설정 disasters를 비움). vaccine: 봇이 방역 장비를 가장 먼저 사서 늘 장착(5-1 재측정, 2026-10-23).
-        private static int ModifierCampaign(EconomyConfig config, ProceduralMapConfig proc, int settlements = 15, bool disasters = true, bool vaccine = false,
-            bool upgrade = false, bool smart = false)
+        // disasters: false면 재해 없이(설정 disasters를 비움). 매각은 현금 + 모디파이어 점수, 행선지는 막지 못하는 약점이 적은 곳(BidderChoice).
+        private static int ModifierCampaign(EconomyConfig config, ProceduralMapConfig proc, int settlements = 15, bool disasters = true, bool smart = false)
         {
             if (!disasters) config.Disasters = null;
-            Header($"모디파이어 캠페인 — Core Campaign + 다중 봇(장비 구매·후보 선택·슬롯), 정착지 최대 {settlements}개, DPerSettlement {proc.Difficulty.DPerSettlement}, CashPerD {proc.Difficulty.CashPerD}"
+            Header($"모디파이어 캠페인 — Core Campaign + 다중 봇(입찰자·후보 선택), 정착지 최대 {settlements}개, DPerSettlement {proc.Difficulty.DPerSettlement}, CashPerD {proc.Difficulty.CashPerD}"
                 + $", 후반 가속 D>{proc.Difficulty.LateStartD}: 운영비²×{proc.Difficulty.UpkeepLatePerD2} 약점×{proc.Difficulty.WeaknessLatePerD} 재해×{proc.Difficulty.DisasterLatePerD}"
-                + $", 재해 {(disasters ? "있음" : "없음")}{(vaccine ? ", 방역 장비 우선" : "")}{(upgrade ? ", 장비 강화" : "")}");
+                + $", 재해 {(disasters ? "있음" : "없음")}");
             var reachD1 = new List<int>();
             var maps = LoadMaps();
-            string[] buyOrder = { "wellPump", "miningGear", "windbreak", "reinforcedMaterials", "oxygenSupply", "irrigation", "extraCrew", "bigStorage" };
-            string[] generalOrder = { "wellPump", "miningGear", "windbreak", "reinforcedMaterials", "extraCrew", "bigStorage", "oxygenSupply", "irrigation" };
-            if (smart)
-            {
-                upgrade = true; // 숙련 봇(O5~O8)은 장비도 강화하고, 재해 장비도 산다
-                buyOrder = buyOrder.Concat(new[] { "vaccination", "insectNet" }).ToArray();
-                generalOrder = new[] { "wellPump", "miningGear", "windbreak", "vaccination", "insectNet", "reinforcedMaterials", "extraCrew", "bigStorage", "oxygenSupply", "irrigation" };
-            }
-            if (vaccine)
-            {
-                buyOrder = new[] { "vaccination" }.Concat(buyOrder).ToArray();
-                generalOrder = new[] { "vaccination" }.Concat(generalOrder).ToArray();
-            }
             var deficitAt = new List<string>();
             var profitsByBand = new SortedDictionary<int, List<double>>(); // D 구간(0 = D<1, 1 = 1≤D<2 …) → 순이익
             int epidemicSettlements = 0, playedSettlements = 0;
@@ -82,25 +60,9 @@ namespace SettlementSim
                     if (!profitsByBand.ContainsKey(band)) profitsByBand[band] = new List<double>();
                     profitsByBand[band].Add(profit);
                     line.Append($"| #{n} {label}{(mods.Length > 0 ? "[" + mods + "]" : "")}{new string('☣', hits)} {profit:+0;-0} ");
-                    foreach (string id in buyOrder)
-                    {
-                        var e = config.Equipment.Single(x => x.Id == id);
-                        if (!c.Owns(id) && c.Cash - e.Price >= 2500) c.BuyEquipment(id);
-                    }
-                    // 장비 강화(2026-10-23 로드맵 1-④): 예비금 2500을 남기고 일반 우선순위대로 한 단계씩.
-                    if (upgrade)
-                        foreach (string id in generalOrder)
-                            while (c.UpgradeCost(id) is double cost && c.Cash - cost >= 2500) c.UpgradeEquipment(id);
-                    var offers = c.NextOffers();
-                    RegionOffer pick = offers.OrderBy(o => o.Weaknesses.Count(w => !CounterOf.ContainsKey(w.Id) || !c.Owns(CounterOf[w.Id])))
-                        .ThenByDescending(o => o.Strengths.Count()).First();
-                    foreach (string id in c.Loadout.ToList()) c.SetEquipped(id, false);
-                    var wanted = (vaccine ? new[] { "vaccination" } : Array.Empty<string>())
-                        .Concat(pick.Weaknesses.Where(w => CounterOf.ContainsKey(w.Id)).Select(w => CounterOf[w.Id])).Concat(generalOrder).Distinct();
-                    foreach (string id in wanted) if (c.Owns(id)) c.SetEquipped(id, true);
-                    c.StartNextSettlement(pick.Index);
+                    BidderChoice.ChooseNext(c);
                 }
-                line.Append($"| 자금 {c.Cash:0} 장비 {c.OwnedEquipment.Count}");
+                line.Append($"| 자금 {c.Cash:0} 모디파이어 {c.Modifiers.Count}");
                 Line(line.ToString());
                 deficitAt.Add(firstDeficit ?? "없음");
             }
@@ -124,10 +86,16 @@ namespace SettlementSim
             const int maps = 30;
             if (args.Length > 0 && args[0] == "campaign")
             {
-                // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [vaccine] [upgrade] [smart] [upkeep=k] [attendees=a-b] [upkeepmin=x] [cash=x] [halls=k] : 곡선 후보를 바꿔 가며 비교.
-                // nodisaster = 재해 끔, vaccine = 봇이 방역 장비 우선 구매·장착. 위치와 상관없이 쓸 수 있다.
+                // -- mods campaign [DPerSettlement] [CashPerD] [정착지 수] [nodisaster] [smart] [score=k] [modscale=k] [upkeep=k] [attendees=a-b] [upkeepmin=x] [cash=x] [halls=k] : 곡선 후보를 바꿔 가며 비교.
+                // nodisaster = 재해 끔, score=k = 매각 때 모디파이어 점수 가중치(0 = 늘 최고 현금). 위치와 상관없이 쓸 수 있다.
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
-                bool noDisaster = args.Contains("nodisaster"), vaccine = args.Contains("vaccine"), upgrade = args.Contains("upgrade"), smart = args.Contains("smart");
+                bool noDisaster = args.Contains("nodisaster"), smart = args.Contains("smart");
+                string scoreArg = args.FirstOrDefault(a => a.StartsWith("score="));
+                BidderChoice.ScoreWeight = scoreArg != null ? double.Parse(scoreArg.Substring(6), inv) : 1;
+                // modscale=k : 입찰자 모디파이어 세기 후보(결정 BM 측정) — 모든 효과를 1에서 벗어난 만큼 k배(EconomyEffects.Scaled).
+                string scaleArg = args.FirstOrDefault(a => a.StartsWith("modscale="));
+                if (scaleArg != null && config.BidderModifiers != null)
+                    foreach (BidderModifierDefinition bm in config.BidderModifiers.Definitions) bm.Effects = bm.Effects.Scaled(double.Parse(scaleArg.Substring(9), inv));
                 SkilledBot.Diet = args.Contains("diet"); // 식품 다양화 측정(결정 FD·LS): 숙련 봇이 과수원·가공 시설을 지음
                 // upkeep=k : 생성 맵 운영비 × (1 + k × D)의 k(H1, 2026-10-23 흐름 조정 측정용).
                 string upkeepArg = args.FirstOrDefault(a => a.StartsWith("upkeep="));
@@ -173,11 +141,11 @@ namespace SettlementSim
                 if (labArg != null) ApplyLaborCandidate(config, labArg.Substring(4));
                 string cashArg = args.FirstOrDefault(a => a.StartsWith("cash="));
                 if (cashArg != null) config.Prototype.StartingCash = double.Parse(cashArg.Substring(5), inv);
-                args = args.Where(a => a != "nodisaster" && a != "vaccine" && a != "upgrade" && a != "smart" && a != "diet" && !a.Contains("=")).ToArray();
+                args = args.Where(a => a != "nodisaster" && a != "smart" && a != "diet" && !a.Contains("=")).ToArray();
                 if (args.Length > 1) proc.Difficulty.DPerSettlement = double.Parse(args[1], inv);
                 if (args.Length > 2) proc.Difficulty.CashPerD = double.Parse(args[2], inv);
                 int count = args.Length > 3 ? int.Parse(args[3], inv) : 15;
-                return ModifierCampaign(config, proc, count, !noDisaster, vaccine, upgrade, smart);
+                return ModifierCampaign(config, proc, count, !noDisaster, smart);
             }
             double d = args.Length > 0 ? double.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture) : 1.0;
 
@@ -196,15 +164,15 @@ namespace SettlementSim
                 }).OrderBy(x => x).ToList();
                 return list[list.Count / 2];
             }
-            EconomyEffects Equip(string id) => config.Equipment.Single(e => e.Id == id).Effects;
+            EconomyEffects Equip(string id) => BidderChoice.Effects(config, id); // 약점을 줄이는 입찰자 모디파이어 1개
 
             double baseline = Median(Array.Empty<EconomyEffects>());
             Line($"  기준(모디파이어 없음): {baseline:+0;-0}");
-            Line("  모디파이어 | 효과 | 순이익 | 피해 | 대응 장비 | 장비 포함 순이익 | 회복 비율");
+            Line("  모디파이어 | 효과 | 순이익 | 피해 | 대응 모디파이어 | 대응 포함 순이익 | 회복 비율");
             foreach (RegionModifierDefinition m in defs)
             {
                 double with = Median(new[] { m.Effects });
-                string counter = CounterOf.TryGetValue(m.Id, out string c) ? c : null;
+                string counter = BidderChoice.CounterOf.TryGetValue(m.Id, out string c) ? c : null;
                 string tail = "";
                 if (counter != null)
                 {
@@ -215,11 +183,11 @@ namespace SettlementSim
                 }
                 Line($"  {m.Name} | {m.Effects.Describe()} | {with:+0;-0} | {baseline - with:+0;-0}{tail}");
             }
-            Line("  장비 단독(모디파이어 없음):");
-            foreach (EquipmentDefinition e in config.Equipment)
-                Line($"    {e.Name} ({e.Price:0}) | {e.Effects.Describe()} | {Median(new[] { e.Effects }) - baseline:+0;-0}");
+            Line("  입찰자 모디파이어 단독(지역 모디파이어 없음):");
+            foreach (BidderModifierDefinition e in config.BidderModifiers.Definitions)
+                Line($"    {e.Id} ({e.Pool}) | {e.Describe()} | {Median(new[] { e.Effects }) - baseline:+0;-0}");
 
-            Header($"약점 누적 — D {d:0.00} 맵, 무작위 약점 n개(장비 없음 / 대응 장비 모두)");
+            Header($"약점 누적 — D {d:0.00} 맵, 무작위 약점 n개(대응 없음 / 대응 모디파이어 모두)");
             var weak = defs.Where(m => m.Kind == RegionModifierKind.Weakness).ToList();
             for (int n = 0; n <= 4; n++)
             {
@@ -230,9 +198,9 @@ namespace SettlementSim
                     var rng = new DeterministicRandom(k * 7919 + n * 104729);
                     var pick = weak.OrderBy(_ => rng.Next()).Take(n).ToList();
                     none.Add(Median(pick.Select(m => m.Effects)));
-                    countered.Add(Median(pick.Select(m => m.Effects).Concat(pick.Where(m => CounterOf.ContainsKey(m.Id)).Select(m => Equip(CounterOf[m.Id])))));
+                    countered.Add(Median(pick.Select(m => m.Effects).Concat(pick.Where(m => BidderChoice.CounterOf.ContainsKey(m.Id)).Select(m => Equip(BidderChoice.CounterOf[m.Id])))));
                 }
-                Line($"  약점 {n}개: 장비 없음 {none.Average():+0;-0} / 대응 장비 {countered.Average():+0;-0}");
+                Line($"  약점 {n}개: 대응 없음 {none.Average():+0;-0} / 대응 모디파이어 {countered.Average():+0;-0}");
             }
 
             string outDir = Path.Combine(FindRepoRoot(), "Tools", "balance_output");

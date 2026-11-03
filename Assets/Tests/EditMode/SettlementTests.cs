@@ -161,7 +161,6 @@ namespace DesertSettlement.Core.Tests
             sc.Do(20, s => Assert.AreEqual(5, s.BuyStone(5)));
             sc.Run(128);
             Assert.AreEqual(32, sc.S.AuctionHallCompletedHour);
-            Assert.AreEqual(32 + 48, sc.S.AuctionHallCompletedHour + _config.ConfirmedRules.AuctionRepeatsGameHours, "첫 경매가 4시간 빨라짐");
         }
 
         // ───────────── 건설 규칙 ─────────────

@@ -11,8 +11,8 @@ namespace DesertSettlement.Core.Progression
     {
         /// <summary>정착지를 운영 중.</summary>
         InSettlement,
-        /// <summary>매각 후 장비 상점(다음 정착지 진입 전).</summary>
-        Shopping,
+        /// <summary>매각 후 다음 행선지를 고르는 중(다음 정착지 진입 전).</summary>
+        ChoosingDestination,
         Bankrupt,
     }
 
@@ -30,13 +30,15 @@ namespace DesertSettlement.Core.Progression
         public double FoodBonus;
         /// <summary>다음 정착지 무료 완공 배치(농장주 혜택 등).</summary>
         public Dictionary<string, int> FreeBuilds = new Dictionary<string, int>();
+        /// <summary>받은 영구 모디파이어(결정 BM1). 없으면 null.</summary>
+        public BidderModifierDefinition Modifier;
         public double CampaignCashAfter;
     }
 
     /// <summary>
     /// 정착지를 이어 가는 캠페인(무한 개척 루프).
-    /// 정착지 진입 → 운영 → 경매(매각/보류) → 매각 시 대금 100% → 장비 상점 → 다음 정착지.
-    /// - 자금과 영구 장비만 이어지고, 식량·석재·구매 단가는 정착지마다 새로 시작한다(확정).
+    /// 정착지 진입 → 운영 → 경매(매각/보류) → 매각 시 대금 100% + 그 입찰자의 영구 모디파이어 → 행선지 선택 → 다음 정착지.
+    /// - 자금과 영구 모디파이어(결정 BM1, 곱연산으로 쌓임)만 이어지고, 식량·석재·구매 단가는 정착지마다 새로 시작한다(확정).
     /// - 입찰자 혜택(다음 정착지 시작 식량, 무료 완공 배치 — 농장주는 완공된 농장 1개)은 다음 정착지 한 번에만 적용.
     /// - 다음 맵 선택은 <see cref="ChooseNextMap"/> 한곳에 모았다. 절차 맵 설정이 있으면 처음 FixedMapsBeforeGenerated개는 고정 맵,
     ///   그 뒤로는 정착지에 들어가는 순간의 보유 자금으로 난이도 D를 정해 맵을 생성한다(보유 자금 비례 난이도, 2026-10-23 확정).
@@ -47,19 +49,18 @@ namespace DesertSettlement.Core.Progression
         private readonly IReadOnlyList<MapDefinition> _maps;
         private readonly int _seed;
         private readonly ProceduralMapConfig _procedural;
-        private readonly HashSet<string> _owned = new HashSet<string>();
-        private readonly HashSet<string> _loadout = new HashSet<string>();
+        private readonly List<BidderModifierDefinition> _modifiers = new List<BidderModifierDefinition>();
         private readonly List<SaleRecord> _sales = new List<SaleRecord>();
         private double _pendingFoodBonus;
         private readonly Dictionary<string, int> _pendingFreeBuilds = new Dictionary<string, int>();
 
         public CampaignState State { get; private set; }
-        /// <summary>정착지 밖의 자금(상점·다음 정착지 시작 자금). 정착지 안에서는 Current.Cash를 본다.</summary>
+        /// <summary>정착지 밖의 자금(행선지 선택·다음 정착지 시작 자금). 정착지 안에서는 Current.Cash를 본다.</summary>
         public double Cash { get; private set; }
         /// <summary>1부터.</summary>
         public int SettlementNumber { get; private set; }
 
-        // ── 이번 캠페인 기록(2026-10-24 재미 보강 RC1): 상점·파산 화면에 보이고, Runtime이 최고 기록과 비교해 저장한다. ──
+        // ── 이번 캠페인 기록(2026-10-24 재미 보강 RC1): 행선지·파산 화면에 보이고, Runtime이 최고 기록과 비교해 저장한다. ──
         /// <summary>매각 뒤 가장 많았던 보유 자금(매각 전이면 지금 자금).</summary>
         public double PeakCash => _sales.Count == 0 ? Cash : Math.Max(Cash, _sales.Max(s => s.CampaignCashAfter));
         /// <summary>지금까지 매각 대금 합.</summary>
@@ -74,9 +75,11 @@ namespace DesertSettlement.Core.Progression
         public AuctionManager Auctions { get; private set; }
         /// <summary>지금 정착지의 재해(설정에 재해가 없으면 null).</summary>
         public DisasterManager Disasters { get; private set; }
-        public IReadOnlyCollection<string> OwnedEquipment => _owned;
         public IReadOnlyList<SaleRecord> Sales => _sales;
-        public IReadOnlyList<EquipmentDefinition> Shop => _config.Equipment ?? new List<EquipmentDefinition>();
+        /// <summary>지금까지 받은 영구 모디파이어(받은 순서, 같은 것이 여러 번 있을 수 있음).</summary>
+        public IReadOnlyList<BidderModifierDefinition> Modifiers => _modifiers;
+        /// <summary>받은 모디파이어를 모두 곱한 효과(다음 정착지에 걸린다).</summary>
+        public EconomyEffects ModifierEffects => EconomyEffects.Combine(_modifiers.Select(m => m.Effects));
         public string BankruptcyReason { get; private set; }
 
         public event Action SettlementStarted;
@@ -96,14 +99,15 @@ namespace DesertSettlement.Core.Progression
         }
 
         /// <summary>
-        /// 다음 정착지에 들어간다(처음 시작 포함). 상점 상태에서만, 또는 첫 정착지.
+        /// 다음 정착지에 들어간다(처음 시작 포함). 행선지 선택 상태에서만, 또는 첫 정착지.
         /// offerIndex = <see cref="NextOffers"/> 중 고른 후보(고정 맵 차례면 0뿐).
-        /// 현장 장비 슬롯에 넣은 장비(<see cref="Loadout"/>)와 고른 지역의 모디파이어 효과가 이 정착지 규칙에 걸린다.
+        /// 받은 영구 모디파이어(<see cref="Modifiers"/>)와 고른 지역의 모디파이어 효과가 이 정착지 규칙에 걸린다(모두 곱연산).
+        /// 시작 자금은 보유 자금 × 시작 자금 모디파이어.
         /// </summary>
         public Settlement StartNextSettlement(int offerIndex = 0)
         {
             if (State == CampaignState.Bankrupt) throw new InvalidOperationException("파산한 캠페인입니다.");
-            if (Current != null && State != CampaignState.Shopping) throw new InvalidOperationException("매각 후에만 다음 정착지로 갈 수 있습니다.");
+            if (Current != null && State != CampaignState.ChoosingDestination) throw new InvalidOperationException("매각 후에만 다음 정착지로 갈 수 있습니다.");
             IReadOnlyList<RegionOffer> offers = NextOffers();
             if (offerIndex < 0 || offerIndex >= offers.Count) throw new ArgumentOutOfRangeException(nameof(offerIndex), "없는 지역 후보입니다.");
             RegionOffer offer = offers[offerIndex];
@@ -113,9 +117,10 @@ namespace DesertSettlement.Core.Progression
             CurrentMap = MapFor(offer);
             CurrentModifiers = CurrentGenerated != null ? offer.Modifiers : new List<RegionModifierDefinition>();
             SettlementRules rules = SettlementRules.FromConfig(_config);
-            rules.StartingCash = Cash;
+            EconomyEffects owned = ModifierEffects;
+            rules.StartingCash = Cash * owned.StartingCashMultiplier;
             rules.StarterFood += _pendingFoodBonus;
-            foreach (EquipmentDefinition e in Shop.Where(x => _loadout.Contains(x.Id))) rules.ApplyEffects(EffectsOf(e));
+            rules.ApplyEffects(owned);
             foreach (RegionModifierDefinition m in CurrentModifiers) rules.ApplyEffects(m.Effects);
             rules.UpkeepMultiplier *= DifficultyUpkeepFactor(CurrentGenerated?.Params.D);
             foreach (KeyValuePair<string, int> kv in _pendingFreeBuilds) rules.FreeBuilds[kv.Key] = kv.Value;
@@ -153,12 +158,12 @@ namespace DesertSettlement.Core.Progression
         }
 
         /// <summary>
-        /// 이 후보에 지금 장착한 장비로 들어가면 걸릴 운영비 배율(위쪽 띠 '운영비 ×'와 같은 값, 2026-10-27 이슈 #6 행선지 창).
-        /// 장착 장비 × 모디파이어 × 난이도 비례. 지형 생성이 실패해 고정 맵으로 대신하는 드문 경우는 반영하지 않는다.
+        /// 이 후보에 들어가면 걸릴 운영비 배율(위쪽 띠 '운영비 ×'와 같은 값, 2026-10-27 이슈 #6 행선지 창).
+        /// 받은 모디파이어 × 지역 모디파이어 × 난이도 비례. 지형 생성이 실패해 고정 맵으로 대신하는 드문 경우는 반영하지 않는다.
         /// </summary>
         public double PreviewUpkeepMultiplier(RegionOffer offer)
         {
-            double m = Shop.Where(x => _loadout.Contains(x.Id)).Aggregate(1.0, (acc, e) => acc * EffectsOf(e).UpkeepMultiplier);
+            double m = ModifierEffects.UpkeepMultiplier;
             if (!offer.IsFixedMap) m *= offer.Effects.UpkeepMultiplier;
             return m * DifficultyUpkeepFactor(offer.IsFixedMap ? (double?)null : offer.Params.D);
         }
@@ -174,11 +179,11 @@ namespace DesertSettlement.Core.Progression
             return g.Map;
         }
 
-        /// <summary>다음에 들어갈 정착지 번호(상점·첫 진입 전에는 +1, 정착지 안에서는 지금 번호).</summary>
-        private int NextSettlementNumber => State == CampaignState.Shopping || Current == null ? SettlementNumber + 1 : SettlementNumber;
+        /// <summary>다음에 들어갈 정착지 번호(행선지 선택·첫 진입 전에는 +1, 정착지 안에서는 지금 번호).</summary>
+        private int NextSettlementNumber => State == CampaignState.ChoosingDestination || Current == null ? SettlementNumber + 1 : SettlementNumber;
 
         /// <summary>
-        /// 다음 지역 후보(2026-10-23 확정: 2곳). 난이도는 지금 보유 자금 + 지나온 생성 맵 정착지 수로 정하므로, 상점에서 장비를 사면 후보도 다시 계산된다.
+        /// 다음 지역 후보(2026-10-23 확정: 2곳). 난이도는 지금 보유 자금 + 지나온 생성 맵 정착지 수로 정한다.
         /// 후보끼리는 시드와 모디파이어가 다르고(두 번째 후보는 첫 후보의 약점을 가능하면 피함), 고정 맵 차례면 고정 맵 하나.
         /// 같은 캠페인·같은 자금이면 같은 후보가 나온다. 지형은 들어갈 때 만든다(여기서는 만들지 않아 가볍다).
         /// </summary>
@@ -189,8 +194,7 @@ namespace DesertSettlement.Core.Progression
                 return new[] { new RegionOffer { Index = 0, FixedMap = _maps[(next - 1) % _maps.Count] } };
 
             int generatedBefore = next - 1 - _procedural.FixedMapsBeforeGenerated;
-            double difficultyCash = Cash + _procedural.Difficulty.EquipmentSpendInDifficulty * EquipmentSpent; // E5: 장비에 쓴 돈도 일부 자금으로 친다
-            DifficultyParams p = DifficultyParams.For(DifficultyParams.DifficultyFromProgress(difficultyCash, generatedBefore, _procedural.Difficulty), _procedural.Difficulty);
+            DifficultyParams p = DifficultyParams.For(DifficultyParams.DifficultyFromProgress(Cash, generatedBefore, _procedural.Difficulty), _procedural.Difficulty);
             var offers = new List<RegionOffer>();
             var taken = new HashSet<string>();
             for (int i = 0; i < Math.Max(1, _procedural.RegionChoices); i++)
@@ -219,100 +223,6 @@ namespace DesertSettlement.Core.Progression
 
         /// <summary>다음 정착지(첫 후보)의 생성 난이도. 고정 맵 차례면 null.</summary>
         public DifficultyParams PreviewNextDifficulty() => NextOffers()[0].Params;
-
-        public bool Owns(string equipmentId) => _owned.Contains(equipmentId);
-
-        /// <summary>상점에서 장비 구매. 이미 가졌거나 자금이 모자라면 실패. 슬롯이 비어 있으면 바로 장착된다.</summary>
-        public CommandResult BuyEquipment(string equipmentId)
-        {
-            if (State != CampaignState.Shopping) return CommandResult.Fail("매각 후 상점에서만 살 수 있습니다.");
-            EquipmentDefinition e = Shop.FirstOrDefault(x => x.Id == equipmentId);
-            if (e == null) return CommandResult.Fail("없는 장비입니다.");
-            if (_owned.Contains(e.Id)) return CommandResult.Fail("이미 가진 장비입니다.");
-            if (Cash < e.Price) return CommandResult.Fail($"자금이 부족합니다({e.Price:0} 필요).");
-            Cash -= e.Price;
-            EquipmentSpent += e.Price;
-            _owned.Add(e.Id);
-            _levels[e.Id] = 1;
-            if (_loadout.Count < EquipmentSlots) _loadout.Add(e.Id);
-            Log(new GameCommand { Type = GameCommand.BuyEquipment, Kind = e.Id, Hour = Current?.CurrentHour ?? 0 });
-            return CommandResult.Ok();
-        }
-
-        // ───────────── 장비 강화(2026-10-23 로드맵 1-④, Docs/decision_log_auto.md E1~E5) ─────────────
-
-        private readonly Dictionary<string, int> _levels = new Dictionary<string, int>();
-
-        /// <summary>지금까지 장비 구매·강화에 쓴 돈(난이도 계산 E5용).</summary>
-        public double EquipmentSpent { get; private set; }
-        private EquipmentUpgradeSettings Upgrade => _config.EquipmentUpgrade ?? new EquipmentUpgradeSettings();
-
-        /// <summary>가진 장비의 강화 레벨(구매 = 1). 가지지 않았으면 0.</summary>
-        public int EquipmentLevel(string equipmentId) => _levels.TryGetValue(equipmentId, out int lv) ? lv : 0;
-
-        /// <summary>장비의 최고 레벨: 장비별 maxLevel, 없으면 강화 설정의 효과 단계 수.</summary>
-        public int MaxEquipmentLevel(EquipmentDefinition e) =>
-            Math.Max(1, Math.Min(e.MaxLevel ?? int.MaxValue, Math.Min(Upgrade.EffectiveEffectScales.Count, Upgrade.EffectiveCostMultipliers.Count + 1)));
-
-        /// <summary>지금 레벨의 효과(Lv1 = 설정 그대로).</summary>
-        public EconomyEffects EffectsOf(EquipmentDefinition e)
-        {
-            int lv = Math.Max(1, EquipmentLevel(e.Id));
-            IReadOnlyList<double> scales = Upgrade.EffectiveEffectScales;
-            double s = scales[Math.Min(lv, scales.Count) - 1];
-            return Math.Abs(s - 1) < 1e-12 ? e.Effects : e.Effects.Scaled(s);
-        }
-
-        /// <summary>다음 레벨로 강화하는 비용. 가지지 않았거나 최고 레벨이면 null.</summary>
-        public double? UpgradeCost(string equipmentId)
-        {
-            EquipmentDefinition e = Shop.FirstOrDefault(x => x.Id == equipmentId);
-            int lv = EquipmentLevel(equipmentId);
-            if (e == null || lv == 0 || lv >= MaxEquipmentLevel(e)) return null;
-            return e.Price * Upgrade.EffectiveCostMultipliers[lv - 1];
-        }
-
-        /// <summary>상점에서 가진 장비를 한 레벨 강화. 장착 여부와 상관없이 할 수 있다.</summary>
-        public CommandResult UpgradeEquipment(string equipmentId)
-        {
-            if (State != CampaignState.Shopping) return CommandResult.Fail("매각 후 상점에서만 강화할 수 있습니다.");
-            if (!_owned.Contains(equipmentId)) return CommandResult.Fail("가지지 않은 장비입니다.");
-            double? cost = UpgradeCost(equipmentId);
-            if (cost == null) return CommandResult.Fail("최고 레벨입니다.");
-            if (Cash < cost.Value) return CommandResult.Fail($"자금이 부족합니다({cost.Value:0} 필요).");
-            Cash -= cost.Value;
-            EquipmentSpent += cost.Value;
-            _levels[equipmentId]++;
-            Log(new GameCommand { Type = GameCommand.UpgradeEquipment, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
-            return CommandResult.Ok();
-        }
-
-        // ───────────── 현장 장비 슬롯 ─────────────
-
-        /// <summary>현장 장비 슬롯 수. 기획서 5.1 확정값 5.</summary>
-        public const int EquipmentSlots = 5;
-
-        /// <summary>다음 정착지에 가져갈 장비(최대 5개). 다음 정착지에서도 바꾸지 않으면 그대로 유지된다.</summary>
-        public IReadOnlyCollection<string> Loadout => _loadout;
-
-        public bool IsEquipped(string equipmentId) => _loadout.Contains(equipmentId);
-
-        /// <summary>장비를 슬롯에 넣거나 뺀다. 정착지 밖(상점·첫 진입 전)에서만, 가진 장비만, 슬롯 5개까지.</summary>
-        public CommandResult SetEquipped(string equipmentId, bool equipped)
-        {
-            if (State == CampaignState.InSettlement && Current != null) return CommandResult.Fail("장비는 정착지에 들어가기 전에만 바꿀 수 있습니다.");
-            if (!_owned.Contains(equipmentId)) return CommandResult.Fail("가지지 않은 장비입니다.");
-            if (!equipped)
-            {
-                if (_loadout.Remove(equipmentId)) Log(new GameCommand { Type = GameCommand.Unequip, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
-                return CommandResult.Ok();
-            }
-            if (_loadout.Contains(equipmentId)) return CommandResult.Ok();
-            if (_loadout.Count >= EquipmentSlots) return CommandResult.Fail($"현장 장비 슬롯 {EquipmentSlots}개가 가득 찼습니다.");
-            _loadout.Add(equipmentId);
-            Log(new GameCommand { Type = GameCommand.Equip, Kind = equipmentId, Hour = Current?.CurrentHour ?? 0 });
-            return CommandResult.Ok();
-        }
 
         // ───────────── 저장 파일 명령 기록(2026-10-23 로드맵 2-①, SaveGame) ─────────────
 
@@ -343,6 +253,7 @@ namespace DesertSettlement.Core.Progression
             _pendingFoodBonus = sale.Bid.NextSettlementFoodBonus;
             _pendingFreeBuilds.Clear();
             foreach (KeyValuePair<string, int> kv in sale.Bid.NextSettlementFreeBuilds) _pendingFreeBuilds[kv.Key] = kv.Value;
+            if (sale.Bid.Modifier != null) _modifiers.Add(sale.Bid.Modifier); // 영구 모디파이어(결정 BM1)
             var record = new SaleRecord
             {
                 SettlementNumber = SettlementNumber,
@@ -354,10 +265,11 @@ namespace DesertSettlement.Core.Progression
                 StockSaleCash = sale.StockSaleCash,
                 FoodBonus = sale.Bid.NextSettlementFoodBonus,
                 FreeBuilds = new Dictionary<string, int>(_pendingFreeBuilds),
+                Modifier = sale.Bid.Modifier,
                 CampaignCashAfter = Cash,
             };
             _sales.Add(record);
-            State = CampaignState.Shopping;
+            State = CampaignState.ChoosingDestination;
             SettlementSold?.Invoke(record);
         }
 

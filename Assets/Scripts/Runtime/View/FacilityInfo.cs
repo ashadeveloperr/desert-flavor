@@ -323,7 +323,7 @@ namespace DesertSettlement.Runtime
                 ? $"유지비 {(lv.Upkeep ?? 0) * s.Rules.ClosedUpkeepRatio:0.00}/h (폐쇄·개량 중)"
                 : $"유지비 {lv.Upkeep ?? 0:0.00}/h";
             if (!s.Rules.LaborOn) lines.Add($"식량 소비 {o.FoodUsePerHour:0.00}/h · {upkeep}");
-            else if (f.Kind == BuildingKinds.House) lines.Add($"주민 식량 {f.Residents * s.Rules.Labor.FoodPerResidentPerHour:0.00}/h · {upkeep}");
+            else if (f.Kind == BuildingKinds.House) lines.Add($"주민 식량 {f.Residents * s.FoodPerResident:0.00}/h · {upkeep}");
             else if (o.WorkersNeeded > 0) lines.Add($"일꾼 식량 {o.FoodUsePerHour:0.00}/h (주민이 먹음) · {upkeep}");
             else lines.Add(upkeep);
 

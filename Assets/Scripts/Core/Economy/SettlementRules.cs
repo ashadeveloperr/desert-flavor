@@ -44,13 +44,13 @@ namespace DesertSettlement.Core.Economy
         public bool StartJobsOnCommand { get; set; }
 
         /// <summary>
-        /// 실제 공사 시간(시): 레벨표 시간 × <see cref="ConstructionHoursMultiplier"/>(반올림, 최소 1). 철거는 × <see cref="DemolishHoursRatio"/>(올림).
+        /// 실제 공사 시간(시): 레벨표 시간 × <see cref="ConstructionHoursMultiplier"/> × 공사 시간 모디파이어(반올림, 최소 1). 철거는 × <see cref="DemolishHoursRatio"/>(올림).
         /// 작업 큐와 화면(도구 막대·툴팁)이 같은 값을 쓰도록 한곳에 둔다(2026-10-24: 화면이 배율 전 시간을 보여 주던 문제).
         /// </summary>
         public int JobHours(double? tableHours, bool demolish = false) => demolish
-            ? Math.Max(1, (int)Math.Ceiling((tableHours ?? 1) * DemolishHoursRatio * ConstructionHoursMultiplier))
-            : Math.Max(1, (int)Math.Round((tableHours ?? 1) * ConstructionHoursMultiplier, MidpointRounding.AwayFromZero));
-        // ── 장비·지역 모디파이어 효과 (캠페인이 <see cref="ApplyEffects"/>로 건다. 기본값 = 효과 없음) ──
+            ? Math.Max(1, (int)Math.Ceiling((tableHours ?? 1) * DemolishHoursRatio * ConstructionHoursMultiplier * Effects.ConstructionTimeMultiplier))
+            : Math.Max(1, (int)Math.Round((tableHours ?? 1) * ConstructionHoursMultiplier * Effects.ConstructionTimeMultiplier, MidpointRounding.AwayFromZero));
+        // ── 입찰자·지역 모디파이어 효과 (캠페인이 <see cref="ApplyEffects"/>로 건다. 기본값 = 효과 없음) ──
         /// <summary>광물 생산 배율(풍부한 광맥·광업 강화).</summary>
         public double OreMultiplier { get; set; } = 1.0;
         /// <summary>우물 방출량 배율(우물 성능 향상·마른 대수층).</summary>
@@ -81,14 +81,19 @@ namespace DesertSettlement.Core.Economy
         public SpoilageSettings Spoilage { get; set; }
         /// <summary>유지비 배율.</summary>
         public double UpkeepMultiplier { get; set; } = 1.0;
-        /// <summary>처음부터 면역인 주민 비율(방역 장비, 결정 EV5). 0~1.</summary>
+        /// <summary>처음부터 면역인 주민 비율(결정 EV5). 0~1.</summary>
         public double EpidemicImmuneShare { get; set; }
-        /// <summary>재해 피해 배율(장비, 2026-10-23). 1 = 그대로.</summary>
+        /// <summary>재해 피해 배율(모디파이어). 1 = 그대로.</summary>
         public double SandstormDamageMultiplier { get; set; } = 1.0;
         public double LocustDamageMultiplier { get; set; } = 1.0;
         public double BlightDamageMultiplier { get; set; } = 1.0;
-        /// <summary>지금까지 건 효과를 합친 것(UI 표시용).</summary>
+        /// <summary>
+        /// 지금까지 건 효과를 합친 것. 위에 따로 둔 배율 밖의 효과(가공·판매가·부패·공사 시간·유입 등, 결정 BM1~)는
+        /// 정착지가 여기서 바로 읽는다(<see cref="Effects"/>).
+        /// </summary>
         public EconomyEffects AppliedEffects { get; private set; } = new EconomyEffects();
+        /// <summary><see cref="AppliedEffects"/>의 짧은 이름.</summary>
+        public EconomyEffects Effects => AppliedEffects;
         /// <summary>
         /// 이 정착지에서 석재·공사 시간 없이 바로 완공 배치할 수 있는 시설 수(종류 → 개수).
         /// 농장주에게 매각한 다음 정착지에서 캠페인이 채운다(완공된 농장 1개로 시작).
@@ -202,7 +207,7 @@ namespace DesertSettlement.Core.Economy
             LaborOn ? Config.GetLevel(kind, type == JobType.Demolish ? 1 : targetLevel)?.BuildWorkers ?? 0 : 0;
 
         /// <summary>
-        /// 장비·지역 모디파이어 효과를 규칙 값에 건다(여러 번 부르면 누적). 정착지를 만들기 전에 호출한다.
+        /// 입찰자·지역 모디파이어 효과를 규칙 값에 건다(여러 번 부르면 누적). 정착지를 만들기 전에 호출한다.
         /// 수로 손실은 물 배분 설정에, 작업 슬롯·저장 한도는 해당 값에 더한다.
         /// </summary>
         public void ApplyEffects(EconomyEffects e)
@@ -290,21 +295,36 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
+        /// <summary>농업 물 수요 모디파이어가 걸리는 시설(경작지·과수원·목축지·향신료 농장, 결정 BM1).</summary>
+        public static bool IsFarming(string kind) => IsCrop(kind) || kind == BuildingKinds.Pasture;
+
         /// <summary>메뚜기떼·작물 탄저병 생산 피해를 받는 작물 시설(결정 FD8): 경작지·과수원·허브 농장.</summary>
         public static bool IsCrop(string kind) => kind == BuildingKinds.Farm || kind == BuildingKinds.Orchard || kind == BuildingKinds.HerbFarm;
 
         /// <summary>
-        /// 물·일손 100%일 때 시간당 생산량 = 레벨표 생산량 × 자원별 배율(장비·지역 효과 포함). 생산 시설이 아니면 0.
-        /// 경작지는 <c>foodProduction</c>(곡물), 나머지 재화 시설은 <c>goodsProduction</c>. 작물 배율(관개 장비 등)은 경작지·과수원에 걸린다.
+        /// 물·일손 100%일 때 시간당 생산량 = 레벨표 생산량 × 자원별 배율(모디파이어 효과 포함). 생산 시설이 아니면 0.
+        /// 경작지는 <c>foodProduction</c>(곡물), 나머지 재화 시설은 <c>goodsProduction</c>. 지역 작물 배율은 경작지·과수원에,
+        /// 입찰자 모디파이어(곡물·과일·고기·향신료·가공·모든 생산)는 종류별로 곱한다(결정 BM1·BM3).
         /// </summary>
         public double MaxOutput(string kind, BuildingLevel lv)
         {
+            return BaseOutput(kind, lv) * Effects.OutputMultiplier; // 모든 생산 모디파이어(결정 BM1)
+        }
+
+        private double BaseOutput(string kind, BuildingLevel lv)
+        {
+            EconomyEffects e = Effects;
             switch (kind)
             {
-                case BuildingKinds.Farm: return (lv.FoodProduction ?? 0) * FoodOutputMultiplier;
-                case BuildingKinds.Orchard: return (lv.GoodsProduction ?? 0) * FoodOutputMultiplier;
+                case BuildingKinds.Farm: return (lv.FoodProduction ?? 0) * FoodOutputMultiplier * e.GrainOutputMultiplier;
+                case BuildingKinds.Orchard: return (lv.GoodsProduction ?? 0) * FoodOutputMultiplier * e.FarmGoodsOutputMultiplier;
+                case BuildingKinds.Pasture:
+                case BuildingKinds.HerbFarm: return (lv.GoodsProduction ?? 0) * e.FarmGoodsOutputMultiplier;
                 case BuildingKinds.Quarry: return (lv.StoneProduction ?? 0) * StoneOutputMultiplier;
                 case BuildingKinds.Mine: return (lv.OreProduction ?? 0) * OreMultiplier;
+                case BuildingKinds.Mill:
+                case BuildingKinds.Brewery:
+                case BuildingKinds.Winery: return (lv.GoodsProduction ?? 0) * e.ProcessingOutputMultiplier;
             }
             return GoodsOf(kind) != null ? lv.GoodsProduction ?? 0 : 0;
         }
@@ -314,20 +334,20 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>
         /// 경매 식량 배율이 보는 순 식량 가치(결정 FD7): 시간당 생산 × 그 재화 식량 효율 − 쓰는 원료 × 원료 식량 효율.
-        /// 기호품 시설(양조장·포도주 공방)은 원료만 빼서 음수가 될 수 있다. inputSaving = 연계 원료 절약(결정 AJ2).
+        /// 기호품 시설(양조장·포도주 공방)은 원료만 빼서 음수가 될 수 있다. inputFactor = 원료 배율(연계 절약 × 가공 원료 모디파이어, <see cref="Settlement.InputFactor"/>).
         /// </summary>
-        public double NetFoodValue(string kind, double output, BuildingLevel lv, double inputSaving = 0)
+        public double NetFoodValue(string kind, double output, BuildingLevel lv, double inputFactor = 1)
         {
             Goods? g = GoodsOf(kind);
             if (g == null) return 0;
             double value = output * FoodValue(g.Value);
             Goods? input = InputOf(kind);
-            if (input != null) value -= output * (lv.InputPerOutput ?? 0) * (1 - inputSaving) * FoodValue(input.Value);
+            if (input != null) value -= output * (lv.InputPerOutput ?? 0) * inputFactor * FoodValue(input.Value);
             return value;
         }
 
         /// <summary>
-        /// 생산 효율 = 물 공급률 × 일손, 지역·장비의 효율 상한(<see cref="EfficiencyCap"/>)을 넘지 않는다.
+        /// 생산 효율 = 물 공급률 × 일손, 지역·모디파이어의 효율 상한(<see cref="EfficiencyCap"/>)을 넘지 않는다.
         /// 일손은 노동력이 켜져 있으면 시설의 배치율(배치 ÷ 필요 인원), 꺼져 있으면(원본 v0.8) 식량 계수 F.
         /// </summary>
         public double Efficiency(double waterRate, double workforce) => Math.Min(EfficiencyCap, waterRate * workforce);

@@ -29,10 +29,10 @@ Assets/Scripts/
     Canal/               CanalGraph: 변 위 수로·레벨·막힌 변, 꼭짓점 사이 경로
     Water/               WaterNetworkSolver(물 배분), WaterTypes(입력·설정·결과), WaterRoutes(물길 표시용 조회)
     Economy/             Settlement(정착지 하나, partial 12개 — 아래), SettlementRules(규칙 값), SettlementTypes,
-                         SettlementValuation(경매 가치), FacilityCatalog(시설 종류 목록), EconomyEffects(장비·모디파이어 효과 묶음),
+                         SettlementValuation(경매 가치), FacilityCatalog(시설 종류 목록), EconomyEffects(입찰자·지역 모디파이어 효과 묶음, 곱연산),
                          Disasters(DisasterManager: 재해 일정·전염병), WaterIds(물 배분에 넘기는 id 규칙)
     Auction/             AuctionManager: 경매 일정·예고·입찰·긴급 매각·파산
-    Progression/         Campaign(정착지 연속·상점·장비), SaveGame(명령 기록 저장·재실행), MapDefinition/MapLoader(고정 맵),
+    Progression/         Campaign(정착지 연속·행선지·받은 영구 모디파이어), SaveGame(명령 기록 저장·재실행), MapDefinition/MapLoader(고정 맵),
                          ProceduralMapGenerator(+Config, BSP 절차 맵), RegionModifiers/RegionOffer(지역 약점·강점), DeterministicRandom, SeedSalts(시드 섞는 수)
     Timing/              GameClock(게임 시각·배속·정각 이벤트), GameTimeSettings
     Config/              EconomyConfig(JSON 모양 그대로의 데이터 클래스), EconomyConfigLoader(읽기·검증), JsonKeyCheck(모르는 키 찾기)
@@ -89,7 +89,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 
 - 불가 이유 문자열은 `Can*`이 돌려주고, 툴팁·버튼 비활성도 같은 `Can*`을 쓴다(규칙과 화면이 한 검사).
 - 저장(F5)은 시드 + 명령 기록, 불러오기(F9)는 같은 시드로 새 캠페인을 만들고 `SaveGame.Apply`로 명령을 다시 실행한다.
-- **명령 입구 규칙(결정 CM1):** 정착지 안 명령(건설·수로·개량·철거·취소·순서·폐쇄·구매·판매)은 화면이 `Settlement`를 직접 부른다. 캠페인 단계 명령(매각·보류·장비 구매·강화·장착·출발·새 캠페인·샘플 배치·저장·불러오기)은 모두 `GameSession`(`GameSession.Commands.cs`·`GameSession.SaveLoad.cs`)을 거친다 — 시계 재개·정착지 연결처럼 세션이 함께 할 일이 있어서 입구를 하나로 둔다. 새 캠페인 단계 명령도 `GameSession.Commands.cs`에 메서드를 더한다.
+- **명령 입구 규칙(결정 CM1):** 정착지 안 명령(건설·수로·개량·철거·취소·순서·폐쇄·구매·판매)은 화면이 `Settlement`를 직접 부른다. 캠페인 단계 명령(매각·보류·출발·새 캠페인·샘플 배치·저장·불러오기)은 모두 `GameSession`(`GameSession.Commands.cs`·`GameSession.SaveLoad.cs`)을 거친다 — 시계 재개·정착지 연결처럼 세션이 함께 할 일이 있어서 입구를 하나로 둔다. 새 캠페인 단계 명령도 `GameSession.Commands.cs`에 메서드를 더한다.
 
 ## 4. 자주 하는 변경 — 고칠 곳 체크리스트
 
@@ -127,8 +127,13 @@ JSON `adjacency`(군집 대상 `clusterKinds`·칸당 생산, 가공 시설 → 
 3. 규칙에서 쓰면 `SettlementRules`에 속성 + `FromConfig`에서 옮기기 4. 범위가 중요하면 `EconomyConfigLoader.Validate`에 검사
 5. 시뮬레이터는 게임과 같은 로더로 읽으므로 따로 할 일 없음
 
-### 새 효과(장비·지역 모디파이어 공통)
-`EconomyEffects`에 속성 → 같은 파일의 `Combine`·`Scaled`·`Describe`(약점을 세게 할 때 줄어드는 배율이면 `ScaledWeakness`의 하한도) → `SettlementRules`에 속성 → `SettlementRules.ApplyEffects` → 규칙에서 사용.
+### 새 효과(입찰자·지역 모디파이어 공통, 결정 BM1~BM3)
+`EconomyEffects`에 속성(배율이면 기본 1, `Combine`에서 곱) → 같은 파일의 `Combine`·`Scaled`·`Describe`(약점을 세게 할 때 줄어드는 배율이면 `ScaledWeakness`의 하한도) → 규칙에서 사용.
+규칙에서는 `SettlementRules.Effects`(지금까지 건 효과를 곱한 것)를 바로 읽는다. 예전부터 있던 배율 몇 개(광물·우물·석재 비용 등)만 `SettlementRules`에 따로 속성이 있고 `ApplyEffects`가 채운다.
+배율은 다른 배율(인접 보너스·생활 수준·지역 특성)과 **곱한다** — 합으로 더하면 비용이 0에 가까워질 수 있다(결정 BM3).
+
+### 새 입찰자 모디파이어(결정 BM1)
+JSON `bidderModifiers.definitions`에 한 줄: `id`, `pool`(입찰자 id = 전용, `general` = 범용), `weight`(뽑힐 비중, 기본 1), `effects`. 전용·범용 비율은 `bidderModifiers.exclusiveChance`. 뽑기는 `AuctionManager.RollModifier`(예고 때), 받기는 `Campaign.OnSold`, 적용은 `Campaign.StartNextSettlement`. 측정 봇의 평가는 `Tools/SettlementSim/BidderChoice.cs`의 점수표(없으면 0.01).
 `Combine`·`Scaled`·`Describe`·`ApplyEffects` 중 하나를 빠뜨리면 `ModifierEquipmentTests.Effects_EveryPropertySurvivesCombineScaledDescribeAndApply`가 실패한다. `Scaled`가 일부러 바꾸지 않는 속성이면 그 테스트의 `notScaled`에 더한다.
 
 ### 새 재해
@@ -162,8 +167,9 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 입찰자 성향·혜택, 시세 폭, 긴급 감액, 개발 중 자산 비율, 파산 유예, 경매 주기 | JSON `auction` |
 | 가동 숙성, 석재 배율의 채석장 능력 사용 | JSON `auctionSeed.maturityStartRatio`·`maturityFullHours`·`stoneMultiplierUsesQuarryCapacity` |
 | 시장(판매 한도·가격 회복·상인 배율) · 넘침 자동 판매 | JSON `purchase`·`goods`(가격·판매·넘침 자동 판매 계산은 `Settlement.Market.cs`) |
-| 영구 장비 목록·가격·효과 | JSON `equipment[]` (`effects`는 모디파이어와 같은 형식, 설명 `Core/Economy/EconomyEffects.cs`) |
-| 현장 장비 슬롯 수 · 다음 맵 선택(고정 맵 몇 개 뒤 생성) | `Campaign.EquipmentSlots` · `Campaign.ChooseNextMap`, 절차 맵 JSON `fixedMapsBeforeGenerated` |
+| 입찰자 영구 모디파이어 목록·전용 비율 | JSON `bidderModifiers` (`effects`는 지역 모디파이어와 같은 형식, 설명 `Core/Economy/EconomyEffects.cs`) |
+| 첫 경매 시각·재경매 간격·입찰자 수 | JSON `auction.firstAuctionHour`·`reauctionHours`·`attendeesWithoutAuctionHall`·`attendeesMax` |
+| 다음 맵 선택(고정 맵 몇 개 뒤 생성) | `Campaign.NextOffers`, 절차 맵 JSON `fixedMapsBeforeGenerated` |
 | 절차 맵 난이도 곡선 · 생성 규칙 확률·크기 | `procedural_map_config.json`의 `difficulty` · `generator` — 바꾼 뒤 `-- tune`. 이 JSON 값은 코드 기본값과 같아야 한다(`ProceduralMapTests.Config_JsonMatchesCodeDefaults`) |
 | 생성 절차 자체(BSP·배치 순서·검사) | `ProceduralMapGenerator.cs` — 바꾸면 시뮬레이터 '기준 맵 서명'과 `ProceduralMapTests` 골든 값 갱신 |
 | 지역 모디파이어 목록·수치·출현, 후보 지역 수 | `procedural_map_config.json`의 `modifiers`, `regionChoices` |
@@ -178,7 +184,7 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 팝업·정보창 문구, 지형 이름, 재해 문구 | `Runtime/View/FacilityInfo.cs` (시설 이름은 `FacilityCatalog`) |
 | UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme` |
 | 키보드 단축키 | `Runtime/UI/Hotkeys.cs`의 표(카메라 이동·회전은 `StrategyCameraRig`, 도구 해제 Esc는 `BuildInputController`) |
-| UI 구역 위치·크기 | 위쪽 띠 `TopBarView`, 도구 막대 `BuildBarView`, 시장·예시 `BuyPanelView`, 알림 `AlertsView`, 정보창 `InspectorView`, 가운데 창(경매·행선지·상점) `ModalView`·`ModalContent`, 툴팁 `TooltipView` |
+| UI 구역 위치·크기 | 위쪽 띠 `TopBarView`, 도구 막대 `BuildBarView`, 시장·예시 `BuyPanelView`, 알림 `AlertsView`, 정보창 `InspectorView`, 가운데 창(경매·행선지·파산) `ModalView`·`ModalContent`, 툴팁 `TooltipView` |
 | 도구 목록·조작 방식 | `Runtime/BuildInputController.cs`(`BuildTool`, `Apply`) |
 | 카메라 속도·각도·줌·회전 | `CameraRig` 오브젝트의 `StrategyCameraRig` 인스펙터 |
 | 자금 0 예측 경고 | `Runtime/UI/AlertsView.cs`의 `CashRunsOutIn` |
@@ -198,8 +204,8 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 직접 플레이 | `SampleScene` Play → 일시정지로 시작 → 왼쪽 아래 '샘플 배치' → 배속(` 1 2 3) | F5/F9 = 저장/불러오기(단축키 표는 `Runtime/UI/Hotkeys.cs`) |
 
 **시뮬레이터 모드** (`dotnet run --project Tools/SettlementSim -- <모드>`, 결과는 `Tools/balance_output/`, git 무시)
-- 계속 쓰는 것: (없음 = 회귀 검증) · `savecheck` · `tune [후보…]`(난이도 곡선) · `mods [D]`(D별 약점 하나씩·대응 장비 회복률) · `mods campaign …`(Core 캠페인 봇 측정)
-- `mods campaign [정착지당 D 증가] [cashPerD] [정착지 수] [smart] [nodisaster] [vaccine] [upgrade] [upkeep=k] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`
+- 계속 쓰는 것: (없음 = 회귀 검증) · `savecheck` · `tune [후보…]`(난이도 곡선) · `mods [D]`(D별 약점 하나씩·대응 모디파이어 회복률) · `mods campaign …`(Core 캠페인 봇 측정)
+- `mods campaign [정착지당 D 증가] [cashPerD] [정착지 수] [smart] [nodisaster] [score=k] [modscale=k] [upkeep=k] [halls=k] [attendees=a-b] [cash=x] [late=D upkeep2=k weak=s dis=s] [trade=off flimit= slimit= rec= market=0 sell=0]`
   — 난이도 기준은 `smart`(숙련 봇). `halls=k` 봇이 경매장 k개, `late=…`는 후반 가속 값 덮어쓰기(모두 0 = 가속 없음), `trade=off` 시장 규칙 없음, `market=0`·`sell=0` 봇이 시장을 안 짓거나 안 팖.
   기준 측정: `mods campaign 0.25 14000 30 smart`(결과 해석은 `Docs/handoff.md` 3절)
 - 새 시스템 밸런스 QA `qa [static|marginal] [D마다 맵 수] [water2] [lab=후보]`(`BalanceQa.cs`): `static` = 시설 L1~L3 수치표(순 식량 가치·판매 부가가치·일손당·물당)와 재화별 시장 최대 수입, `marginal` = 생성 맵마다 봇 계획 뒤 시설(+ 주택)·우물 개량을 더 해서 첫 경매 최종 자금을 같은 맵끼리 비교(재화 먹기·팔기, 생활 효과 끈 갈래, 기준 갈래의 생활 수준·물 여유 진단). `water2` = 우물·수로 ×2(물 경쟁 없이 시설 자체의 값), `lab=` = `LaborCandidates`의 후보를 모든 갈래에 건다

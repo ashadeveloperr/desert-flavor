@@ -44,8 +44,11 @@ namespace DesertSettlement.Core.Economy
         /// <summary>주택 정원(지금 레벨).</summary>
         public double HouseCapacity(Facility house) => LevelOf(house).Residents ?? 0;
 
-        /// <summary>정원이 cap인 주택에 시간당 들어오는 주민 수 = 정원 × labor.returnPerHour × 생활 수준 배율(<see cref="ReturnFactor"/>, 결정 HI1~).</summary>
-        public double ArrivalPerHour(double cap) => Rules.LaborOn ? Rules.Labor.ReturnPerHour * ReturnFactor * cap : 0;
+        /// <summary>정원이 cap인 주택에 시간당 들어오는 주민 수 = 정원 × labor.returnPerHour × 생활 수준 배율(<see cref="ReturnFactor"/>, 결정 HI1~) × 유입 모디파이어.</summary>
+        public double ArrivalPerHour(double cap) => Rules.LaborOn ? Rules.Labor.ReturnPerHour * ReturnFactor * Rules.Effects.ArrivalMultiplier * cap : 0;
+
+        /// <summary>주민(·기본 인부) 1인당 시간당 식량 = labor.foodPerResidentPerHour × 1인당 식량 모디파이어(결정 BM1).</summary>
+        public double FoodPerResident => Rules.LaborOn ? Rules.Labor.FoodPerResidentPerHour * Rules.Effects.FoodPerResidentMultiplier : 0;
 
         /// <summary>이 주택에 시간당 들어오는 주민 수 = <see cref="ArrivalPerHour(double)"/> × (1 + 주택 밀집 보너스, 결정 AJ3).</summary>
         public double ArrivalPerHour(Facility house) => ArrivalPerHour(HouseCapacity(house)) * (1 + HouseArrivalBonus(house.Tile));

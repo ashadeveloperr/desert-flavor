@@ -1,0 +1,335 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using DesertSettlement.Core.Config;
+using DesertSettlement.Core.Economy;
+using DesertSettlement.Core.Hex;
+using DesertSettlement.Core.Water;
+
+namespace DesertSettlement.Runtime
+{
+    /// <summary>
+    /// 타일·시설 정보를 사람이 읽는 한국어 문장으로 만든다. 툴팁(UI/TooltipView), 정보 패널(UI/InspectorView),
+    /// 머리 위 글자가 같은 문구를 쓰도록 한곳에 모았다. 표현을 바꾸려면 여기만 고치면 된다.
+    /// </summary>
+    public static class FacilityInfo
+    {
+        /// <summary>시설 한국어 이름(시설 목록 <see cref="FacilityCatalog"/>에서, 2026-10-24 CL1).</summary>
+        public static string KindName(string kind) => FacilityCatalog.NameOf(kind);
+
+        public static string TerrainName(TerrainType t)
+        {
+            switch (t)
+            {
+                case TerrainType.WaterSource: return "수원 (우물)";
+                case TerrainType.OreVein: return "광맥 (광산)";
+                case TerrainType.Bedrock: return "암반 (채석장)";
+                case TerrainType.Obstacle: return "산지 (허브 농장만)";
+                default: return "사막 (경작지·과수원·목축지·주택·가공 시설·창고·경매장)";
+            }
+        }
+
+        public static string StateName(FacilityState state)
+        {
+            switch (state)
+            {
+                case FacilityState.Constructing: return "건설 중";
+                case FacilityState.Operating: return "운영 중";
+                case FacilityState.Upgrading: return "개량 중";
+                case FacilityState.Closed: return "폐쇄";
+                case FacilityState.Demolishing: return "철거 중";
+                default: return state.ToString();
+            }
+        }
+
+        public static string ResourceName(ResourceKind r)
+        {
+            switch (r)
+            {
+                case ResourceKind.Food: return "식량";
+                case ResourceKind.Stone: return "석재";
+                case ResourceKind.Ore: return "광물";
+                default: return "";
+            }
+        }
+
+        /// <summary>물 배분 공급원 id를 사람이 읽는 이름으로("우물 #3", "물탱크 #7").</summary>
+        public static string SourceName(Settlement s, string sourceId)
+        {
+            return $"{(WaterIds.IsTank(sourceId) ? "물탱크" : "우물")} #{WaterIds.NumberOf(sourceId)}";
+        }
+
+        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과 한 줄(두 화면 공통).</summary>
+        /// <summary>모래폭풍·메뚜기떼·탄저병의 지금 효과(장비 반영, 결정 D1~D6).</summary>
+        public static string TimedDisasterText(Settlement s, DisasterEvent e)
+        {
+            DisasterSettings c = s.Disasters.Settings;
+            SettlementRules r = s.Rules;
+            switch (e.TypeId)
+            {
+                case DisasterManager.Sandstorm:
+                    return $"수로 손실 ×{s.Disasters.CanalLossFactor:0.##}, 공사 속도 {s.Disasters.ConstructionSpeed:P0}";
+                case DisasterManager.Locusts:
+                    return $"작물 시설 생산 {1 - (1 - c.Locusts.FarmProduction) * r.LocustDamageMultiplier:P0} (시작 때 식량 재고 전부 −{c.Locusts.FoodStockLoss * r.LocustDamageMultiplier:P0})";
+                case DisasterManager.Blight:
+                    return $"작물 시설 생산 {1 - (1 - c.Blight.FarmProduction) * r.BlightDamageMultiplier:P0}";
+                default:
+                    return "";
+            }
+        }
+
+        /// <summary>투입 석재와 철거 환급(정보창·예전 화면 공통).</summary>
+        public static string InvestedText(Settlement s, Facility f) =>
+            $"투입 석재 {f.StoneInvested:0} (철거 시 {f.StoneInvested * s.Rules.DemolishRefundRatio:0} 환급)";
+
+        public static string ShortageText(WaterShortageReason reason)
+        {
+            switch (reason)
+            {
+                case WaterShortageReason.Unreachable: return "수로 연결 없음";
+                case WaterShortageReason.CanalCapacity: return "수로 용량 부족";
+                case WaterShortageReason.SourceSupply: return "우물 물 부족";
+                default: return "";
+            }
+        }
+
+        /// <summary>다음 정착지 혜택 문구. 예: " + 다음 정착지 완공된 농장 1개". 없으면 빈 문자열.</summary>
+        public static string PerkText(double foodBonus, IReadOnlyDictionary<string, int> freeBuilds)
+        {
+            var parts = new List<string>();
+            if (foodBonus > 0) parts.Add($"시작 식량 +{foodBonus:0}");
+            if (freeBuilds != null)
+            {
+                foreach (KeyValuePair<string, int> kv in freeBuilds.Where(kv => kv.Value > 0)) parts.Add($"완공된 {KindName(kv.Key)} {kv.Value}개");
+            }
+            return parts.Count == 0 ? "" : " + 다음 정착지 " + string.Join(", ", parts);
+        }
+
+        /// <summary>생산 줄. 예: "생산: 식량 3.20/h (최대 4.00 · 물 80% · 일손 100%)". 노동력이 꺼져 있으면 일손 대신 F. 생산 시설이 아니면 null.</summary>
+        public static string ProductionLine(Settlement s, Facility f)
+        {
+            FacilityOutput o = s.OutputOf(f);
+            if (!o.IsProducer) return null;
+            string hands = s.Rules.LaborOn ? "일손" : "F";
+            Goods? goods = SettlementRules.GoodsOf(f.Kind);
+            string name = goods.HasValue ? GoodsCatalog.Name(goods.Value) : ResourceName(o.Resource);
+            string line = $"생산: {name} {o.ProducedPerHour:0.00}/h (최대 {o.MaxPerHour:0.00} · 물 {o.WaterRate:P0} · {hands} {o.Workforce:P0})";
+            // 가공 시설: 원료와 지난 시간 원료가 있던 비율(결정 FD4).
+            Goods? input = SettlementRules.InputOf(f.Kind);
+            if (input.HasValue)
+            {
+                double per = s.LevelOf(f).InputPerOutput ?? 0;
+                line += $"\n  원료: {GoodsCatalog.Name(input.Value)} {o.MaxPerHour * per:0.0}/h 필요 · 재고 {s.Stock(input.Value):0}" +
+                        (f.InputRatio < 0.999 ? $" — ⚠ 원료 부족(지난 시간 {f.InputRatio:P0} 가동, 주민이 먼저 먹음)" : "");
+            }
+            return line;
+        }
+
+        /// <summary>재화 색(식품 창고 원형 그래프·범례).</summary>
+        public static UnityEngine.Color GoodsColor(Goods g)
+        {
+            switch (g)
+            {
+                case Goods.Grain: return new UnityEngine.Color(0.86f, 0.76f, 0.42f);
+                case Goods.Fruit: return new UnityEngine.Color(0.96f, 0.56f, 0.26f);
+                case Goods.Bread: return new UnityEngine.Color(0.74f, 0.50f, 0.27f);
+                case Goods.Meat: return new UnityEngine.Color(0.82f, 0.32f, 0.30f);
+                case Goods.Beer: return new UnityEngine.Color(0.95f, 0.74f, 0.20f);
+                case Goods.Wine: return new UnityEngine.Color(0.62f, 0.24f, 0.48f);
+                default: return new UnityEngine.Color(0.45f, 0.70f, 0.38f);
+            }
+        }
+
+        /// <summary>식품 창고의 재화별 재고 한 줄(이름 n). 비어 있는 재화는 뺀다.</summary>
+        public static string PantryLine(Settlement s) =>
+            string.Join(" · ", GoodsCatalog.All.Where(g => s.Stock(g) >= 0.05).Select(g => $"{GoodsCatalog.Name(g)} {s.Stock(g):0}"));
+
+        /// <summary>
+        /// tile의 kind 시설이 받는(지으면 받을) 인접 보너스 한 줄(결정 AJ1~AJ4). 받을 수 있는 보너스가 없는 종류면 null.
+        /// 창고는 정착지 전체 부패율을 보여 준다(지을 때는 지은 뒤가 아니라 지금 값).
+        /// </summary>
+        public static string AdjacencyLine(Settlement s, string kind, HexCoord tile)
+        {
+            AdjacencySettings a = s.Rules.Adjacency;
+            if (kind == BuildingKinds.Warehouse && s.Rules.Spoilage != null)
+                return $"창고 밀집: 식품 부패 {s.FoodSpoilagePerDay:0.##%}/일 (창고 평균 이웃 {s.AverageWarehouseNeighbors():0.#}칸, 창고끼리 붙이면 줄어듦)";
+            if (a == null) return null;
+            var parts = new List<string>();
+            if (a.ClusterKinds != null && a.ClusterKinds.Contains(kind))
+                parts.Add($"생산 +{s.ClusterBonus(kind, tile):P0}(같은 시설 {s.NeighborCount(tile, kind)}칸 × {a.ClusterOutputPerNeighbor:P0})");
+            if (a.InputSources != null && a.InputSources.TryGetValue(kind, out string source))
+                parts.Add($"원료 −{s.InputSaving(kind, tile):P0}({KindName(source)} {s.NeighborCount(tile, source)}칸 × {a.InputSavingPerNeighbor:P0}, 최대 {a.InputSavingMax:P0})");
+            if (kind == BuildingKinds.House)
+                parts.Add($"유입 +{s.HouseArrivalBonus(tile):P0}(주택 {s.NeighborCount(tile, kind)}칸 × {a.HouseArrivalPerNeighbor:P0})");
+            return parts.Count == 0 ? null : "인접 보너스: " + string.Join(" · ", parts);
+        }
+
+        /// <summary>사람 수 표시(온전한 사람 수, 결정 PI1).</summary>
+        public static string People(double n) => n.ToString("0");
+
+        /// <summary>완공까지 남은 시간(분 단위, 예: 4시간 30분). 공사가 늦어지면 늘어난다(결정 JQ4).</summary>
+        public static string TimeLeft(Settlement s, ConstructionJob job)
+        {
+            int minutes = Math.Max(0, (int)Math.Ceiling((job.EndTime - s.Now) * 60 - 1e-6));
+            int h = minutes / 60, m = minutes % 60;
+            return h > 0 ? (m > 0 ? $"{h}시간 {m}분" : $"{h}시간") : $"{m}분";
+        }
+
+        /// <summary>
+        /// 사람이 필요한 시설의 일손 줄(결정 LB1~). 예: "일손 2 / 3명 · 고용 순서 2번째 (우선 고용 1순위)".
+        /// 물이 없어 자동 배치에서 빠졌으면 그 이유를 붙인다. 사람이 필요 없거나 노동력이 꺼져 있으면 null.
+        /// </summary>
+        public static string WorkersLine(Settlement s, Facility f)
+        {
+            double need = s.WorkersNeeded(f);
+            if (need <= 0) return null;
+            if (!f.IsOperating) return $"일손: 필요 {People(need)}명 (운영 중일 때 배치)";
+            double assigned = s.LastLabor.OfFacility(f.Id);
+            int priority = s.HirePriority.ToList().IndexOf(f.Id);
+            int order = s.HiringOrder().ToList().IndexOf(f);
+            string rank = order >= 0 ? $" · 고용 순서 {order + 1}번째" : " · 물이 없어 자동 배치 안 됨(우선 고용하면 배치)";
+            string pri = priority >= 0 ? $" (우선 고용 {priority + 1}순위)" : "";
+            return $"일손: {People(assigned)} / {People(need)}명{rank}{pri}";
+        }
+
+        /// <summary>주택 줄(결정 LB1~): 주민·물·식량과 떠나는 중/들어오는 중(속도)/시작 유예(결정 BQ3). 주택이 아니면 null.</summary>
+        public static string HouseLine(Settlement s, Facility f)
+        {
+            if (f.Kind != BuildingKinds.House || !s.Rules.LaborOn) return null;
+            double cap = s.HouseCapacity(f);
+            double food = s.FoodSatisfaction;
+            double water = s.HouseWaterRate(f);
+            // 주민 수는 온전한 사람 수, 진행도는 다음 1명이 들어오거나 떠나기까지(결정 PI1)
+            string trend = s.IsLeaving(f) ? $" — ⚠ 떠나는 중(다음 1명 떠나기까지 {Math.Max(0, f.Residents - f.ResidentFill):P0})"
+                : water < 0.999 && s.StartGraceHoursLeft > 0 ? $" — 개척 유예 {s.StartGraceHoursLeft:0}시간: 물이 없어도 아직 떠나지 않음"
+                : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating
+                    ? $" — 들어오는 중(다음 1명까지 {Math.Max(0, f.ResidentFill - f.Residents):P0}, 시간당 +{s.ArrivalPerHour(f):0.0#}명분, 생활 수준 ×{s.ReturnFactor:0.0#})" : "";
+            return $"주민: {People(f.Residents)} / {People(cap)}명 (물 {water:P0} · 식량 {food:P0}){trend}";
+        }
+
+        /// <summary>전염병 중 주택·병원의 줄(아픈 주민·병상, 결정 EV1~EV3). 아니면 null.</summary>
+        public static string EpidemicLine(Settlement s, Facility f)
+        {
+            DisasterManager d = s.Disasters;
+            if (d == null || !d.Epidemic.Active) return null;
+            EpidemicState ep = d.Epidemic;
+            if (f.Kind == BuildingKinds.House) return $"전염병: 정착지 주민 {ep.SickPeopleShare:P0}가 아파 일하지 못함";
+            if (f.Kind == BuildingKinds.Hospital) return $"전염병: 환자 {ep.Hospitalized:0.#}명 입원 / 병상 {d.HospitalBeds:0} (집보다 빨리 회복)";
+            return null;
+        }
+
+        /// <summary>농장이 자기 소비보다 적게 생산할 때의 경고. 아니면 null.</summary>
+        public static string FarmDeficitText(Settlement s, Facility f)
+        {
+            FacilityOutput o = s.OutputOf(f);
+            return o.FarmBelowOwnUpkeep ? $"식량 생산 {o.ProducedPerHour:0.00} < 소비 {o.FoodUsePerHour:0.00} (이 경작지만으로 적자)" : null;
+        }
+
+        /// <summary>
+        /// 공급원(우물·물탱크)의 물이 간 길을 경로마다 한 줄로(2026-10-26 WD2, 이슈 #2: 예전에는 '물길 n개' 개수만).
+        /// 가까운 경로부터 최대 MaxRouteLines줄, 나머지는 '외 n개'. 물탱크 충전은 시설 목록에 없어 빠진다.
+        /// </summary>
+        private static void AddSentRoutes(List<string> lines, Settlement s, WaterAllocation water, string sourceId, string label)
+        {
+            var routes = WaterRoutes.DeliveriesFrom(water, sourceId);
+            if (routes.Count == 0) { lines.Add($"  {label}의 물길 없음 (물을 받는 시설 없음)"); return; }
+            lines.Add($"  {label}의 물길 {routes.Count}개 · 합계 {routes.Sum(x => x.Flow.Delivered):0.0}/h (맵에 하늘색 띠)");
+            foreach (var (consumerId, flow) in routes.Take(MaxRouteLines))
+            {
+                Facility to = WaterIds.TryFacilityId(consumerId, out int id) ? s.GetFacility(id) : null;
+                string name = to != null ? $"{KindName(to.Kind)} #{to.Id}" : consumerId;
+                string how = flow.Distance == 0 ? "옆 꼭짓점에서 바로" : $"수로 {flow.Distance / 2.0:0.#}칸";
+                lines.Add($"    → {name}: {how} → {flow.Delivered:0.0}/h");
+            }
+            if (routes.Count > MaxRouteLines) lines.Add($"    … 외 {routes.Count - MaxRouteLines}개");
+        }
+
+        private const int MaxRouteLines = 6;
+
+        /// <summary>시설 상세(여러 줄). progress는 공사 진행률(0~1).</summary>
+        public static List<string> Describe(Settlement s, Facility f, float progress)
+        {
+            BuildingLevel lv = s.LevelOf(f);
+            var lines = new List<string> { $"{KindName(f.Kind)} L{f.Level} — {StateName(f.State)}" };
+
+            if (f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading || f.State == FacilityState.Demolishing)
+            {
+                ConstructionJob job = s.Jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress);
+                lines.Add($"공사 {progress:P0}" + (job != null ? $" (완공까지 {TimeLeft(s, job)})" : ""));
+                if (job != null && s.WorkersNeeded(job) > 0)
+                    lines.Add($"공사 인원: {People(s.LastLabor.OfJob(job.Id))} / {People(s.WorkersNeeded(job))}명 (모자라면 그만큼 느려짐)");
+            }
+
+            string production = ProductionLine(s, f);
+            if (production != null) lines.Add(production);
+            string workers = WorkersLine(s, f);
+            if (workers != null) lines.Add(workers);
+            string house = HouseLine(s, f);
+            if (house != null) lines.Add(house);
+            string adjacency = f.Edge.HasValue ? null : AdjacencyLine(s, f.Kind, f.Tile);
+            if (adjacency != null) lines.Add(adjacency);
+            string epidemic = EpidemicLine(s, f);
+            if (epidemic != null) lines.Add(epidemic);
+
+            WaterAllocation water = s.LastWater;
+            bool takesWater = (lv.WaterDemand ?? 0) > 0 || f.Kind == BuildingKinds.House && s.Rules.LaborOn;
+            if (takesWater && water != null && water.Consumers.TryGetValue(WaterIds.Of(f), out WaterConsumerResult w))
+            {
+                lines.Add($"물: {w.Delivered:0.0} / {w.Demand:0} ({w.Rate:P0}), 우물에서 거리 {w.PriorityDistance}");
+                if (w.Shortage != WaterShortageReason.None) lines.Add("물 부족 이유: " + ShortageText(w.Shortage) + (w.Shortage == WaterShortageReason.CanalCapacity ? " (맵에 빨간 띠)" : ""));
+                // 물길(2026-10-23): 어느 공급원에서 수로 몇 칸을 지나 얼마 받았는지. 맵에는 하늘색 띠로 표시된다.
+                foreach (WaterIntakeFlow flow in w.Intakes)
+                    lines.Add(flow.Distance == 0
+                        ? $"  물길: {SourceName(s, flow.SourceId)} 옆 꼭짓점에서 바로 → {flow.Delivered:0.0}/h (이어 주는 수로 1개, 하늘색 띠)"
+                        : $"  물길: {SourceName(s, flow.SourceId)}에서 수로 {flow.Distance / 2.0:0.#}칸 → {flow.Delivered:0.0}/h");
+            }
+            if (lv.WaterSupply.HasValue && water != null && water.SourceReleased.TryGetValue(WaterIds.Of(f), out double released))
+            {
+                double supply = (lv.WaterSupply ?? 0) * s.Rules.WellSupplyMultiplier;
+                string bonus = s.Rules.WellSupplyMultiplier > 1.0001 ? $", 장비 ×{s.Rules.WellSupplyMultiplier:0.00}" : "";
+                string hands = s.Rules.LaborOn ? $"일손 {s.StaffRatio(f):P0}만큼 퍼 올림" : "식량 계수 영향 없음";
+                lines.Add($"방출: {released:0.0} / {supply:0} ({hands}{bonus})");
+                AddSentRoutes(lines, s, water, WaterIds.Of(f), "이 우물");
+            }
+            if (f.Kind == BuildingKinds.CanalEdge)
+            {
+                double load = 0, direct = 0;
+                if (water != null) water.EdgeLoads.TryGetValue(f.Edge.Value, out load);
+                if (water != null) water.DirectIntakeLoads.TryGetValue(f.Edge.Value, out direct);
+                lines.Add($"흐름: {load:0.0} / 용량 {lv.CapacityPerHour:0}");
+                // WD1(2026-10-26): 우물 옆 시설이 공유 꼭짓점에서 바로 받는 물은 변을 지나지 않아 흐름에 안 잡히지만, 이 수로가 그 꼭짓점을 이어 준다.
+                if (direct > 1e-6) lines.Add($"  + 우물 옆 직접 취수 {direct:0.0}/h (이 수로가 꼭짓점을 이어 줌, 용량은 안 씀 — 없애면 끊김)");
+            }
+            if (f.Kind == BuildingKinds.CanalEdge && f.State == FacilityState.Closed) lines.Add("닫힌 수로: 이 변으로 물이 지나가지 않음 (폐쇄 해제로 다시 열기)");
+            if (f.Kind == BuildingKinds.Warehouse) lines.Add($"저장 한도 +식량 {lv.FoodStorageBonus:0} / +석재 {lv.StoneStorageBonus:0}");
+            if (f.Kind == BuildingKinds.Hospital) lines.Add($"병원: 병상 {lv.Beds ?? 0:0}개 — 전염병 환자가 병상만큼 입원해 집보다 훨씬 빨리 회복");
+            if (f.Kind == BuildingKinds.Market && s.Rules.Trade != null)
+                lines.Add($"시장: 식량·석재 판매, 상인 할증 없이 구매 · 시장 {s.MarketCount}개 가격 회복 ×{s.Rules.Trade.RecoveryFactor(s.MarketCount):0.##}(시간당 {s.Rules.Trade.RecoveryPerHour * s.Rules.Trade.RecoveryFactor(s.MarketCount):P0})");
+            if (f.Kind == BuildingKinds.WaterTank)
+            {
+                lines.Add($"저장 {f.StoredWater:0} / {s.TankCapacityOf(f):0} (충전·방출 최대 {lv.ChargePerHour:0}/{lv.DischargePerHour:0} /h)");
+                switch (f.TankMode)
+                {
+                    case WaterTankMode.Charging: lines.Add($"지난 시간: 충전 +{f.TankFlowLastHour:0.0} (시설이 쓰고 남은 물)"); break;
+                    case WaterTankMode.Discharging: lines.Add($"지난 시간: 방출 {-f.TankFlowLastHour:0.0} (하류의 모자란 시설에)"); break;
+                    default: lines.Add("지난 시간: 대기 (가득 참·남는 물 없음·하류 부족 없음)"); break;
+                }
+                lines.Add("하류 = 우물에서 오는 물길이 이 탱크를 지나는 시설. 상류 수로를 닫아도 하류로 방출");
+                if (f.TankMode == WaterTankMode.Discharging && water != null) AddSentRoutes(lines, s, water, WaterIds.Tank(f.Id), "방출");
+            }
+
+            FacilityOutput o = s.OutputOf(f);
+            string upkeep = f.State == FacilityState.Closed || f.State == FacilityState.Upgrading
+                ? $"유지비 {(lv.Upkeep ?? 0) * s.Rules.ClosedUpkeepRatio:0.00}/h (폐쇄·개량 중)"
+                : $"유지비 {lv.Upkeep ?? 0:0.00}/h";
+            if (!s.Rules.LaborOn) lines.Add($"식량 소비 {o.FoodUsePerHour:0.00}/h · {upkeep}");
+            else if (f.Kind == BuildingKinds.House) lines.Add($"주민 식량 {f.Residents * s.FoodPerResident:0.00}/h · {upkeep}");
+            else if (o.WorkersNeeded > 0) lines.Add($"일꾼 식량 {o.FoodUsePerHour:0.00}/h (주민이 먹음) · {upkeep}");
+            else lines.Add(upkeep);
+
+            string deficit = FarmDeficitText(s, f);
+            if (deficit != null) lines.Add("⚠ " + deficit);
+            return lines;
+        }
+    }
+}

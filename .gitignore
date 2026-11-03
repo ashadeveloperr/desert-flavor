@@ -104,3 +104,22 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+
+# Personal editor settings
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local output from deterministic balance simulator
+/Tools/balance_output/
+
+# SettlementSim (.NET) build output
+/Tools/SettlementSim/bin/
+/Tools/SettlementSim/obj/
+!/Tools/SettlementSim/SettlementSim.csproj
+
+# 테스트 전용 Unity 프로젝트 사본(Tools/unity-tests.sh)
+/.unity-testcopy/

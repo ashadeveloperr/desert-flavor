@@ -1,0 +1,19 @@
+{
+    "name": "DesertSettlement.Runtime",
+    "rootNamespace": "DesertSettlement.Runtime",
+    "references": [
+        "DesertSettlement.Core",
+        "Unity.InputSystem",
+        "Unity.Cinemachine",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

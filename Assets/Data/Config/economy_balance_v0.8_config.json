@@ -1,0 +1,559 @@
+{
+  "schema": "desert-settlement-economy-v0.8",
+  "_note": "경제 수치. 키마다의 설명은 Assets/Scripts/Core/Config/EconomyConfig.cs 주석, 정한 이유는 Docs/implementation_notes.md(결정 표). 클래스에 없는 키는 불러오기 오류가 된다(설명용 키는 '_'로 시작).",
+  "confirmedRules": {
+    "auctionHistoryGameHours": 24,
+    "constructionSlots": 2,
+    "postStartCancelStoneRefundRatio": 0.5,
+    "gameDayRealSecondsAt1x": 180,
+    "constructionHoursMultiplier": 0.5,
+    "startJobsOnCommand": true
+  },
+  "prototype": {
+    "startingCash": 500,
+    "siteStarterStone": 75,
+    "siteStarterFood": 48,
+    "startingFoodStorage": 100,
+    "startingStoneStorage": 100,
+    "foodDeficitFullIntensityRatio": 0.25,
+    "foodDeclinePerDayMax": 0.2,
+    "foodRecoveryPerDay": 0.3,
+    "closedFacilityUpkeepRatio": 0.3,
+    "canalLossPerWholeEdge": 0.05,
+    "initialMvpMaxFacilityLevel": 3
+  },
+  "labor": {
+    "foodPerResidentPerHour": 0.2,
+    "waterPerResidentPerHour": 0.25,
+    "leavePerHour": 0.04,
+    "returnPerHour": 0.04,
+    "freeHouses": 0,
+    "crewPerConstructionSlot": 1,
+    "drinkPerResidentPerHour": 0.05,
+    "startGraceHours": 12
+  },
+  "goods": {
+    "grain": { "foodValue": 1.0, "eatWeight": 1, "standardPoints": 0, "keepRank": 0 },
+    "fruit": { "foodValue": 0.8, "eatWeight": 2, "standardPoints": 40, "keepRank": 1, "sellPrice": 1.5, "sellLimit": 80 },
+    "bread": { "foodValue": 1.6, "eatWeight": 3, "standardPoints": 140, "keepRank": 2, "sellPrice": 3.5, "sellLimit": 60 },
+    "meat": { "foodValue": 2.6, "eatWeight": 3, "standardPoints": 200, "keepRank": 3, "sellPrice": 5.6, "sellLimit": 50 },
+    "beer": { "drinkWeight": 2, "standardPoints": 140, "keepRank": 2, "sellPrice": 3.5, "sellLimit": 60 },
+    "wine": { "drinkWeight": 1, "standardPoints": 200, "keepRank": 3, "sellPrice": 5.6, "sellLimit": 40 },
+    "spice": { "keepRank": 3, "sellPrice": 5, "sellLimit": 30 }
+  },
+  "living": {
+    "risePerHour": 3,
+    "fallPerHour": 3,
+    "shortageFloor": 0.5,
+    "diversityMultipliers": [0.4, 0.6, 0.8, 0.9, 1.0],
+    "spiceBonus": 0.5,
+    "spicePerUpperGoods": 0.1,
+    "minShareToCount": 0.03,
+    "leaveFactorAtMax": 0.5,
+    "arrivalFactorAtMax": 8,
+    "productionAtMax": 0.2
+  },
+  "purchase": {
+    "food": {
+      "baseCost": 2,
+      "incrementMultiplier": 1.02,
+      "sellRatio": 0.5,
+      "sellLimit": 100
+    },
+    "stone": {
+      "baseCost": 4,
+      "incrementMultiplier": 1.03,
+      "sellRatio": 0.5,
+      "sellLimit": 60
+    },
+    "trade": {
+      "recoveryPerHour": 0.08,
+      "extraMarketGain": 0.2,
+      "extraMarketDecay": 0.75,
+      "noMarketPriceMultiplier": 1.5
+    }
+  },
+  "auctionSeed": {
+    "maturityStartRatio": 0.7,
+    "maturityFullHours": 48,
+    "stoneMultiplierUsesQuarryCapacity": true,
+    "oreProduction24hValueFactor": 2.3,
+    "foodProductionAverageForFullBonus": 8,
+    "foodMaxMultiplier": 1.5,
+    "stoneProductionAverageForFullBonus": 2,
+    "stoneMaxMultiplier": 2,
+    "openLandShareCenter": 0.5,
+    "infra": {
+      "well": 0.04,
+      "auctionHall": 0.01,
+      "perOperationalCanal": 0.01,
+      "perOperationalWarehouse": 0.025,
+      "perOperationalHospital": 0.01,
+      "perOperationalWaterTank": 0.01,
+      "perOperationalMarket": 0.01,
+      "perOperationalHouse": 0.01,
+      "maximum": 1.2
+    },
+    "fixedTestBidMultiplier": 1.05,
+    "valuePerResident": 5
+  },
+  "auction": {
+    "attendeesMin": 1,
+    "attendeesMax": 7,
+    "attendeesWithoutAuctionHall": 1,
+    "firstAuctionHour": 72,
+    "reauctionHours": 36,
+    "marketCenter": 1.05,
+    "marketSwing": 0.1,
+    "emergencyPenalty": 0.2,
+    "developmentAssetRatio": 0.5,
+    "bankruptcyGraceHours": 24,
+    "bidders": [
+      {
+        "id": "industrialist",
+        "name": "산업가",
+        "oreWeight": 1.3,
+        "foodMultiplierWeight": 0.1,
+        "stoneMultiplierWeight": 1.0,
+        "infraWeight": 1.0,
+        "developmentWeights": { "mine": 1.0, "well": 1.0, "quarry": 0.6, "farm": 0.3 },
+        "populationWeight": 0.3,
+        "cashShare": 1.0,
+        "nextSettlementFoodBonus": 0
+      },
+      {
+        "id": "farmer",
+        "name": "농장주",
+        "oreWeight": 0.9,
+        "foodMultiplierWeight": 2.2,
+        "stoneMultiplierWeight": 0.6,
+        "infraWeight": 1.0,
+        "developmentWeights": { "farm": 1.0, "well": 0.6, "quarry": 0.5, "mine": 0.3 },
+        "populationWeight": 0.3,
+        "cashShare": 0.92,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "farm": 1 }
+      },
+      {
+        "id": "distributor",
+        "name": "유통 사업가",
+        "oreWeight": 0.8,
+        "foodMultiplierWeight": 1.6,
+        "stoneMultiplierWeight": 1.6,
+        "infraWeight": 1.6,
+        "developmentWeights": { "warehouse": 1.0, "farm": 0.8, "quarry": 0.8, "mine": 0.4 },
+        "populationWeight": 0.3,
+        "cashShare": 0.95,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "warehouse": 1 }
+      },
+      {
+        "id": "builder",
+        "name": "건설업자",
+        "oreWeight": 0.8,
+        "foodMultiplierWeight": 0.4,
+        "stoneMultiplierWeight": 2.6,
+        "infraWeight": 1.2,
+        "openLandWeight": 0.3,
+        "developmentWeights": { "quarry": 1.0, "well": 0.6, "mine": 0.6, "farm": 0.4 },
+        "populationWeight": 0.3,
+        "cashShare": 0.92,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "quarry": 1 }
+      },
+      {
+        "id": "waterBroker",
+        "name": "수자원 사업자",
+        "oreWeight": 0.84,
+        "foodMultiplierWeight": 1.0,
+        "stoneMultiplierWeight": 1.0,
+        "infraWeight": 2.6,
+        "developmentWeights": { "well": 1.0, "waterTank": 1.0, "canalEdge": 1.0, "farm": 0.6, "mine": 0.4 },
+        "populationWeight": 0.3,
+        "cashShare": 1.0,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "waterTank": 1 }
+      },
+      {
+        "id": "developer",
+        "name": "부동산 개발업자",
+        "oreWeight": 0.9,
+        "foodMultiplierWeight": 0.8,
+        "stoneMultiplierWeight": 0.8,
+        "infraWeight": 1.8,
+        "openLandWeight": 0.8,
+        "developmentWeights": { "auctionHall": 1.0, "warehouse": 1.0, "hospital": 1.0, "house": 1.5, "mine": 0.3 },
+        "populationWeight": 0.6,
+        "livingStandardWeight": 0.2,
+        "cashShare": 0.95,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "auctionHall": 1 }
+      },
+      {
+        "id": "colonist",
+        "name": "이주 사업가",
+        "oreWeight": 0.85,
+        "foodMultiplierWeight": 1.2,
+        "stoneMultiplierWeight": 0.8,
+        "infraWeight": 1.4,
+        "developmentWeights": { "house": 2.0, "farm": 0.8, "well": 0.8, "mine": 0.4 },
+        "populationWeight": 2.5,
+        "livingStandardWeight": 0.3,
+        "cashShare": 0.92,
+        "nextSettlementFoodBonus": 0,
+        "nextSettlementFreeBuilds": { "house": 1 }
+      }
+    ]
+  },
+  "bidderModifiers": {
+    "_note": "입찰자가 매각 보상으로 주는 영구 모디파이어(결정 BM1~BM4). pool = 입찰자 id(전용) 또는 general(범용). weight = 같은 목록 안에서 뽑힐 비중(기본 1). maxStacks = 캠페인에서 받을 수 있는 최대 횟수(그만큼 받으면 더 뽑히지 않음, 없으면 defaultMaxStacks). 효과 형식은 지역 모디파이어와 같다(곱연산).",
+    "exclusiveChance": 0.7,
+    "defaultMaxStacks": 5,
+    "definitions": [
+      { "id": "ore", "pool": "industrialist", "effects": {"oreOutputMultiplier": 1.08} },
+      { "id": "processingOutput", "pool": "industrialist", "effects": {"processingOutputMultiplier": 1.05} },
+      { "id": "processingInput", "pool": "industrialist", "effects": {"processingInputMultiplier": 0.95} },
+      { "id": "constructionSlot", "pool": "industrialist", "weight": 0.25, "maxStacks": 2, "effects": {"extraConstructionSlots": 1} },
+      { "id": "grain", "pool": "farmer", "effects": {"grainOutputMultiplier": 1.06} },
+      { "id": "farmGoods", "pool": "farmer", "effects": {"farmGoodsOutputMultiplier": 1.06} },
+      { "id": "cropGuard", "pool": "farmer", "maxStacks": 3, "effects": {"locustDamageMultiplier": 0.8, "blightDamageMultiplier": 0.8} },
+      { "id": "farmWater", "pool": "farmer", "effects": {"farmWaterDemandMultiplier": 0.95} },
+      { "id": "sellPrice", "pool": "distributor", "effects": {"sellPriceMultiplier": 1.08} },
+      { "id": "buyPrice", "pool": "distributor", "effects": {"purchasePriceMultiplier": 0.92} },
+      { "id": "spoilage", "pool": "distributor", "maxStacks": 3, "effects": {"spoilageMultiplier": 0.85} },
+      { "id": "storage", "pool": "distributor", "effects": {"storageMultiplier": 1.1} },
+      { "id": "stoneCost", "pool": "builder", "effects": {"stoneCostMultiplier": 0.94} },
+      { "id": "buildTime", "pool": "builder", "effects": {"constructionTimeMultiplier": 0.92} },
+      { "id": "stoneOutput", "pool": "builder", "effects": {"stoneOutputMultiplier": 1.08} },
+      { "id": "wellSupply", "pool": "waterBroker", "effects": {"wellSupplyMultiplier": 1.06} },
+      { "id": "canalLoss", "pool": "waterBroker", "maxStacks": 3, "effects": {"canalLossMultiplier": 0.85} },
+      { "id": "sandstorm", "pool": "waterBroker", "maxStacks": 3, "effects": {"sandstormDamageMultiplier": 0.8} },
+      { "id": "waterTank", "pool": "waterBroker", "maxStacks": 3, "effects": {"waterTankCapacityMultiplier": 1.2} },
+      { "id": "upkeep", "pool": "developer", "effects": {"upkeepMultiplier": 0.96} },
+      { "id": "houseArrival", "pool": "developer", "effects": {"arrivalMultiplier": 1.1} },
+      { "id": "warehouse", "pool": "developer", "maxStacks": 3, "effects": {"warehouseStorageMultiplier": 1.15} },
+      { "id": "arrival", "pool": "colonist", "effects": {"arrivalMultiplier": 1.1} },
+      { "id": "ration", "pool": "colonist", "effects": {"foodPerResidentMultiplier": 0.95} },
+      { "id": "epidemic", "pool": "colonist", "maxStacks": 3, "effects": {"epidemicTransmissionMultiplier": 0.85} },
+      { "id": "efficiencyCap", "pool": "general", "maxStacks": 3, "effects": {"efficiencyCapMultiplier": 1.03} },
+      { "id": "locust", "pool": "general", "maxStacks": 3, "effects": {"locustDamageMultiplier": 0.8} },
+      { "id": "generalUpkeep", "pool": "general", "effects": {"upkeepMultiplier": 0.97} },
+      { "id": "output", "pool": "general", "effects": {"outputMultiplier": 1.03} },
+      { "id": "startingCash", "pool": "general", "effects": {"startingCashMultiplier": 1.05} }
+    ]
+  },
+  "disasters": {
+    "graceHours": 36,
+    "warningHours": 6,
+    "scheduleWindowHours": 48,
+    "countWeights": [0.15, 0.55, 0.30],
+    "types": [
+      { "id": "epidemic", "name": "전염병", "weight": 1 },
+      { "id": "sandstorm", "name": "모래폭풍", "weight": 1 },
+      { "id": "locusts", "name": "메뚜기떼", "weight": 1 },
+      { "id": "blight", "name": "작물 탄저병", "weight": 1 }
+    ],
+    "regionWeightMultipliers": {
+      "sandWind": { "sandstorm": 3 },
+      "salineSoil": { "blight": 3 }
+    },
+    "sandstorm": { "minHours": 6, "maxHours": 18, "canalLossMultiplier": 2.0, "constructionSpeed": 0.5 },
+    "locusts": { "minHours": 4, "maxHours": 12, "farmProduction": 0.0, "foodStockLoss": 0.15 },
+    "blight": { "minHours": 48, "maxHours": 96, "farmProduction": 0.5 },
+    "epidemic": {
+      "initialInfectedShare": 0.05,
+      "transmissionPerHour": 0.35,
+      "homeRecoveryPerHour": 0.08,
+      "hospitalRecoveryPerHour": 0.16,
+      "immunityCarryover": 0.5,
+      "endBelowSickShare": 0.01
+    }
+  },
+  "adjacency": {
+    "clusterOutputPerNeighbor": 0.05,
+    "clusterKinds": ["farm", "orchard", "pasture", "herbFarm", "quarry", "mine"],
+    "inputSavingPerNeighbor": 0.1,
+    "inputSavingMax": 0.5,
+    "inputSources": { "mill": "farm", "brewery": "farm", "pasture": "farm", "winery": "orchard" },
+    "houseArrivalPerNeighbor": 0.1
+  },
+  "spoilage": {
+    "foodPerDay": 0.01,
+    "warehouseNeighborReductionPerDay": 0.001
+  },
+  "buildingLevels": {
+    "well": [
+      {
+        "stone": 8,
+        "hours": 10,
+        "waterSupply": 100,
+        "workers": 0,
+        "buildWorkers": 2,
+        "foodUse": 0.25,
+        "upkeep": 0.6
+      },
+      {
+        "stone": 18,
+        "hours": 10,
+        "waterSupply": 140,
+        "workers": 1,
+        "buildWorkers": 2,
+        "foodUse": 0.3,
+        "upkeep": 0.9
+      },
+      {
+        "stone": 30,
+        "hours": 14,
+        "waterSupply": 190,
+        "workers": 2,
+        "buildWorkers": 3,
+        "foodUse": 0.4,
+        "upkeep": 1.25
+      }
+    ],
+    "farm": [
+      {
+        "stone": 12,
+        "hours": 6,
+        "waterDemand": 30,
+        "foodProduction": 4,
+        "workers": 2,
+        "buildWorkers": 2,
+        "foodUse": 0.75,
+        "upkeep": 0.5
+      },
+      {
+        "stone": 16,
+        "hours": 8,
+        "waterDemand": 35,
+        "foodProduction": 6,
+        "workers": 3,
+        "buildWorkers": 2,
+        "foodUse": 0.95,
+        "upkeep": 0.75
+      },
+      {
+        "stone": 26,
+        "hours": 12,
+        "waterDemand": 40,
+        "foodProduction": 7,
+        "workers": 4,
+        "buildWorkers": 3,
+        "foodUse": 1.2,
+        "upkeep": 1.1
+      }
+    ],
+    "orchard": [
+      { "stone": 7, "hours": 6, "waterDemand": 12, "goodsProduction": 3, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
+      { "stone": 10, "hours": 8, "waterDemand": 15, "goodsProduction": 4.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.375 },
+      { "stone": 16, "hours": 12, "waterDemand": 18, "goodsProduction": 5.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
+    ],
+    "pasture": [
+      { "stone": 8, "hours": 8, "waterDemand": 15, "goodsProduction": 1.5, "inputPerOutput": 1.5, "workers": 2, "buildWorkers": 2, "upkeep": 0.3 },
+      { "stone": 11, "hours": 9, "waterDemand": 18, "goodsProduction": 2.2, "inputPerOutput": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.425 },
+      { "stone": 17, "hours": 13, "waterDemand": 20, "goodsProduction": 2.7, "inputPerOutput": 1.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.6 }
+    ],
+    "herbFarm": [
+      { "stone": 6, "hours": 6, "waterDemand": 8, "goodsProduction": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.2 },
+      { "stone": 8, "hours": 8, "waterDemand": 10, "goodsProduction": 1.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.3 },
+      { "stone": 13, "hours": 10, "waterDemand": 12, "goodsProduction": 1.8, "workers": 4, "buildWorkers": 3, "upkeep": 0.45 }
+    ],
+    "mill": [
+      { "stone": 7, "hours": 6, "waterDemand": 15, "goodsProduction": 2, "inputPerOutput": 1, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
+      { "stone": 10, "hours": 8, "waterDemand": 18, "goodsProduction": 3, "inputPerOutput": 1, "workers": 3, "buildWorkers": 2, "upkeep": 0.35 },
+      { "stone": 14, "hours": 10, "waterDemand": 20, "goodsProduction": 3.7, "inputPerOutput": 1, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
+    ],
+    "brewery": [
+      { "stone": 7, "hours": 6, "waterDemand": 15, "goodsProduction": 1.5, "inputPerOutput": 0.5, "workers": 2, "buildWorkers": 2, "upkeep": 0.25 },
+      { "stone": 10, "hours": 8, "waterDemand": 18, "goodsProduction": 2.2, "inputPerOutput": 0.5, "workers": 3, "buildWorkers": 2, "upkeep": 0.35 },
+      { "stone": 14, "hours": 10, "waterDemand": 20, "goodsProduction": 2.7, "inputPerOutput": 0.5, "workers": 4, "buildWorkers": 3, "upkeep": 0.5 }
+    ],
+    "winery": [
+      { "stone": 8, "hours": 8, "waterDemand": 15, "goodsProduction": 1.2, "inputPerOutput": 0.75, "workers": 2, "buildWorkers": 2, "upkeep": 0.3 },
+      { "stone": 11, "hours": 9, "waterDemand": 18, "goodsProduction": 1.8, "inputPerOutput": 0.75, "workers": 3, "buildWorkers": 2, "upkeep": 0.4 },
+      { "stone": 17, "hours": 12, "waterDemand": 20, "goodsProduction": 2.2, "inputPerOutput": 0.75, "workers": 4, "buildWorkers": 3, "upkeep": 0.55 }
+    ],
+    "quarry": [
+      {
+        "stone": 14,
+        "hours": 8,
+        "waterDemand": 25,
+        "stoneProduction": 1,
+        "workers": 2,
+        "buildWorkers": 2,
+        "foodUse": 0.9,
+        "upkeep": 0.7
+      },
+      {
+        "stone": 18,
+        "hours": 9,
+        "waterDemand": 30,
+        "stoneProduction": 1.6,
+        "workers": 3,
+        "buildWorkers": 2,
+        "foodUse": 1.1,
+        "upkeep": 0.95
+      },
+      {
+        "stone": 28,
+        "hours": 13,
+        "waterDemand": 35,
+        "stoneProduction": 1.9,
+        "workers": 4,
+        "buildWorkers": 3,
+        "foodUse": 1.35,
+        "upkeep": 1.3
+      }
+    ],
+    "mine": [
+      {
+        "stone": 24,
+        "hours": 12,
+        "waterDemand": 50,
+        "oreProduction": 12,
+        "workers": 4,
+        "buildWorkers": 3,
+        "foodUse": 1.8,
+        "upkeep": 1.5
+      },
+      {
+        "stone": 28,
+        "hours": 14,
+        "waterDemand": 50,
+        "oreProduction": 18,
+        "workers": 6,
+        "buildWorkers": 3,
+        "foodUse": 2.2,
+        "upkeep": 2
+      },
+      {
+        "stone": 44,
+        "hours": 18,
+        "waterDemand": 55,
+        "oreProduction": 21,
+        "workers": 8,
+        "buildWorkers": 4,
+        "foodUse": 2.8,
+        "upkeep": 2.9
+      }
+    ],
+    "auctionHall": [
+      {
+        "stone": 18,
+        "hours": 12,
+        "buildWorkers": 2,
+        "foodUse": 0.2,
+        "upkeep": 0.6
+      },
+      {
+        "stone": 20,
+        "hours": 12,
+        "buildWorkers": 2,
+        "foodUse": 0.25,
+        "upkeep": 0.8
+      }
+    ],
+    "house": [
+      {
+        "stone": 4,
+        "hours": 4,
+        "residents": 6,
+        "buildWorkers": 2,
+        "upkeep": 0.1
+      },
+      {
+        "stone": 8,
+        "hours": 6,
+        "residents": 10,
+        "buildWorkers": 2,
+        "upkeep": 0.2
+      },
+      {
+        "stone": 12,
+        "hours": 8,
+        "residents": 12,
+        "buildWorkers": 3,
+        "upkeep": 0.3
+      }
+    ],
+    "warehouse": [
+      {
+        "stone": 8,
+        "hours": 6,
+        "buildWorkers": 2,
+        "foodStorageBonus": 150,
+        "stoneStorageBonus": 60,
+        "foodUse": 0,
+        "upkeep": 0.2
+      },
+      {
+        "stone": 12,
+        "hours": 8,
+        "buildWorkers": 2,
+        "foodStorageBonus": 300,
+        "stoneStorageBonus": 120,
+        "foodUse": 0,
+        "upkeep": 0.35
+      }
+    ],
+    "market": [
+      {
+        "stone": 10,
+        "hours": 6,
+        "buildWorkers": 2,
+        "foodUse": 0.1,
+        "upkeep": 0.3
+      }
+    ],
+    "hospital": [
+      {
+        "stone": 20,
+        "hours": 10,
+        "buildWorkers": 2,
+        "beds": 3,
+        "foodUse": 0,
+        "upkeep": 0.5
+      }
+    ],
+    "waterTank": [
+      {
+        "stone": 10,
+        "hours": 6,
+        "buildWorkers": 2,
+        "capacity": 360,
+        "chargePerHour": 30,
+        "dischargePerHour": 30,
+        "foodUse": 0,
+        "upkeep": 0.3
+      },
+      {
+        "stone": 14,
+        "hours": 8,
+        "buildWorkers": 2,
+        "capacity": 630,
+        "chargePerHour": 45,
+        "dischargePerHour": 45,
+        "foodUse": 0,
+        "upkeep": 0.5
+      }
+    ],
+    "canalEdge": [
+      {
+        "stone": 2,
+        "hours": 2,
+        "capacityPerHour": 100,
+        "buildWorkers": 1,
+        "foodUse": 0,
+        "upkeep": 0.05
+      },
+      {
+        "stone": 6,
+        "hours": 3,
+        "capacityPerHour": 150,
+        "buildWorkers": 1,
+        "foodUse": 0,
+        "upkeep": 0.08
+      }
+    ]
+  }
+}

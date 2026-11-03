@@ -1,0 +1,62 @@
+{
+  "schema": "desert-settlement-procedural-map-v1",
+  "_note": "절차 맵 수치. 설명은 Core/Progression/ProceduralMapConfig.cs 주석과 Docs/implementation_notes.md '절차 맵'. 바꾼 뒤 dotnet run --project Tools/SettlementSim -- tune 으로 난이도 곡선을 확인한다.",
+  "fixedMapsBeforeGenerated": 1,
+  "regionChoices": 2,
+  "modifiers": {
+    "weaknessStartD": 0.5,
+    "weaknessStepD": 1.0,
+    "strengthChance": 0.4,
+    "definitions": [
+      { "id": "softGround", "name": "무른 지반", "kind": "Weakness", "description": "모래가 무너져 기초 공사에 석재가 더 든다", "effects": { "stoneCostMultiplier": 1.25 } },
+      { "id": "thinAir", "name": "산소가 희박한 고지대", "kind": "Weakness", "description": "숨이 가빠 시설이 제 능력을 다 내지 못한다", "effects": { "efficiencyCap": 0.9 } },
+      { "id": "dryAquifer", "name": "마른 대수층", "kind": "Weakness", "description": "지하수가 얕아 우물이 덜 솟는다", "effects": { "wellSupplyMultiplier": 0.9 } },
+      { "id": "sandWind", "name": "모래바람 지대", "kind": "Weakness", "description": "바람에 날린 모래가 수로를 메운다", "effects": { "canalLossMultiplier": 1.5 } },
+      { "id": "salineSoil", "name": "염분 토양", "kind": "Weakness", "description": "짠 흙에서 작물이 잘 자라지 않는다", "effects": { "foodOutputMultiplier": 0.75 } },
+      { "id": "remote", "name": "외딴 지역", "kind": "Weakness", "description": "상단이 드물어 물자가 비싸고 관리비가 든다", "effects": { "purchasePriceMultiplier": 1.5, "upkeepMultiplier": 1.25 } },
+      { "id": "richVeins", "name": "풍부한 광맥", "kind": "Strength", "description": "광맥이 두껍다", "effects": { "oreOutputMultiplier": 1.2 } },
+      { "id": "fertileOasis", "name": "비옥한 오아시스", "kind": "Strength", "description": "오아시스 흙이 기름지다", "effects": { "foodOutputMultiplier": 1.25 } },
+      { "id": "solidBedrock", "name": "단단한 암반", "kind": "Strength", "description": "질 좋은 돌이 쉽게 나온다", "effects": { "stoneOutputMultiplier": 1.3 } }
+    ]
+  },
+  "difficulty": {
+    "cashAtD0": 1000,
+    "cashPerD": 14000,
+    "dPerSettlement": 0.25,
+    "upkeepPerD": 0.5,
+    "lateStartD": 4,
+    "upkeepLatePerD2": 0.2,
+    "weaknessLatePerD": 0.5,
+    "disasterLatePerD": 0.5,
+    "baseRadius": 3,
+    "firstRadiusStepD": 1.0,
+    "radiusStepD": 1.0,
+    "maxRadius": 7,
+    "wellsPer37AtD0": 2,
+    "wellsPer37AtD1": 1,
+    "minWellsPer37": 0.3,
+    "oresPer37AtD0": 1.5,
+    "oresPer37AtD1": 0.9,
+    "minOresPer37": 0.3,
+    "obstacleAtD0": 0.20,
+    "obstacleAtD1": 0.30,
+    "maxObstacleDensity": 0.40,
+    "distanceAtD0": 3,
+    "distanceAtD1": 4
+  },
+  "generator": {
+    "formationMinSize": 3,
+    "formationMaxSize": 6,
+    "mountainChance": 0.5,
+    "mountainTurnChance": 0.25,
+    "isolatedObstacleChance": 0.15,
+    "oreNearObstacleChance": 0.9,
+    "bedrockInObstacleChance": 0.9,
+    "minLeafTiles": 5,
+    "wellExclusionRadius": 2,
+    "minDesertAroundWell": 2,
+    "minOreSpacing": 2,
+    "minDesertTiles": 8,
+    "maxAttempts": 300
+  }
+}

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unity 밖에서 게임 로직을 시뮬레이션하는 콘솔 도구. Core 폴더(Timing 제외)의 소스를 폴더 단위로 그대로 링크해 쓴다(결정 SM3: 새 파일도 저절로 들어간다). -->
+  <!-- 실행: dotnet run (프로젝트 경로 Tools/SettlementSim) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Assets/Scripts/Core/Hex/*.cs" Link="Core/Hex/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Canal/*.cs" Link="Core/Canal/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Water/*.cs" Link="Core/Water/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Config/*.cs" Link="Core/Config/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Economy/*.cs" Link="Core/Economy/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Auction/*.cs" Link="Core/Auction/%(Filename)%(Extension)" />
+    <Compile Include="../../Assets/Scripts/Core/Progression/*.cs" Link="Core/Progression/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 게임과 같은 JSON 파서·검증(설정·맵 로더). Unity 패키지 com.unity.nuget.newtonsoft-json 3.2.2 = Newtonsoft.Json 13.0.2. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+  </ItemGroup>
+</Project>

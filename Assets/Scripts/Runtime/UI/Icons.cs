@@ -6,11 +6,17 @@ namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
     /// 코드로 그리는 작은 아이콘(결정 UV2). 그림 파일·이모지 없이 도형을 겹쳐 64×64 스프라이트를 한 번 만들고 다시 쓴다.
-    /// 이모지는 Unity 기본 글꼴에서 네모로 깨질 수 있어 쓰지 않는다. 새 아이콘은 <see cref="Draw"/>에 도형 목록 하나를 더한다.
+    /// 이모지는 Unity 기본 글꼴에서 네모로 깨질 수 있어 쓰지 않는다. 새 아이콘은 <see cref="Draw"/>(자원) 또는 Icons.Facilities.cs의 <see cref="DrawFacility"/>(시설·도구)에 도형 목록 하나를 더한다.
     /// </summary>
-    public static class Icons
+    public static partial class Icons
     {
-        public enum Kind { Cash, Food, Stone, People, Ore, Water, Upkeep }
+        /// <summary>자원(위쪽 띠) · 시설(도구 막대, 시설과 아이콘의 짝은 <see cref="HelpTexts"/>) · 관리 도구.</summary>
+        public enum Kind
+        {
+            Cash, Food, Stone, People, Ore, Water, Upkeep,
+            Well, Canal, WaterTank, Fruit, Meat, Herb, Bread, Beer, Wine, House, Warehouse, Market, Hospital, Gavel,
+            Pointer, Upgrade, Demolish, Close,
+        }
 
         private const int N = 64;
         private static readonly Dictionary<Kind, Sprite> Cache = new Dictionary<Kind, Sprite>();
@@ -80,6 +86,25 @@ namespace DesertSettlement.Runtime.UI
                 return d;
             };
         }
+
+        /// <summary>두께 있는 선분(양 끝이 둥근 막대).</summary>
+        private static Func<float, float, float> Capsule(float ax, float ay, float bx, float by, float r)
+        {
+            return (x, y) =>
+            {
+                float px = x - ax, py = y - ay, dx = bx - ax, dy = by - ay;
+                float h = Mathf.Clamp01((px * dx + py * dy) / (dx * dx + dy * dy));
+                float ex = px - dx * h, ey = py - dy * h;
+                return Mathf.Sqrt(ex * ex + ey * ey) - r;
+            };
+        }
+
+        private static Func<float, float, float> Union(params Func<float, float, float>[] parts) => (x, y) =>
+        {
+            float d = float.MaxValue;
+            foreach (var p in parts) d = Mathf.Min(d, p(x, y));
+            return d;
+        };
 
         private static Func<float, float, float> Minus(Func<float, float, float> a, Func<float, float, float> b) => (x, y) => Mathf.Max(a(x, y), -b(x, y));
         private static Func<float, float, float> Grow(Func<float, float, float> a, float by) => (x, y) => a(x, y) - by;
@@ -164,6 +189,9 @@ namespace DesertSettlement.Runtime.UI
                     yield return (arrow, C(0.92f, 0.42f, 0.34f));
                     break;
                 }
+                default: // 시설·도구 아이콘(Icons.Facilities.cs)
+                    foreach (var part in DrawFacility(kind)) yield return part;
+                    break;
             }
         }
     }

@@ -118,6 +118,13 @@ namespace DesertSettlement.Runtime.UI
         /// <summary>선택된 도구처럼 켜진 버튼 색.</summary>
         public static void SetOn(this UnityEngine.UI.Button b, bool on) => ((Image)b.targetGraphic).color = on ? Theme.ButtonOn : Theme.ButtonColor;
 
+        /// <summary>마우스를 올리면 툴팁을 띄운다(결정 HT1). 문구 함수는 툴팁이 보이는 동안 0.2초마다 다시 부른다. 요소에 마우스를 받는 그림(Image 등)이 있어야 한다.</summary>
+        public static void Tip(this Component c, Func<string> content)
+        {
+            HoverTip tip = c.GetComponent<HoverTip>() ?? c.gameObject.AddComponent<HoverTip>();
+            tip.Content = content;
+        }
+
         public static void Stretch(RectTransform r, Vector2 inset)
         {
             r.anchorMin = Vector2.zero;

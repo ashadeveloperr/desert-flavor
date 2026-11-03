@@ -11,7 +11,8 @@ using static DesertSettlement.Runtime.UI.UiKit;
 namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
-    /// 마우스를 올린 타일·시설의 툴팁(2026-10-23, Docs/decision_log_auto.md UI8). 커서를 따라다닌다(매 프레임 <see cref="Follow"/>).
+    /// 마우스를 올린 곳의 툴팁(결정 UI8·HT1). 커서를 따라다닌다(매 프레임 <see cref="Follow"/>).
+    /// UI 요소에 붙인 <see cref="HoverTip"/>이 있으면 그 문구가 먼저이고, 없으면 맵의 타일·시설:
     /// 위: 시설 이름·레벨·상태 / 가운데: 핵심 정보 몇 줄(전체는 선택하면 오른쪽 패널) / 아래: 지형, 건설 도구를 들었으면 가능 여부와 비용.
     /// </summary>
     public sealed class TooltipView : IUiView
@@ -53,7 +54,7 @@ namespace DesertSettlement.Runtime.UI
         public void Follow()
         {
             BuildInputController input = _ui.Input;
-            object target = (object)input.HoveredFacility ?? input.HoverTile;
+            object target = (object)HoverTip.Current ?? (object)input.HoveredFacility ?? input.HoverTile;
             if (!Equals(target, _target))
             {
                 _target = target;
@@ -66,15 +67,24 @@ namespace DesertSettlement.Runtime.UI
             if (_text.text != _content) _text.text = _content;
 
             float scale = _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1;
-            Vector2 pos = Mouse.current.position.ReadValue() / scale + CursorOffset;
+            Vector2 mouse = Mouse.current.position.ReadValue() / scale;
+            Vector2 pos = mouse + CursorOffset;
             Vector2 size = ((RectTransform)_canvas.transform).rect.size;
             float w = _panel.rect.width, h = _panel.rect.height;
             pos.x = Mathf.Min(pos.x, size.x - w - 4);
-            pos.y = Mathf.Max(pos.y, h + 4); // 아래로 넘치면 위로
+            // 아래로 넘치면 커서 위로 올린다(커서를 가리지 않게, 화면 아래 버튼의 툴팁).
+            if (pos.y - h < 4) pos.y = Mathf.Min(mouse.y - CursorOffset.y + h, size.y - 4);
             _panel.anchoredPosition = pos;
         }
 
         private string BuildContent()
+        {
+            HoverTip tip = HoverTip.Current;
+            if (tip != null) return _ui.Session.Settlement != null ? tip.Content?.Invoke() : null;
+            return BuildMapContent();
+        }
+
+        private string BuildMapContent()
         {
             GameSession session = _ui.Session;
             BuildInputController input = _ui.Input;

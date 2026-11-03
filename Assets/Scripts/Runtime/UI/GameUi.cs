@@ -15,7 +15,7 @@ namespace DesertSettlement.Runtime.UI
     }
 
     /// <summary>
-    /// 정식 UI의 뿌리(결정 UI1~UI5). 캔버스·이벤트 시스템을 만들고 각 구역을 붙인다. 키보드 단축키는 <see cref="Hotkeys"/>.
+    /// 정식 UI의 뿌리(결정 UI1~UI5). 캔버스·이벤트 시스템을 만들고 각 구역을 붙인다. 키보드 단축키는 <see cref="Hotkeys"/>(오른쪽 아래 ? 버튼이 안내).
     /// </summary>
     [RequireComponent(typeof(GameSession), typeof(BuildInputController), typeof(SettlementView))]
     public sealed class GameUi : MonoBehaviour
@@ -47,6 +47,7 @@ namespace DesertSettlement.Runtime.UI
             _views.Add(new BuyPanelView(this, root));
             _views.Add(new AlertsView(this, root));
             _views.Add(new InspectorView(this, root));
+            BuildHelpButton(root);
             _views.Add(_tooltip = new TooltipView(this, root));
             _views.Add(new ModalView(this, root)); // 맨 위에 그려지도록 마지막
             _session.Initialized += () => { foreach (IUiView v in _views) v.Reset(); };
@@ -67,6 +68,14 @@ namespace DesertSettlement.Runtime.UI
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
             go.AddComponent<GraphicRaycaster>();
+        }
+
+        /// <summary>오른쪽 아래 ? 버튼: 마우스를 올리면 조작 안내(결정 HT2, 문구는 <see cref="Hotkeys.HelpText"/>).</summary>
+        private static void BuildHelpButton(Transform root)
+        {
+            UnityEngine.UI.Button help = UiKit.Btn(root, "?", null, 40, 40, UiKit.Theme.Big);
+            ((RectTransform)help.transform).Place(Vector2.right, Vector2.right, Vector2.right, new Vector2(-BuildBarView.Margin, BuildBarView.Margin), new Vector2(40, 40));
+            help.Tip(Hotkeys.HelpText);
         }
 
         private static void EnsureEventSystem()

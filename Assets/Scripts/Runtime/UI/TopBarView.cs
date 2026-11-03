@@ -13,6 +13,7 @@ namespace DesertSettlement.Runtime.UI
     /// 위쪽 띠(UI2): 왼쪽 자원 카드(결정 UV3, Frostpunk 식 — 아이콘 + 큰 숫자 + 시간당 변화, 위험하면 붉게 깜빡임):
     /// 자금(유지비·버틸 시간)·식품(순 식량·버틸 시간)·석재(생산·한도)·주민(정원·일손, 노동력이 꺼져 있으면 식량 계수)·광물(경매 가치), 가운데 정착지·지역 특성·받은 영구 모디파이어,
     /// 오른쪽 시계·일시정지·배속(` 1 2 3) | 저장(F5)·불러오기(F9).
+    /// 자원 카드에 마우스를 올리면 설명 툴팁(<see cref="HelpTexts"/>, 결정 HT4).
     /// 좁은 화면에서는 세 구역이 같은 비율로 줄어든다(LY3, 16:10까지는 그대로).
     /// </summary>
     public sealed class TopBarView : IUiView
@@ -44,6 +45,12 @@ namespace DesertSettlement.Runtime.UI
             _stone = new Card(res.transform, Icons.Kind.Stone, 136);
             _people = new Card(res.transform, Icons.Kind.People, 136);
             _ore = new Card(res.transform, Icons.Kind.Ore, 90);
+            // 마우스를 올리면 자원 설명(결정 HT4).
+            _cash.Root.Tip(() => HelpTexts.CashTip(_ui.Session.Settlement));
+            _food.Root.Tip(() => HelpTexts.FoodTip(_ui.Session.Settlement));
+            _stone.Root.Tip(() => HelpTexts.StoneTip(_ui.Session.Settlement));
+            _people.Root.Tip(() => HelpTexts.PeopleTip(_ui.Session.Settlement));
+            _ore.Root.Tip(() => HelpTexts.OreTip(_ui.Session.Settlement));
 
             // 가운데: 정착지·지역 특성
             _place = Label(bar, "", Theme.Title, Theme.Accent, TextAnchor.UpperCenter);
@@ -84,9 +91,13 @@ namespace DesertSettlement.Runtime.UI
             private readonly Text _value, _sub;
             private int _level;
 
+            /// <summary>카드 바탕(툴팁을 붙이는 곳).</summary>
+            public RectTransform Root { get; }
+
             public Card(Transform parent, Icons.Kind icon, float width)
             {
                 RectTransform r = Panel("Card " + icon, parent, Theme.PanelLight);
+                Root = r;
                 var le = r.gameObject.AddComponent<LayoutElement>();
                 le.preferredWidth = le.minWidth = width;
                 le.preferredHeight = le.minHeight = CardHeight;

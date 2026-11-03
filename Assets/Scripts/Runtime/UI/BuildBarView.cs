@@ -8,7 +8,7 @@ using static DesertSettlement.Runtime.UI.UiKit;
 namespace DesertSettlement.Runtime.UI
 {
     /// <summary>
-    /// 아래 가운데 건설 도구 막대(UI2, Cities: Skylines·Anno 식): 분류별 도구 버튼(비용·무료 완공 표시),
+    /// 아래 가운데 건설 도구 막대(UI2, Cities: Skylines·Anno 식): 분류별 도구 버튼(아이콘, 비용·무료 완공 표시, 마우스를 올리면 역할 툴팁 — 결정 HT3),
     /// 가리킨 곳의 불가 이유·마지막 결과 한 줄. 식량·석재 구매와 샘플 배치는 왼쪽 아래 <see cref="BuyPanelView"/>(2026-10-27 LY2, 이슈 #5).
     /// </summary>
     public sealed class BuildBarView : IUiView
@@ -22,10 +22,13 @@ namespace DesertSettlement.Runtime.UI
         }
 
         /// <summary>
-        /// 막대 폭. 두 줄(결정 FD2로 시설이 17개가 되어 한 줄에 안 들어감): 1줄 선택·물·생산(10개), 2줄 가공·기반시설·관리(11개), 줄마다 약 1100.
+        /// 막대 폭. 두 줄(결정 FD2로 시설이 17개가 되어 한 줄에 안 들어감): 1줄 선택·물·생산(10개), 2줄 가공·기반시설·관리(11개),
+        /// 버튼 폭 <see cref="ButtonWidth"/>로 줄마다 약 1140·1250.
         /// 시설을 늘리면 줄 나눔(<see cref="FirstRowGroups"/>)과 이 값, <see cref="BottomScale"/>을 함께 본다.
         /// </summary>
         public const float BarWidth = 1330;
+        /// <summary>도구 버튼 폭(아이콘 + 이름).</summary>
+        private const float ButtonWidth = 108, IconSize = 28;
         /// <summary>막대 높이(상태 줄 + 도구 두 줄).</summary>
         public const float BarHeight = 178;
         /// <summary>첫째 줄에 놓을 분류(나머지 분류와 '관리'는 둘째 줄).</summary>
@@ -60,8 +63,13 @@ namespace DesertSettlement.Runtime.UI
                 Label(col.transform, title, Theme.Small, Theme.Accent);
                 return Row(col.transform, 4).transform;
             }
-            void ToolBtn(Transform parent, BuildTool tool) =>
-                _buttons.Add(new ToolButton { Tool = tool, Button = Btn(parent, "", () => { _ui.Input.SelectTool(tool); _ui.RefreshNow(); }, 86, 46, Theme.Small) });
+            void ToolBtn(Transform parent, BuildTool tool)
+            {
+                (Icons.Kind icon, string help) = HelpTexts.Tool(tool);
+                Button b = IconBtn(parent, icon, () => { _ui.Input.SelectTool(tool); _ui.RefreshNow(); });
+                b.Tip(() => Paint(BuildInputController.ToolName(tool), Theme.Accent) + "\n" + help);
+                _buttons.Add(new ToolButton { Tool = tool, Button = b });
+            }
 
             ToolBtn(Group(top, ""), BuildTool.Select);
             foreach (string group in FacilityCatalog.Groups)
@@ -70,17 +78,31 @@ namespace DesertSettlement.Runtime.UI
                 foreach (FacilityType type in FacilityCatalog.InGroup(group))
                 {
                     string kind = type.Kind;
-                    _buttons.Add(new ToolButton
-                    {
-                        Tool = type.OnEdge ? BuildTool.Canal : BuildTool.Build,
-                        Kind = kind,
-                        Button = Btn(parent, "", () => { _ui.Input.SelectBuild(kind); _ui.RefreshNow(); }, 86, 46, Theme.Small),
-                    });
+                    HelpTexts.Facilities.TryGetValue(kind, out HelpTexts.Entry guide);
+                    Button b = IconBtn(parent, guide?.Icon ?? Icons.Kind.House, () => { _ui.Input.SelectBuild(kind); _ui.RefreshNow(); });
+                    b.Tip(() => HelpTexts.FacilityTip(_ui.Session.Settlement, kind));
+                    _buttons.Add(new ToolButton { Tool = type.OnEdge ? BuildTool.Canal : BuildTool.Build, Kind = kind, Button = b });
                 }
             }
             Transform manage = Group(bottom, "관리");
             foreach (BuildTool tool in new[] { BuildTool.Upgrade, BuildTool.Demolish, BuildTool.ToggleClose }) ToolBtn(manage, tool);
 
+        }
+
+        /// <summary>왼쪽에 아이콘, 오른쪽에 이름·비용 두 줄이 들어가는 도구 버튼(결정 HT3).</summary>
+        private static Button IconBtn(Transform parent, Icons.Kind icon, System.Action onClick)
+        {
+            Button b = Btn(parent, "", onClick, ButtonWidth, 46, Theme.Small);
+            RectTransform pic = Rect("Icon", b.transform).Place(new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(IconSize, IconSize));
+            Image img = pic.gameObject.AddComponent<Image>();
+            img.sprite = Icons.Get(icon);
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            Text label = b.GetComponentInChildren<Text>();
+            label.rectTransform.offsetMin = new Vector2(IconSize + 6, 2);
+            label.rectTransform.offsetMax = new Vector2(-2, -2);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow; // 긴 이름(포도주 공방)이 세 줄로 꺾이지 않게
+            return b;
         }
 
         /// <summary>

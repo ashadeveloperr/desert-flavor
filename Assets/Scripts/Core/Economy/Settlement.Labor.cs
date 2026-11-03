@@ -8,8 +8,8 @@ namespace DesertSettlement.Core.Economy
 {
     /// <summary>
     /// 주택·노동력(결정 LB1~). 노동력 규칙이 꺼져 있으면(<see cref="SettlementRules.Labor"/> null, 원본 v0.8) 아무 일도 하지 않는다.
-    /// - 주택에 주민이 산다: 완공(개량 완료) 즉시 정원이 차고, 물(그 주택의 수로 공급률)·식량(정착지 전체 충족률)이 모자라면
-    ///   목표 인원(정원 × 둘 중 작은 값)까지 서서히 떠나고, 충분해지면 더 천천히 돌아온다(<see cref="UpdateResidents"/>).
+    /// - 주택에 주민이 산다: 모든 주택(무료 배치 포함)은 빈 채로 시작해 유입 속도대로 차고, 개량으로 늘어난 정원도 그렇다(결정 HI1), 물(그 주택의 수로 공급률)·식량(정착지 전체 충족률)이 모자라면
+    ///   목표 인원(정원 × 둘 중 작은 값)까지 서서히 떠나고, 충분해지면 더 천천히 들어온다(속도는 생활 수준이 크게 바꿈)(<see cref="UpdateResidents"/>).
     ///   정착지 시작 유예(<c>labor.startGraceHours</c>, 결정 BQ3) 동안은 물 부족을 세지 않는다(<see cref="FeltWaterRate"/>).
     /// - 매시간 배치(<see cref="AssignLabor"/>): 공사(대기열 순서, 기본 인부 먼저) → 우선 고용 목록 → 물 100% 시설(완공 순) → 물이 일부만 오는 시설(완공 순).
     ///   물 0% 시설에는 자동 배치하지 않는다. 공사가 먼저라 남는 사람이 없으면 시설은 배치 순서의 역순으로 비게 된다.
@@ -42,6 +42,9 @@ namespace DesertSettlement.Core.Economy
 
         /// <summary>주택 정원(지금 레벨).</summary>
         public double HouseCapacity(Facility house) => LevelOf(house).Residents ?? 0;
+
+        /// <summary>정원이 cap인 주택에 시간당 들어오는 주민 수 = 정원 × labor.returnPerHour × 생활 수준 배율(<see cref="ReturnFactor"/>, 결정 HI1~).</summary>
+        public double ArrivalPerHour(double cap) => Rules.LaborOn ? Rules.Labor.ReturnPerHour * ReturnFactor * cap : 0;
 
         /// <summary>시설 운영에 필요한 인원(레벨표 <c>workers</c>). 노동력이 꺼져 있거나 사람이 필요 없으면 0.</summary>
         public double WorkersNeeded(Facility f) => Rules.LaborOn ? LevelOf(f).Workers ?? 0 : 0;
@@ -81,7 +84,7 @@ namespace DesertSettlement.Core.Economy
         {
             LaborSettings l = Rules.Labor;
             double cap = Rules.Level(BuildingKinds.House, level).Residents ?? 0;
-            double people = assumeComplete ? cap : Math.Min(cap, house.Residents + l.ReturnPerHour * ReturnFactor * cap);
+            double people = assumeComplete ? cap : Math.Min(cap, house.Residents + ArrivalPerHour(cap));
             return l.WaterPerResidentPerHour * people;
         }
 
@@ -182,14 +185,8 @@ namespace DesertSettlement.Core.Economy
                 double cap = HouseCapacity(house);
                 double target = cap * Math.Min(FeltWaterRate(house, water), foodRatio);
                 if (house.Residents > target) house.Residents = Math.Max(target, house.Residents - l.LeavePerHour * LeaveFactor * cap);
-                else if (house.State == FacilityState.Operating) house.Residents = Math.Min(target, house.Residents + l.ReturnPerHour * ReturnFactor * cap);
+                else if (house.State == FacilityState.Operating) house.Residents = Math.Min(target, house.Residents + ArrivalPerHour(cap));
             }
-        }
-
-        /// <summary>주택이 완공되면 정원이 바로 찬다. 개량이 끝나면 늘어난 정원만큼 바로 들어온다.</summary>
-        private void FillHouse(Facility house, double previousCapacity = 0)
-        {
-            if (IsHouse(house) && Rules.LaborOn) house.Residents += Math.Max(0, HouseCapacity(house) - previousCapacity);
         }
 
         /// <summary>시설이 사라질 때(철거 완료·건설 취소) 우선 고용 목록에서도 뺀다.</summary>

@@ -34,7 +34,6 @@ namespace DesertSettlement.Core.Economy
                 };
                 _facilities.Add(f.Id, f);
                 if (kind == BuildingKinds.AuctionHall && AuctionHallCompletedHour == null) AuctionHallCompletedHour = CurrentHour;
-                FillHouse(f);
                 FacilityCompleted?.Invoke(f);
                 return CommandResult.Ok();
             }

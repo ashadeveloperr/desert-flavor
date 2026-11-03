@@ -51,7 +51,7 @@ Tools/SettlementSim/   .NET 시뮬레이터: Core 파일을 링크해 회귀 검
 Tools/unity-tests.sh   테스트 전용 사본에서 Unity 테스트 실행(열린 에디터와 무관)
 ```
 
-**`Settlement` partial 파일:** 상태·조회·시장 가격 = `Settlement.cs` · 명령 처리(`Do*`·`Can*`) = `.Actions.cs` · 공개 명령 진입점·기록 = `.Commands.cs` · 경제 틱·작업 큐 = `.Tick.cs` · 물 계산 = `.Water.cs` · 물탱크 = `.WaterTanks.cs` · 구매·판매 = `.Market.cs` · 주택·노동력(주민·배치·우선 고용) = `.Labor.cs` · 식품 창고·먹기·가공 = `.Goods.cs` · 생활 수준·향신료 = `.Living.cs`. 재화 목록은 `Goods.cs`(`GoodsCatalog`).
+**`Settlement` partial 파일:** 상태·조회·시장 가격 = `Settlement.cs` · 명령 처리(`Do*`·`Can*`) = `.Actions.cs` · 공개 명령 진입점·기록 = `.Commands.cs` · 경제 틱 = `.Tick.cs` · 작업 큐(착공·완공 시각·공사 지연·진행률) = `.Jobs.cs` · 물 계산 = `.Water.cs` · 물탱크 = `.WaterTanks.cs` · 구매·판매 = `.Market.cs` · 주택·노동력(주민·배치·우선 고용) = `.Labor.cs` · 식품 창고·먹기·가공 = `.Goods.cs` · 생활 수준·향신료 = `.Living.cs`. 재화 목록은 `Goods.cs`(`GoodsCatalog`).
 
 ## 3. 흐름
 
@@ -63,14 +63,14 @@ Tools/unity-tests.sh   테스트 전용 사본에서 Unity 테스트 실행(열�
 ### 3-2. 한 시간이 흐를 때
 
 ```
-GameSession.Update → GameClock.Advance(실제 초 × 배속)
+GameSession.Update → GameClock.Advance(실제 초 × 배속) → SyncSettlementClock: Settlement.AdvanceTo(시계 시각) — 그 분까지 진행, 완공 시각이 된 공사를 끝내고 빈 슬롯에 착공 (Settlement.Jobs.cs)
   → 정각마다 HourPassed → GameSession.OnHourPassed → Settlement.AdvanceHour()   (Settlement.Tick.cs)
-       1. 재해 BeginHour(예고·시작·끝)  2. 인원 배치(공사 몫) → 공사 지연(모래폭풍·공사 인원 부족)  3. 끝난 공사 완료  4. 대기열 착공(슬롯·석재)
+       1. 재해 BeginHour(예고·시작·끝)  2. 이 시간 안에 완공 시각이 든 공사 완료(게임에선 대개 이미 그 분에 끝남)  3. 인원 배치(공사 몫) → 공사 지연(모래폭풍·공사 인원 부족: 남은 공사의 완공 시각을 늦춤)  4. (원본 v0.8 프리셋만) 대기열 착공
        5. 인원 배치(AssignLabor: 공사 → 우선 고용 → 물 100% → 물 일부)  6. 물 배분(SolveWater, 우물 방출 × 배치율, 주택 취수, 물탱크 충전·방출 포함)
        7. 생산: 1차 재화(곡물·과일·향신료)·석재·광물(물 가동률 × 일손 × 재해 × 생활 수준)·유지비  8. 먹기·마시기(Eat·Drink: 재고 있는 재화끼리 가중치 비율)
        9. 가공(Process: 목축지·제분소·양조장·포도주 공방이 먹고 남은 원료로)  10. 유지비 차감  11. 식품 창고 넘침(보관 순위 낮은 재화부터 시장에 자동 판매, 못 팔면 버림 — SellOrDiscardOverflow)·석재 한도(같은 규칙)
        12. 생활 수준(UpdateLiving: 향신료 소비, 목표, 이동)  13. 주민 떠남·돌아옴(UpdateResidents, 생활 수준이 속도를 바꿈, 시작 유예 중엔 주택 물 부족을 안 셈 — FeltWaterRate)  14. 기록(HourRecord)
-       15. 시장 가격 회복  16. 재해 EndHour(전염병 새 환자·회복, 아픈 주민은 다음 시간 배치에서 빠짐)  17. CurrentHour + 1
+       15. 시장 가격 회복  16. 재해 EndHour(전염병 새 환자·회복, 아픈 주민은 다음 시간 배치에서 빠짐)  17. CurrentHour + 1  18. 대기열 착공(이번 정산의 석재로 이 정각에)
   → HourSettled 이벤트 → AuctionManager.OnHourSettled: 경매 예고·개최·긴급 매각·파산 판정
 ```
 일손 = 노동력이 켜져 있으면 시설 배치율(배치 ÷ 필요), 꺼져 있으면(원본 v0.8 회귀) 식량 계수 F — 그때만 시설 `foodUse`가 식량 수요이고 13번 자리에서 다음 시간의 F를 정한다. 원본 v0.8은 곡물만 있어 8·11번이 예전 식량 계산과 같다.
@@ -83,7 +83,8 @@ GameSession.Update → GameClock.Advance(실제 초 × 배속)
 ```
 UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.cs: RequestBuild, Upgrade, SellFood …)
   → Do*(Settlement.Actions.cs)가 Can*으로 검사하고 상태를 바꿈
-  → 성공하면 Record: CommandRecorded 이벤트(Campaign이 저장용 명령 기록에 쌓음) + 명령 순간 착공(StartJobs)
+  → 그 전에 Run이 시계 시각까지 따라감(SyncClock → AdvanceTo, 명령 시각 = 그 분)
+  → 성공하면 Record: CommandRecorded 이벤트(Campaign이 저장용 명령 기록에 시간·분으로 쌓음) + 명령 순간 착공(StartJobs, 완공 = 그 분 + 공사 시간)
 ```
 
 - 불가 이유 문자열은 `Can*`이 돌려주고, 툴팁·버튼 비활성도 같은 `Can*`을 쓴다(규칙과 화면이 한 검사).
@@ -110,10 +111,10 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 JSON `living`(오르내리는 속도, 부족 하한, 종류 배율, 향신료 보너스, 이주·생산 효과)과 `goods.*.standardPoints`, 입찰자 `livingStandardWeight`. 후보 비교는 `-- mods campaign 0.25 14000 30 smart diet lab=…`(`diet` = 숙련 봇이 과수원·가공 시설을 지음, 후보 `cheapfood`·`living2`·`living3`·`goods2`).
 
 ### 노동력 수치 바꾸기(이슈 #31)
-JSON `labor`(1인당 식량·물, 떠남·복귀 속도, 무료 주택 수, 슬롯당 기본 인부)와 `buildingLevels.*.workers`·`buildWorkers`·`house[].residents`. 후보 비교는 `Tools/SettlementSim/LaborTuning.cs`의 `LaborCandidates`에 한 줄 더하고 `-- mods campaign 0.25 14000 30 smart lab=이름`(여러 개는 `+`). 흐름 진단 `-- labor [D] [간격]`. 샘플 배치 시각이 바뀌면 `-- labor sample` 값으로 `AuctionCampaignTests`·`DebugSessionSmokeTests` 기대값을 고친다.
+JSON `labor`(1인당 식량·물, 떠남·유입 속도, 무료 주택 수(지금 0), 슬롯당 기본 인부), `living.arrivalFactorAtMax`(유입 속도의 생활 수준 배율)와 `buildingLevels.*.workers`·`buildWorkers`·`house[].residents`. 후보 비교는 `Tools/SettlementSim/LaborTuning.cs`의 `LaborCandidates`에 한 줄 더하고 `-- mods campaign 0.25 14000 30 smart lab=이름`(여러 개는 `+`). 흐름 진단 `-- labor [D] [간격]`. 샘플 배치 시각이 바뀌면 `-- labor sample` 값으로 `AuctionCampaignTests`·`DebugSessionSmokeTests` 기대값을 고친다.
 
 ### 새 플레이어 명령
-1. `Settlement.Actions.cs`에 `Can*`(불가 이유)·`Do*` 2. `Settlement.Commands.cs`에 공개 메서드 — 성공하면 반드시 `Record` 호출 ⚠(안 부르면 저장에서 빠지고 순간 착공도 안 됨)
+1. `Settlement.Actions.cs`에 `Can*`(불가 이유)·`Do*` 2. `Settlement.Commands.cs`에 공개 메서드 — `Run(() => Do…, 명령)`으로 감싼다(수량을 돌려주는 명령은 처음에 `SyncClock()`, 성공하면 `Record`) ⚠(`Record`를 안 부르면 저장에서 빠지고 순간 착공도 안 됨, `SyncClock`을 빠뜨리면 명령 시각의 분이 틀어져 그 사이 완공한 공사를 못 보고 처리함)
 3. `GameCommand`의 종류 상수 + `SaveGame.Apply`의 case — case를 빠뜨리면 `SaveGameTests.EveryCommandType_IsHandledByReplay`가 실패
 4. UI 버튼(`Runtime/UI/…View.cs`) 5. 확인: `dotnet run --project Tools/SettlementSim -- savecheck`, EditMode `SaveGameTests`
 

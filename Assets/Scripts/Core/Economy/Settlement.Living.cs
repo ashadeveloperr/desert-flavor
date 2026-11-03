@@ -44,15 +44,17 @@ namespace DesertSettlement.Core.Economy
             }
         }
 
-        /// <summary>돌아오는 속도 배율: 떠나는 속도와 반대(+100이면 2, −100이면 0.5).</summary>
+        /// <summary>
+        /// 들어오는 속도 배율(새 주택이 차는 속도·떠났던 주민이 돌아오는 속도): +100이면 arrivalFactorAtMax, −100이면 그 역수, 사이는 선형(결정 HI1~).
+        /// </summary>
         public double ReturnFactor
         {
             get
             {
                 LivingSettings l = Living;
-                if (l == null || l.LeaveFactorAtMax <= 0) return 1;
+                if (l == null || l.ArrivalFactorAtMax <= 0) return 1;
                 double s = LivingShare;
-                return s >= 0 ? 1 + (1 / l.LeaveFactorAtMax - 1) * s : 1 + (l.LeaveFactorAtMax - 1) * -s;
+                return s >= 0 ? 1 + (l.ArrivalFactorAtMax - 1) * s : 1 + (1 / l.ArrivalFactorAtMax - 1) * -s;
             }
         }
 

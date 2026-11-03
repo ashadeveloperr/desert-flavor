@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DesertSettlement.Core.Config;
@@ -146,6 +147,14 @@ namespace DesertSettlement.Runtime
         /// <summary>사람 수 표시(소수 한 자리, 정수면 정수).</summary>
         public static string People(double n) => n.ToString("0.#");
 
+        /// <summary>완공까지 남은 시간(분 단위, 예: 4시간 30분). 공사가 늦어지면 늘어난다(결정 JQ4).</summary>
+        public static string TimeLeft(Settlement s, ConstructionJob job)
+        {
+            int minutes = Math.Max(0, (int)Math.Ceiling((job.EndTime - s.Now) * 60 - 1e-6));
+            int h = minutes / 60, m = minutes % 60;
+            return h > 0 ? (m > 0 ? $"{h}시간 {m}분" : $"{h}시간") : $"{m}분";
+        }
+
         /// <summary>
         /// 사람이 필요한 시설의 일손 줄(결정 LB1~). 예: "일손 2 / 3명 · 고용 순서 2번째 (우선 고용 1순위)".
         /// 물이 없어 자동 배치에서 빠졌으면 그 이유를 붙인다. 사람이 필요 없거나 노동력이 꺼져 있으면 null.
@@ -163,7 +172,7 @@ namespace DesertSettlement.Runtime
             return $"일손: {People(assigned)} / {People(need)}명{rank}{pri}";
         }
 
-        /// <summary>주택 줄(결정 LB1~): 주민·물·식량과 떠나는 중/돌아오는 중/시작 유예(결정 BQ3). 주택이 아니면 null.</summary>
+        /// <summary>주택 줄(결정 LB1~): 주민·물·식량과 떠나는 중/들어오는 중(속도)/시작 유예(결정 BQ3). 주택이 아니면 null.</summary>
         public static string HouseLine(Settlement s, Facility f)
         {
             if (f.Kind != BuildingKinds.House || !s.Rules.LaborOn) return null;
@@ -172,7 +181,7 @@ namespace DesertSettlement.Runtime
             double water = s.HouseWaterRate(f);
             string trend = s.IsLeaving(f) ? " — ⚠ 떠나는 중"
                 : water < 0.999 && s.StartGraceHoursLeft > 0 ? $" — 개척 유예 {s.StartGraceHoursLeft:0}시간: 물이 없어도 아직 떠나지 않음"
-                : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating ? " — 돌아오는 중" : "";
+                : f.Residents < cap - 1e-6 && f.State == FacilityState.Operating ? $" — 들어오는 중(시간당 +{s.ArrivalPerHour(cap):0.0#}명, 생활 수준 ×{s.ReturnFactor:0.0#})" : "";
             return $"주민: {People(f.Residents)} / {People(cap)}명 (물 {water:P0} · 식량 {food:P0}){trend}";
         }
 
@@ -224,7 +233,7 @@ namespace DesertSettlement.Runtime
             if (f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading || f.State == FacilityState.Demolishing)
             {
                 ConstructionJob job = s.Jobs.FirstOrDefault(j => j.FacilityId == f.Id && j.State == JobState.InProgress);
-                lines.Add($"공사 {progress:P0}" + (job != null ? $" (완료 {job.DeadlineHour}시간째)" : ""));
+                lines.Add($"공사 {progress:P0}" + (job != null ? $" (완공까지 {TimeLeft(s, job)})" : ""));
                 if (job != null && s.WorkersNeeded(job) > 0)
                     lines.Add($"공사 인원: {People(s.LastLabor.OfJob(job.Id))} / {People(s.WorkersNeeded(job))}명 (모자라면 그만큼 느려짐)");
             }

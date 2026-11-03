@@ -78,6 +78,7 @@ namespace DesertSettlement.Runtime
             // 경매·상점·파산 중에는 시간이 흐르지 않는다(HUD의 재개 버튼도 무시).
             if (!AcceptsWorldInput && !Clock.IsPaused) Clock.SetPaused(true);
             Clock.Advance(Time.unscaledDeltaTime);
+            SyncSettlementClock();
         }
 
         /// <summary>코드에서 세션을 만들 때(테스트·빌더) 설정 파일을 지정한다. Awake 전에 호출해야 한다.</summary>
@@ -133,6 +134,17 @@ namespace DesertSettlement.Runtime
             if (AcceptsWorldInput) Settlement.AdvanceHour();
         }
 
+        /// <summary>
+        /// 정착지가 게임 시계의 분을 따라가게 한다: 명령 시각을 시계에서 읽고(TimeSource), 매 프레임 그 분까지 진행해
+        /// 완공 시각이 된 공사를 정각을 기다리지 않고 끝낸다(결정 JQ4). 경매·상점 중에는 시간이 흐르지 않으므로 건너뛴다.
+        /// </summary>
+        private void SyncSettlementClock()
+        {
+            if (Settlement == null) return;
+            Settlement.TimeSource ??= () => Clock.ElapsedHours;
+            if (AcceptsWorldInput) Settlement.AdvanceTo(Clock.ElapsedHours);
+        }
+
         private void BeginSettlement(int offerIndex = 0)
         {
             if (Campaign.Current == null || Campaign.State == CampaignState.Shopping) Campaign.StartNextSettlement(offerIndex);
@@ -155,6 +167,7 @@ namespace DesertSettlement.Runtime
                 Campaign.Disasters.Started += e => Debug.LogWarning($"[Disaster] {e.Name} 시작");
                 Campaign.Disasters.Ended += e => Debug.Log($"[Disaster] {e.Name} 끝 ({e.EndHour}시간째)");
             }
+            if (Settlement != null) Settlement.TimeSource = () => Clock.ElapsedHours;
             IsReady = true;
             Initialized?.Invoke();
         }

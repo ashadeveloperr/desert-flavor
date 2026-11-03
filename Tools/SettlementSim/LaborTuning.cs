@@ -64,7 +64,35 @@ namespace SettlementSim
                 Levels(c, BuildingKinds.Quarry, (lv, i) => lv.Workers = 2 + i);
                 Levels(c, BuildingKinds.Mine, (lv, i) => lv.Workers = 4 + 2 * i);
             },
+            // 주택 유입 후보(이슈 #39): 생활 수준 0일 때 유입 속도(정원 × returnPerHour), ±100일 때 배율(arrivalFactorAtMax).
+            ["in4"] = c => c.Labor.ReturnPerHour = 0.04,
+            ["in6"] = c => c.Labor.ReturnPerHour = 0.06,
+            ["in8"] = c => c.Labor.ReturnPerHour = 0.08,
+            // 주민 식량 후보(이슈 #39 질문 6): 무료 주택 없이 초반을 더 빠듯하게.
+            ["food20"] = c => c.Labor.FoodPerResidentPerHour = 0.2,
+            ["food25"] = c => c.Labor.FoodPerResidentPerHour = 0.25,
+            ["food30"] = c => c.Labor.FoodPerResidentPerHour = 0.3,
+            ["arr4"] = c => c.Living.ArrivalFactorAtMax = 4,
+            ["arr8"] = c => c.Living.ArrivalFactorAtMax = 8,
+            // 가공 시설 후보(이슈 #38): 제분소·양조장·포도주 공방이 물을 씀(목축지 수준), 가공 재화(빵·고기·맥주·와인)의 생활 등급·식량 효율·판매가.
+            ["procwater"] = c =>
+            {
+                foreach (string k in new[] { BuildingKinds.Mill, BuildingKinds.Brewery, BuildingKinds.Winery })
+                    Levels(c, k, (lv, i) => lv.WaterDemand = new[] { 15.0, 18, 20 }[i]);
+            },
+            ["procwater8"] = c =>
+            {
+                foreach (string k in new[] { BuildingKinds.Mill, BuildingKinds.Brewery, BuildingKinds.Winery })
+                    Levels(c, k, (lv, i) => lv.WaterDemand = new[] { 8.0, 10, 12 }[i]);
+            },
+            ["procliv"] = c => { foreach (string g in Processed) c.Goods[g].StandardPoints *= 1.5; },
+            ["procliv2"] = c => { foreach (string g in Processed) c.Goods[g].StandardPoints *= 2; },
+            ["procfood"] = c => { c.Goods["bread"].FoodValue = 1.6; c.Goods["meat"].FoodValue = 2.6; },
+            ["procprice"] = c => { foreach (string g in Processed) c.Goods[g].SellPrice *= 1.4; },
         };
+
+        /// <summary>가공 재화(원료를 바꿔 만드는 재화).</summary>
+        private static readonly string[] Processed = { "bread", "meat", "beer", "wine" };
 
         private static void Levels(EconomyConfig c, string kind, Action<BuildingLevel, int> change)
         {

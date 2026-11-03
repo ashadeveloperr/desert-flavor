@@ -272,9 +272,9 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void Command_StartsJobImmediately_CountingTheCurrentHour()
+        public void Command_StartsJobImmediately_AndEndsExactlyHoursLater()
         {
-            // 2026-10-26 JQ2(이슈 #8): 명령 순간 석재를 내고 착공, 진행 중인 시간을 첫 1시간으로 센다.
+            // 결정 JQ2·JQ4: 명령 순간 석재를 내고 착공, 명령 시각 + 공사 시간에 완공(정각 명령이면 그 정각).
             Settlement s = NewSettlement();
             Assert.IsTrue(s.Rules.StartJobsOnCommand, "게임 설정은 명령 순간 착공");
             s.AdvanceHours(3);
@@ -284,13 +284,15 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(JobState.InProgress, job.State, "정각을 기다리지 않음");
             Assert.AreEqual(75.0 - job.StoneCost, s.Stone, 1e-9, "석재도 바로 냄");
             Assert.AreEqual(h, job.StartedHour);
-            Assert.AreEqual(h + job.Hours - 1, job.DeadlineHour, "이번 시간이 첫 1시간");
+            Assert.AreEqual(h, job.StartTime, 1e-9);
+            Assert.AreEqual(h + job.Hours, job.EndTime, 1e-9, "명령 시각 + 공사 시간");
+            Assert.AreEqual(h + job.Hours - 1, job.DeadlineHour, "정각 완공은 그 앞 시간의 정산에 든다");
 
             Facility f = s.FacilityAt(FarmTile);
             s.AdvanceHours(job.Hours - 1);
             Assert.AreEqual(FacilityState.Constructing, f.State);
             s.AdvanceHour();
-            Assert.AreEqual(FacilityState.Operating, f.State, "명령한 시간 + 공사 시간 정각에 완공(예전보다 한 시간 이름)");
+            Assert.AreEqual(FacilityState.Operating, f.State, "명령 시각 + 공사 시간 정각에 완공");
         }
 
         [Test]
@@ -302,6 +304,60 @@ namespace DesertSettlement.Core.Tests
             s.AdvanceHour();
             Assert.AreEqual(JobState.InProgress, s.GetJob(farm).State);
             Assert.AreEqual(s.GetJob(farm).StartedHour + s.GetJob(farm).Hours, s.GetJob(farm).DeadlineHour);
+        }
+
+        [Test]
+        public void MidHourCommand_EndsAtTheSameMinute_NotOnTheHour()
+        {
+            // 결정 JQ4(이슈 #37): 12:30에 5시간 공사를 명령하면 17:30에 완공. 진행률은 착공 순간 0%.
+            Settlement s = NewSettlement();
+            s.AdvanceHours(3);
+            long h = s.CurrentHour;
+            s.AdvanceTo(h + 0.5);
+            ConstructionJob job = s.GetJob(s.RequestBuild(BuildingKinds.Farm, FarmTile).JobId);
+            Assert.AreEqual(JobState.InProgress, job.State);
+            Assert.AreEqual(h + 0.5, job.StartTime, 1e-9);
+            Assert.AreEqual(h + 0.5 + job.Hours, job.EndTime, 1e-9, "명령 시각 + 공사 시간");
+            Assert.AreEqual(0, s.JobProgress(job, h + 0.5), 1e-9, "착공 순간 0%");
+            Assert.AreEqual(0.5 / job.Hours, s.JobProgress(job, h + 1), 1e-9, "반 시간이면 반 시간만큼");
+
+            Facility f = s.FacilityAt(FarmTile);
+            s.AdvanceHours(job.Hours);
+            Assert.AreEqual(FacilityState.Constructing, f.State, "정각에는 아직 30분 남음");
+            s.AdvanceTo(h + job.Hours + 29 / 60.0);
+            Assert.AreEqual(FacilityState.Constructing, f.State);
+            s.AdvanceTo(h + job.Hours + 0.5);
+            Assert.AreEqual(FacilityState.Operating, f.State, "정각을 기다리지 않고 그 분에 완공");
+            Assert.AreEqual(h + job.Hours, f.CompletedHour, "완공 시각이 든 시간의 생산부터 낸다");
+        }
+
+        [Test]
+        public void QueuedJob_StartsOnTheHourItsStoneArrives()
+        {
+            // 결정 JQ4(이슈 #37): 정산에서 생산된 석재로 그 정각에 착공한다(다음 정산까지 한 시간 더 기다리지 않음).
+            Settlement s = NewSettlement(r =>
+            {
+                r.Labor = null; // 채석장 일손 없이 생산(석재 흐름만 본다)
+                r.StarterStone = 4; // 수로 2칸 값만(수로는 무료 배치가 없음)
+                r.FreeBuilds[BuildingKinds.Well] = 1;
+                r.FreeBuilds[BuildingKinds.Quarry] = 1;
+            });
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Well, WellTile).Success);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.Quarry, QuarryTile).Success);
+            Assert.IsTrue(s.RequestCanal(Canal1).Success);
+            Assert.IsTrue(s.RequestCanal(Canal2).Success); // 우물 → 채석장 물길
+            Assert.AreEqual(0, s.Stone, 1e-9, "수로 착공에 시작 석재를 다 씀");
+            ConstructionJob job = s.GetJob(s.RequestBuild(BuildingKinds.Warehouse, WarehouseTile).JobId);
+            Assert.AreEqual(JobState.Queued, job.State, "석재가 모자라 대기");
+
+            for (int i = 0; i < 100 && job.State == JobState.Queued; i++)
+            {
+                s.AdvanceHour();
+                if (job.State == JobState.Queued) Assert.Less(s.Stone + 1e-8, job.StoneCost, $"{s.CurrentHour}시: 석재가 찼는데 대기");
+            }
+            Assert.AreEqual(JobState.InProgress, job.State, "채석장 석재가 모이면 착공");
+            Assert.AreEqual(s.CurrentHour, job.StartTime, 1e-9, "석재가 찬 그 정각");
+            Assert.AreEqual(s.CurrentHour - 1, job.StartedHour, "정각 착공은 막 정산한 시간으로 센다");
         }
 
         [Test]

@@ -39,6 +39,8 @@ namespace DesertSettlement.Core.Progression
 
         public int Settlement { get; set; }
         public long Hour { get; set; }
+        /// <summary>그 시간 안의 분(0~59). 명령한 분에 착공·완공이 맞춰진다(결정 JQ4). 예전 저장 파일엔 없음 = 정각.</summary>
+        public int Minute { get; set; }
         public string Type { get; set; }
         public string Kind { get; set; }
         public int Q { get; set; }
@@ -74,6 +76,8 @@ namespace DesertSettlement.Core.Progression
         public int SettlementNumber { get; set; }
         /// <summary>저장한 순간 지금 정착지의 게임 시간(마지막 명령 뒤로 이만큼 시간을 더 진행).</summary>
         public long Hour { get; set; }
+        /// <summary>저장한 순간의 분(0~59).</summary>
+        public int Minute { get; set; }
         /// <summary>표시용(저장 시각, 설명).</summary>
         public string SavedAt { get; set; }
         public string Summary { get; set; }
@@ -94,6 +98,7 @@ namespace DesertSettlement.Core.Progression
                 Seed = c.Seed,
                 SettlementNumber = c.SettlementNumber,
                 Hour = c.Current?.CurrentHour ?? 0,
+                Minute = c.Current?.Minute ?? 0,
                 SavedAt = savedAt,
                 Summary = $"정착지 {c.SettlementNumber}, {c.Current?.CurrentHour ?? 0}시간째, 자금 {(c.State == CampaignState.InSettlement ? c.Current.Cash : c.Cash):0}",
                 Commands = new List<GameCommand>(c.CommandLog),
@@ -123,16 +128,17 @@ namespace DesertSettlement.Core.Progression
                     result.Problems.Add($"정착지 {cmd.Settlement} {cmd.Hour}시간째 {cmd.Type}: {e.Message}");
                 }
             }
-            if (c.State == CampaignState.InSettlement && c.SettlementNumber == data.SettlementNumber) AdvanceTo(c, data.Hour);
+            if (c.State == CampaignState.InSettlement && c.SettlementNumber == data.SettlementNumber) AdvanceTo(c, data.Hour, data.Minute);
             if (c.SettlementNumber != data.SettlementNumber) result.Problems.Add($"정착지 번호가 다릅니다(저장 {data.SettlementNumber}, 복원 {c.SettlementNumber}).");
             return result;
         }
 
-        /// <summary>게임에서처럼 시간을 진행: 경매가 열리면 멈춘다(플레이어 결정을 기다림).</summary>
-        private static void AdvanceTo(Campaign c, long hour)
+        /// <summary>게임에서처럼 시간을 진행: 경매가 열리면 멈춘다(플레이어 결정을 기다림). 그 시간에 닿으면 minute분까지 따라간다(그 사이 완공).</summary>
+        private static void AdvanceTo(Campaign c, long hour, int minute)
         {
             while (c.State == CampaignState.InSettlement && c.Current.CurrentHour < hour && !c.Auctions.IsOpen && !c.Auctions.IsFinished)
                 c.Current.AdvanceHour();
+            if (c.State == CampaignState.InSettlement && c.Current.CurrentHour == hour) c.Current.AdvanceTo(hour + minute / 60.0);
         }
 
         private static bool Apply(Campaign c, GameCommand cmd)
@@ -147,7 +153,7 @@ namespace DesertSettlement.Core.Progression
             }
 
             if (c.State != CampaignState.InSettlement || c.SettlementNumber != cmd.Settlement) return false;
-            AdvanceTo(c, cmd.Hour);
+            AdvanceTo(c, cmd.Hour, cmd.Minute);
             Settlement s = c.Current;
             switch (cmd.Type)
             {

@@ -8,7 +8,7 @@ using NUnit.Framework;
 namespace DesertSettlement.Core.Tests
 {
     /// <summary>
-    /// 주택·노동력(결정 LB1~): 무료 첫 주택, 주민이 떠나고 돌아옴, 배치율 생산, 배치 순서와 우선 고용,
+    /// 주택·노동력(결정 LB1~): 주택은 빈 채로 생겨 천천히 참(HI1), 주민이 떠나고 돌아옴, 배치율 생산, 배치 순서와 우선 고용,
     /// 공사 인원(기본 인부 먼저, 모자라면 느려짐), 주민이 먹는 식량, 원본 v0.8 회귀 모드에서는 꺼짐.
     /// </summary>
     public class LaborTests
@@ -17,8 +17,11 @@ namespace DesertSettlement.Core.Tests
         private static readonly HexCoord HouseTile = new HexCoord(1, 0), FarmTile = new HexCoord(0, 1), FarTile = new HexCoord(-2, 2);
         private static readonly HexCoord SecondWell = new HexCoord(-2, 0);
 
-        /// <summary>반지름 3 맵, 수원 두 곳(가운데·서쪽). 설정을 바꿀 수 있게 매번 새로 읽는다.</summary>
-        private static Settlement NewSettlement(Action<EconomyConfig> configure = null, Action<SettlementRules> tweak = null)
+        /// <summary>
+        /// 반지름 3 맵, 수원 두 곳(가운데·서쪽). 설정을 바꿀 수 있게 매번 새로 읽는다. instantHouse면 주택 1채를 공사 없이 바로 세울 수 있다
+        /// (빈 채로 생기므로 다 찬 주택이 필요하면 <see cref="TestData.MoveIn"/>).
+        /// </summary>
+        private static Settlement NewSettlement(Action<EconomyConfig> configure = null, Action<SettlementRules> tweak = null, bool instantHouse = true)
         {
             EconomyConfig config = TestData.Economy();
             configure?.Invoke(config);
@@ -27,6 +30,7 @@ namespace DesertSettlement.Core.Tests
             map.GetTile(SecondWell).Terrain = TerrainType.WaterSource;
             SettlementRules rules = SettlementRules.FromConfig(config);
             rules.StartingCash = 5000;
+            if (instantHouse) rules.FreeBuilds[BuildingKinds.House] = 1;
             tweak?.Invoke(rules);
             return new Settlement(map, rules);
         }
@@ -44,27 +48,62 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void FirstHouse_IsFreeInstantAndFull()
+        public void NoFreeHouse_AndHousesCannotClose()
         {
-            Settlement s = NewSettlement();
+            // 결정 HI4: 정착지 무료 주택은 없다(이주 사업가 혜택만 빈 무료 주택).
+            Settlement s = NewSettlement(instantHouse: false);
             Assert.IsTrue(s.Rules.LaborOn);
-            Assert.AreEqual(Labor(s).FreeHouses, s.FreeBuildsRemaining(BuildingKinds.House));
+            Assert.AreEqual(0, Labor(s).FreeHouses);
+            Assert.AreEqual(0, s.FreeBuildsRemaining(BuildingKinds.House));
             Assert.IsTrue(s.RequestBuild(BuildingKinds.House, HouseTile).Success);
             Facility house = s.FacilityAt(HouseTile);
-            Assert.AreEqual(FacilityState.Operating, house.State, "대기열 없이 바로 운영");
-            Assert.AreEqual(Capacity(s), house.Residents, 1e-9, "완공 즉시 정원이 찬다");
-            Assert.AreEqual(0, s.Jobs.Count);
-            Assert.AreEqual(0, s.FreeBuildsRemaining(BuildingKinds.House));
+            Assert.AreEqual(FacilityState.Constructing, house.State, "석재를 내고 공사");
+            Assert.AreEqual(0, house.Residents, 1e-12);
+            for (int i = 0; i < 30 && house.State != FacilityState.Operating; i++) s.AdvanceHour();
             Assert.IsFalse(s.SetClosed(house.Id, true).Success, "주택은 닫지 않는다");
         }
 
         [Test]
-        public void HouseWithoutWater_ResidentsLeaveSlowly_AndReturnSlowerWhenWatered()
+        public void BuiltHouse_StartsEmpty_AndFillsAtTheArrivalSpeed()
+        {
+            // 결정 HI1·HI2: 주택은 빈 채로 완공되고 시간당 정원 × returnPerHour × 생활 수준 배율씩 찬다.
+            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 1000, instantHouse: false); // 물 부족을 세지 않아 들어오는 속도만 본다
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.House, HouseTile).Success);
+            Facility built = s.FacilityAt(HouseTile);
+            for (int i = 0; i < 30 && built.State != FacilityState.Operating; i++) s.AdvanceHour();
+            Assert.AreEqual(FacilityState.Operating, built.State);
+            double cap = Capacity(s);
+            Assert.AreEqual(1, s.ReturnFactor, 1e-9, "곡물만 먹어 생활 수준 0 → 배율 1");
+            Assert.AreEqual(Labor(s).ReturnPerHour * cap, built.Residents, 1e-9, "빈 채로 완공되고 완공한 시간에 한 시간 몫만 들어옴");
+            s.AdvanceHour();
+            Assert.AreEqual(2 * Labor(s).ReturnPerHour * cap, built.Residents, 1e-9);
+        }
+
+        [Test]
+        public void HouseUpgrade_AddedCapacityFillsGradually()
+        {
+            // 결정 HI1: 개량으로 늘어난 정원도 바로 차지 않고 유입 속도대로 찬다.
+            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 1000);
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.House, HouseTile).Success);
+            Facility house = s.FacilityAt(HouseTile);
+            TestData.MoveIn(s);
+            double before = house.Residents;
+            Assert.IsTrue(s.RequestUpgrade(house.Id).Success);
+            for (int i = 0; i < 30 && house.State != FacilityState.Operating; i++) s.AdvanceHour();
+            Assert.AreEqual(2, house.Level);
+            double cap2 = s.HouseCapacity(house);
+            Assert.Greater(cap2, before);
+            Assert.AreEqual(before + Labor(s).ReturnPerHour * s.ReturnFactor * cap2, house.Residents, 1e-9, "개량이 끝난 시간에 한 시간 몫만 들어옴");
+        }
+
+        [Test]
+        public void HouseWithoutWater_ResidentsLeaveSlowly_AndReturnWhenWatered()
         {
             // 떠남·복귀 기본 속도만 본다: 생활 수준(이주 배율, FoodGoodsTests)과 시작 유예(StartGrace_ 테스트)는 끈다.
-            Settlement s = NewSettlement(c => { c.Living = null; c.Labor.StartGraceHours = 0; }, r => r.FreeBuilds[BuildingKinds.Well] = 1);
+            Settlement s = NewSettlement(c => { c.Living = null; c.Labor.StartGraceHours = 1; }, r => r.FreeBuilds[BuildingKinds.Well] = 1);
             s.RequestBuild(BuildingKinds.House, HouseTile);
             s.RequestBuild(BuildingKinds.Well, WellTile);
+            TestData.MoveIn(s); // 유예 1시간 안에 다 참
             Facility house = s.FacilityAt(HouseTile);
             double cap = Capacity(s);
 
@@ -80,20 +119,20 @@ namespace DesertSettlement.Core.Tests
             s.AdvanceHour();
             Assert.AreEqual(1.0, s.HouseWaterRate(house), 1e-9, "우물 옆 꼭짓점에서 물을 받는다");
             Assert.AreEqual(Math.Min(cap, before + Labor(s).ReturnPerHour * cap), house.Residents, 1e-9, "정원 × returnPerHour씩 돌아온다");
-            Assert.Less(Labor(s).ReturnPerHour, Labor(s).LeavePerHour, "돌아오는 속도가 더 느리다(결정)");
         }
 
         [Test]
         public void StartGrace_HouseWithoutWater_KeepsResidentsAndLiving_UntilGraceEnds()
         {
             // 결정 BQ3: 정착지 시작 후 startGraceHours 동안은 주택 물 부족을 떠남·생활 수준에 세지 않는다.
-            const double grace = 3;
+            const double grace = 4;
             Settlement s = NewSettlement(c => c.Labor.StartGraceHours = grace);
             s.RequestBuild(BuildingKinds.House, HouseTile);
             Facility house = s.FacilityAt(HouseTile);
             double cap = Capacity(s);
 
-            s.AdvanceHours((int)grace - 1);
+            TestData.MoveIn(s);
+            s.AdvanceHours((int)grace - 2);
             Assert.AreEqual(0, s.HouseWaterRate(house), 1e-9, "수로가 없어 물은 오지 않는다");
             Assert.AreEqual(1, s.StartGraceHoursLeft, 1e-9);
             Assert.IsFalse(s.IsLeaving(house), "유예 중에는 떠나는 중으로 보이지 않는다");
@@ -115,6 +154,7 @@ namespace DesertSettlement.Core.Tests
             Settlement s = NewSettlement(tweak: r => r.FreeBuilds[BuildingKinds.Well] = 1);
             s.RequestBuild(BuildingKinds.House, HouseTile);
             s.RequestBuild(BuildingKinds.Well, WellTile);
+            TestData.MoveIn(s);
             double residents = s.Residents;
             HourRecord h = s.AdvanceHour();
             double expected = (residents + s.Rules.BaseCrew) * Labor(s).FoodPerResidentPerHour;
@@ -131,6 +171,7 @@ namespace DesertSettlement.Core.Tests
             s.RequestBuild(BuildingKinds.House, HouseTile);
             s.RequestBuild(BuildingKinds.Well, WellTile);
             s.RequestBuild(BuildingKinds.Farm, FarmTile);
+            TestData.MoveIn(s);
             Assert.IsTrue(s.RequestCanal(EdgeId.Of(WellTile, HexDirection.SouthEast)).Success); // 우물–농장 경계
             for (int i = 0; i < 6 && s.Jobs.Count > 0; i++) s.AdvanceHour();
             Facility farm = s.FacilityAt(FarmTile);
@@ -155,6 +196,7 @@ namespace DesertSettlement.Core.Tests
             s.RequestBuild(BuildingKinds.Well, WellTile);
             s.RequestBuild(BuildingKinds.Well, SecondWell);
             Facility first = s.FacilityAt(WellTile), second = s.FacilityAt(SecondWell);
+            TestData.MoveIn(s);
             Assert.AreEqual(4, s.LastLabor.OfFacility(first.Id), 1e-9);
             Assert.AreEqual(2, s.LastLabor.OfFacility(second.Id), 1e-9);
 
@@ -180,6 +222,7 @@ namespace DesertSettlement.Core.Tests
             s.RequestBuild(BuildingKinds.House, HouseTile);
             s.RequestBuild(BuildingKinds.Well, WellTile);
             s.RequestBuild(BuildingKinds.Farm, FarTile); // 수로가 없어 물 0
+            TestData.MoveIn(s);
             // 배치 순서는 직전 시간 물 배분으로 정한다(LB6): 첫 정산 전에는 기록이 없어 100%로 보고, 두 번째 시간부터 빠진다.
             s.AdvanceHours(2);
             Facility farm = s.FacilityAt(FarTile);
@@ -204,8 +247,8 @@ namespace DesertSettlement.Core.Tests
             long started = job.StartedHour;
             int hours = 0;
             while (s.FacilityAt(HouseTile).State != FacilityState.Operating && hours < 50) { s.AdvanceHour(); hours++; }
-            // 명령 순간 착공이라 다 찬 인원이면 planned − 1시간(첫 시간을 1시간으로 셈). 절반이면 일한 양이 planned가 될 때까지 약 두 배
-            // (지연은 모래폭풍과 같은 방식으로 한 시간 단위로 쌓여 끝자리 반 시간은 버린다).
+            // 정각 명령이라 다 찬 인원이면 planned시간 뒤 정각(그 앞 시간의 정산)에 완공. 절반이면 일한 양이 planned가 될 때까지 약 두 배
+            // (지연은 시간마다 (1 − 속도)만큼 완공 시각을 늦추고, 마지막 시간은 늦추지 않는다 — 결정 JQ4).
             Assert.AreEqual(2 * planned - 1, s.FacilityAt(HouseTile).CompletedHour - started, 1, "절반 인원이면 약 두 배 걸린다");
             Assert.Greater(s.FacilityAt(HouseTile).CompletedHour - started, planned, "다 찬 인원보다 늦다");
         }
@@ -223,6 +266,7 @@ namespace DesertSettlement.Core.Tests
             s.RequestBuild(BuildingKinds.Well, WellTile);
             s.RequestBuild(BuildingKinds.Well, SecondWell);
             Facility first = s.FacilityAt(WellTile), second = s.FacilityAt(SecondWell);
+            TestData.MoveIn(s);
             Assert.IsTrue(s.RequestBuild(BuildingKinds.Warehouse, FarTile).Success);
             Assert.AreEqual(4, s.LastLabor.OfJob(s.Jobs.Single().Id), 1e-9, "공사가 먼저 받는다");
             Assert.AreEqual(3, s.LastLabor.OfFacility(first.Id), 1e-9, "먼저 배치된 시설은 지킨다");
@@ -233,9 +277,10 @@ namespace DesertSettlement.Core.Tests
         public void Valuation_AddsPopulationValue_AndHouseInfraByOccupancy()
         {
             // 결정 CL1·CL2: 주민 가치 = 사는 인원 × 1인 가치 × 입찰자 가중치, 주택은 거주율만큼 인프라 배율.
-            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 0);
+            Settlement s = NewSettlement(c => c.Labor.StartGraceHours = 1);
             s.RequestBuild(BuildingKinds.House, HouseTile);
-            s.AdvanceHour(); // 물이 없어 조금 떠난다(시작 유예 없음) → 거주율 < 1
+            TestData.MoveIn(s); // 유예 안에 다 참
+            s.AdvanceHour(); // 유예가 끝나 물이 없어 조금 떠난다 → 거주율 < 1
             Facility house = s.FacilityAt(HouseTile);
             double occupancy = house.Residents / Capacity(s);
             Assert.Less(occupancy, 1);
@@ -250,10 +295,15 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
-        public void ColonistPerk_AddsAFreeHouse_OnTopOfTheFirst()
+        public void ColonistPerk_IsAnEmptyFreeHouse()
         {
-            Settlement s = NewSettlement(tweak: r => r.FreeBuilds[BuildingKinds.House] = 1); // 이주 사업가 혜택(결정 CL3)
-            Assert.AreEqual(1 + Labor(s).FreeHouses, s.FreeBuildsRemaining(BuildingKinds.House));
+            // 결정 CL3·HI4: 이주 사업가 혜택(다음 정착지 무료 주택 1채)은 공사 없이 서지만 빈 채로 생긴다.
+            Settlement s = NewSettlement(tweak: r => r.FreeBuilds[BuildingKinds.House] = 1, instantHouse: false);
+            Assert.AreEqual(1, s.FreeBuildsRemaining(BuildingKinds.House));
+            Assert.IsTrue(s.RequestBuild(BuildingKinds.House, HouseTile).Success);
+            Facility house = s.FacilityAt(HouseTile);
+            Assert.AreEqual(FacilityState.Operating, house.State, "공사 없이 바로");
+            Assert.AreEqual(0, house.Residents, 1e-12, "빈 채로 생긴다");
         }
 
         [Test]

@@ -104,11 +104,12 @@ namespace DesertSettlement.Core.Tests
                     LeavePerHour = r.Labor.LeavePerHour, ReturnPerHour = r.Labor.ReturnPerHour,
                     FreeHouses = r.Labor.FreeHouses, CrewPerConstructionSlot = r.Labor.CrewPerConstructionSlot,
                 };
-                r.FreeBuilds[BuildingKinds.House] = HouseTiles.Length - r.Labor.FreeHouses;
+                r.FreeBuilds[BuildingKinds.House] = HouseTiles.Length;
                 r.BaseFoodStorage = r.StarterFood = 100000;
                 tweak?.Invoke(r);
             });
             foreach (HexCoord t in HouseTiles) Assert.IsTrue(s.RequestBuild(BuildingKinds.House, t).Success);
+            TestData.MoveIn(s); // 주택은 빈 채로 생긴다(결정 HI1)
             Assert.AreEqual(18, s.Residents, 1e-9);
             return s;
         }
@@ -130,6 +131,7 @@ namespace DesertSettlement.Core.Tests
         public void Epidemic_WarnsStarts_SpreadsPeaksAndEnds_LeavingImmunity()
         {
             Settlement s = NewTown();
+            long attached = s.CurrentHour; // 재해 일정은 붙인 시각부터(입주에 한 시간 씀)
             DisasterManager d = DisasterManager.Attach(s, OneEpidemicAtGrace(), 1);
             var log = new List<string>();
             d.Warned += e => log.Add($"warn {s.CurrentHour}");
@@ -147,8 +149,8 @@ namespace DesertSettlement.Core.Tests
                 Assert.AreEqual(18, d.Epidemic.Susceptible + d.Epidemic.Sick + d.Epidemic.Immune, 1e-6, "걸릴 수 있음 + 아픔 + 면역 = 주민");
             }
             int grace = _config.Disasters.GraceHours;
-            Assert.AreEqual($"warn {grace - 6}", log[0], "유예 − 6h에 예고");
-            Assert.AreEqual($"start {grace}", log[1]);
+            Assert.AreEqual($"warn {attached + grace - 6}", log[0], "유예 − 6h에 예고");
+            Assert.AreEqual($"start {attached + grace}", log[1]);
             Assert.IsTrue(rose, "처음에는 퍼진다(↑)");
             Assert.IsTrue(weakened, "정점 뒤 약해진다(↓)");
             Assert.IsFalse(d.Epidemic.Active);
@@ -166,7 +168,7 @@ namespace DesertSettlement.Core.Tests
             LaborAssignment labor = s.LastLabor;
             Assert.Greater(labor.Sick, 2);
             Assert.AreEqual(labor.Residents - labor.Sick, labor.IdleResidents, 1e-9, "일터가 없으면 아프지 않은 주민만 남는다");
-            Assert.AreEqual(labor.Sick, s.History.Last().EpidemicSickShare * labor.Residents, 1e-6);
+            Assert.AreEqual(d.Epidemic.Sick, labor.Sick, 1e-6, "화면 배치(LastLabor)는 정산이 끝난 뒤의 환자 수로 다시 계산된다");
         }
 
         [Test]

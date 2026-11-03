@@ -99,7 +99,7 @@ namespace DesertSettlement.PlayMode.Tests
         [UnityTest]
         public IEnumerator BuildCommand_StartsAndGrowsImmediately_NotAtTheNextHour()
         {
-            // 2026-10-27 이슈 #15: 명령 순간 착공(JQ2)한 공사는 화면 진행률도 그때부터 차오르고 완공 때 100%에 닿는다.
+            // 결정 JQ2·JQ4: 12:30에 명령한 공사는 화면 진행률이 0%에서 차오르고, 명령 시각 + 공사 시간(그 분)에 완공된다.
             GameSession session = Build();
             yield return null;
             Settlement s = session.Settlement;
@@ -111,15 +111,18 @@ namespace DesertSettlement.PlayMode.Tests
             Facility farm = s.GetFacility(job.FacilityId);
             yield return null;
             var view = session.GetComponent<SettlementView>();
-            Assert.AreEqual(0.5f / job.Hours, view.JobProgress(s, farm), 1e-3f, "12:30 명령 = 그 시간의 절반만큼 진행");
+            Assert.AreEqual(0.5, job.StartTime, 1e-9, "명령한 분에 착공");
+            Assert.AreEqual(0f, view.JobProgress(s, farm), 1e-3f, "착공 순간 0%");
 
             session.Clock.AdvanceGameHours(0.25);
-            Assert.AreEqual(0.75f / job.Hours, view.JobProgress(s, farm), 1e-3f, "다음 정각을 기다리지 않고 차오름");
-            session.Clock.AdvanceGameHours(job.Hours - 0.75 - 0.01);
-            Assert.AreEqual(FacilityState.Constructing, farm.State);
-            Assert.Greater(view.JobProgress(s, farm), 0.99f, "완공 직전 거의 100%");
-            session.Clock.AdvanceGameHours(0.02);
-            Assert.AreEqual(FacilityState.Operating, farm.State, "공사 시간이 지나면 완공");
+            Assert.AreEqual(0.25f / job.Hours, view.JobProgress(s, farm), 1e-3f, "다음 정각을 기다리지 않고 차오름");
+            session.Clock.AdvanceGameHours(job.Hours - 0.25 - 0.05); // 완공 3분 전
+            yield return null;
+            Assert.AreEqual(FacilityState.Constructing, farm.State, "정각이 지나도 아직 공사 중");
+            Assert.Greater(view.JobProgress(s, farm), 0.98f, "완공 직전 거의 100%");
+            session.Clock.AdvanceGameHours(0.06);
+            yield return null;
+            Assert.AreEqual(FacilityState.Operating, farm.State, "명령 시각 + 공사 시간에 완공(정각을 기다리지 않음)");
         }
 
         [UnityTest]
@@ -226,7 +229,7 @@ namespace DesertSettlement.PlayMode.Tests
             Assert.IsEmpty(session.RequestSampleLayout(), "샘플 배치가 모두 예약돼야 한다");
             session.Clock.AdvanceGameHours(60);
             Assert.AreEqual(60, s.CurrentHour);
-            Assert.AreEqual(34, s.AuctionHallCompletedHour, "주택 3채를 먼저 짓고 공사 인원이 드는 샘플 배치(결정 LB8·LB14), 생활 수준 LS1~ — 시뮬레이터 `-- labor sample`");
+            Assert.AreEqual(42, s.AuctionHallCompletedHour, "주택 3채를 먼저 짓고 공사 인원이 드는 샘플 배치(결정 LB8·LB14, 빈 채로 차는 주택 HI1·HI4), 생활 수준 LS1~ — 시뮬레이터 `-- labor sample`");
             Assert.AreEqual(12, s.Facilities.Count(f => f.IsOperating), "주택 3·우물·농장·채석장·광산·경매장 + 수로 4");
 
             yield return null;
@@ -251,9 +254,9 @@ namespace DesertSettlement.PlayMode.Tests
 
             FastForwardToAuction(session);
             Assert.IsTrue(session.Auctions.IsOpen, "82h 정기 경매(경매장 34h + 48h, 2026-10-26 AU1)");
-            Assert.AreEqual(82, s.CurrentHour);
+            Assert.AreEqual(90, s.CurrentHour);
             session.Clock.AdvanceGameHours(10);
-            Assert.AreEqual(82, s.CurrentHour, "경매 중에는 정산하지 않는다");
+            Assert.AreEqual(90, s.CurrentHour, "경매 중에는 정산하지 않는다");
 
             // 몇 프레임 실시간으로 돌려도 에러가 없어야 한다(경매 패널·HUD·입력·카메라·조명).
             for (int i = 0; i < 10; i++) yield return null;

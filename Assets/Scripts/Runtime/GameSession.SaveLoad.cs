@@ -45,7 +45,7 @@ namespace DesertSettlement.Runtime
                 Campaign = result.Campaign;
                 EnsureClock();
                 HookSettlement();
-                Clock.RestoreElapsedHours(Settlement?.CurrentHour ?? 0);
+                Clock.RestoreElapsedHours(Settlement?.Now ?? 0); // 저장한 분까지(결정 JQ4)
                 Clock.SetPaused(true); // 불러온 뒤에는 멈춘 상태로 시작
                 string warn = result.Problems.Count > 0 ? $" (경고 {result.Problems.Count}개, 콘솔 참고)" : "";
                 return $"불러왔습니다: {data.Summary}{warn}";

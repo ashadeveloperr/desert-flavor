@@ -58,8 +58,9 @@ namespace DesertSettlement.Core.Config
         /// </summary>
         public double ConstructionHoursMultiplier { get; set; } = 1;
         /// <summary>
-        /// 명령 순간 착공(2026-10-26 JQ2, 이슈 #8). true면 건설·개량·철거 명령(또는 슬롯·석재가 생기는 명령) 직후 바로 착공하고,
-        /// 진행 중인 이 시간을 첫 1시간으로 센다(명령부터 완공까지 표시 시간 이하). false = 다음 정각에 착공(원본 v0.8).
+        /// 정확한 시각의 착공·완공(결정 JQ2·JQ4). true면 건설·개량·철거 명령(또는 슬롯·석재가 생기는 명령) 직후 바로 착공하고
+        /// 명령 시각부터 꼭 공사 시간 뒤에 완공된다(12:30 + 5시간 → 17:30). 정각 정산에서 생산된 석재로도 그 정각에 착공한다.
+        /// false = 다음 정각에 착공(원본 v0.8).
         /// </summary>
         public bool StartJobsOnCommand { get; set; }
     }
@@ -93,9 +94,9 @@ namespace DesertSettlement.Core.Config
         public double WaterPerResidentPerHour { get; set; }
         /// <summary>주민이 목표보다 많을 때 시간당 떠나는 수 = 정원 × 이 값.</summary>
         public double LeavePerHour { get; set; }
-        /// <summary>주민이 목표보다 적을 때 시간당 돌아오는 수 = 정원 × 이 값(떠나는 속도보다 느리게).</summary>
+        /// <summary>주민이 목표보다 적을 때 시간당 들어오는 수 = 정원 × 이 값 × 생활 수준 배율(새 주택이 차는 속도, 떠났던 주민이 돌아오는 속도, 결정 HI1~).</summary>
         public double ReturnPerHour { get; set; }
-        /// <summary>정착지마다 석재·인원·시간 없이 바로 완공되는 주택 수(결정: 첫 주택 1채 무료).</summary>
+        /// <summary>정착지마다 석재·인원·시간 없이 바로 완공되는 주택 수(빈 채로 생김, 결정 HI1·HI4 — 지금 0).</summary>
         public int FreeHouses { get; set; }
         /// <summary>건설 슬롯 1개당 기본 인부 수. 기본 인부는 공사에만 일하고, 물은 안 쓰고 식량은 먹으며, 떠나지 않는다(막힘 방지).</summary>
         public double CrewPerConstructionSlot { get; set; }
@@ -103,7 +104,7 @@ namespace DesertSettlement.Core.Config
         public double DrinkPerResidentPerHour { get; set; }
         /// <summary>
         /// 정착지 시작 유예(시간, 결정 BQ3): 정착지가 시작된 뒤 이 시간 동안은 주택 물 부족을 떠남·생활 수준에 세지 않는다.
-        /// 첫 주택은 무료로 바로 차지만 우물·수로는 몇 시간 뒤에 이어지기 때문. 0이면 유예 없음.
+        /// 첫 주민이 들어오는 동안 우물·수로가 아직 이어지지 않았기 때문. 0이면 유예 없음.
         /// </summary>
         public double StartGraceHours { get; set; }
     }
@@ -129,8 +130,10 @@ namespace DesertSettlement.Core.Config
         public double SpicePerUpperGoods { get; set; }
         /// <summary>상위 재화로 셀 최소 비율(먹은 양 중 이 비율보다 적으면 종류 수에 안 넣음).</summary>
         public double MinShareToCount { get; set; }
-        /// <summary>+100일 때 떠나는 속도 배율(−100이면 그 역수), 돌아오는 속도는 반대(결정 LS5).</summary>
+        /// <summary>+100일 때 떠나는 속도 배율(−100이면 그 역수, 결정 LS5).</summary>
         public double LeaveFactorAtMax { get; set; }
+        /// <summary>+100일 때 주민이 들어오는 속도 배율(−100이면 그 역수). 새 주택이 차는 속도와 떠났던 주민이 돌아오는 속도에 함께 건다(결정 HI1~).</summary>
+        public double ArrivalFactorAtMax { get; set; }
         /// <summary>±100일 때 생산 효율 가산(0.1 = ±10%, 결정 LS6).</summary>
         public double ProductionAtMax { get; set; }
     }

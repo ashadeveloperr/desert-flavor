@@ -18,25 +18,26 @@ namespace DesertSettlement.Core.Tests
         private static readonly HexCoord A = new HexCoord(2, -1), B = new HexCoord(-2, 1), C = new HexCoord(1, 1), Mountain = new HexCoord(-1, -1);
 
         /// <summary>
-        /// 주택 3채(주민 18명)가 있는 정착지. 주민 물·시설 물을 꺼서 물 없이 돌게 한다(설정은 매번 새로 읽어 고친다).
+        /// 주택 3채(주민 18명, 한 시간 만에 입주 — <see cref="TestData.MoveIn"/>)가 있는 정착지. 주민 물·시설 물을 꺼서 물 없이 돌게 한다(설정은 매번 새로 읽어 고친다).
         /// free = 무료로 바로 세울 시설(종류, 타일).
         /// </summary>
         private static Settlement Town(Action<EconomyConfig> configure = null, Action<SettlementRules> tweak = null, params (string kind, HexCoord tile)[] free)
         {
             EconomyConfig config = TestData.Economy();
             config.Labor.WaterPerResidentPerHour = 0;
-            foreach (string k in new[] { BuildingKinds.Orchard, BuildingKinds.Pasture, BuildingKinds.HerbFarm })
+            foreach (string k in new[] { BuildingKinds.Orchard, BuildingKinds.Pasture, BuildingKinds.HerbFarm, BuildingKinds.Mill, BuildingKinds.Brewery, BuildingKinds.Winery })
                 foreach (BuildingLevel lv in config.BuildingLevels[k]) lv.WaterDemand = null;
             configure?.Invoke(config);
             var map = new HexMap(3);
             map.GetTile(Mountain).Terrain = TerrainType.Obstacle;
             SettlementRules rules = SettlementRules.FromConfig(config);
             rules.StartingCash = 5000;
-            rules.FreeBuilds[BuildingKinds.House] = HouseTiles.Length - config.Labor.FreeHouses;
+            rules.FreeBuilds[BuildingKinds.House] = HouseTiles.Length;
             foreach (var group in free.GroupBy(x => x.kind)) rules.FreeBuilds[group.Key] = group.Count();
             tweak?.Invoke(rules);
             var s = new Settlement(map, rules);
             foreach (HexCoord t in HouseTiles) Assert.IsTrue(s.RequestBuild(BuildingKinds.House, t).Success);
+            TestData.MoveIn(s); // 주택은 빈 채로 생긴다(결정 HI1)
             foreach ((string kind, HexCoord tile) in free) Assert.IsTrue(s.RequestBuild(kind, tile).Success, kind);
             return s;
         }
@@ -64,7 +65,8 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Eat_SplitsDemandByWeights_AmongGoodsInStock()
         {
-            Settlement s = Town(free: (BuildingKinds.Orchard, A));
+            // 과수원 생산을 두 배로: 과일이 맡는 몫을 다 낼 수 있게(모자라면 다른 재화가 채워 비율이 달라진다).
+            Settlement s = Town(c => c.BuildingLevels[BuildingKinds.Orchard][0].GoodsProduction *= 2, free: (BuildingKinds.Orchard, A));
             HourRecord h = s.AdvanceHour();
             double demand = h.FoodDemand;
             double wGrain = Gs(s, Goods.Grain).EatWeight, wFruit = Gs(s, Goods.Fruit).EatWeight;
@@ -97,7 +99,8 @@ namespace DesertSettlement.Core.Tests
             Assert.Greater(bread, 0);
             Assert.AreEqual(grainBefore - h.GoodsConsumed[(int)Goods.Grain] - bread * per, s.Stock(Goods.Grain), 1e-9, "먹고 남은 곡물로 빵");
 
-            Settlement empty = Town(tweak: r => r.StarterFood = 0, free: (BuildingKinds.Mill, A));
+            // 주민이 식량 없이도 들어오게(곡물이 원료라서): 주민·기본 인부 식량 0, 곡물 0.
+            Settlement empty = Town(c => c.Labor.FoodPerResidentPerHour = 0, r => r.StarterFood = 0, (BuildingKinds.Mill, A));
             empty.AdvanceHour();
             Assert.AreEqual(0, empty.Stock(Goods.Bread), 1e-12, "원료가 없으면 못 만든다");
             Assert.AreEqual(0, empty.FacilityAt(A).InputRatio, 1e-12);
@@ -174,8 +177,9 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(1, s.LastLiving.UpperKinds);
             Assert.AreEqual(avg * l.DiversityMultipliers[0], s.LivingTarget, 1e-9, "등급 점수 평균 × 1종 배율");
             Assert.AreEqual(Math.Min(s.LivingTarget, l.RisePerHour), s.LivingStandard, 1e-9, "목표를 향해 시간당 risePerHour");
-            Assert.Greater(s.ReturnFactor, 1);
-            Assert.Less(s.LeaveFactor, 1);
+            double share = s.LivingStandard / 100;
+            Assert.AreEqual(1 + (l.ArrivalFactorAtMax - 1) * share, s.ReturnFactor, 1e-9, "들어오는 속도: +100이면 arrivalFactorAtMax, 사이는 선형(결정 HI2)");
+            Assert.AreEqual(1 + (l.LeaveFactorAtMax - 1) * share, s.LeaveFactor, 1e-9, "떠나는 속도: +100이면 leaveFactorAtMax");
             Assert.Greater(s.LivingProductivity, 1);
         }
 
@@ -199,11 +203,12 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Living_FallsWhenFoodRunsShort_AndSpeedsLeaving()
         {
-            Settlement s = Town(tweak: r => r.StarterFood = 0);
+            Settlement s = Town(tweak: r => r.StarterFood = 0); // 식량이 없어 아무도 들어오지 않고, 기본 인부도 굶는다
+            double before = s.LivingStandard;
             s.AdvanceHour();
             Assert.Less(s.LastLiving.Supply, 0.5);
             Assert.AreEqual(-100, s.LivingTarget, 1e-9, "충족률 50% 이하 → 목표 −100");
-            Assert.AreEqual(-s.Rules.Config.Living.FallPerHour, s.LivingStandard, 1e-9);
+            Assert.AreEqual(before - s.Rules.Config.Living.FallPerHour, s.LivingStandard, 1e-9);
             Assert.Greater(s.LeaveFactor, 1, "생활 수준이 음수면 더 빨리 떠난다");
             Assert.Less(s.LivingProductivity, 1);
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DesertSettlement.Core.Hex;
 
@@ -89,13 +90,16 @@ namespace DesertSettlement.Core.Economy
         public int Hours { get; internal set; }
         public JobState State { get; internal set; }
         public long RequestedHour { get; internal set; }
+        /// <summary>착공한 게임 시간(정산 단위). 명령 착공은 진행 중인 시간, 정각 착공은 막 정산한 시간. 경매 가치의 공사 진행 계산이 쓴다.</summary>
         public long StartedHour { get; internal set; } = -1;
-        /// <summary>이 게임 시간이 시작될 때 완료된다.</summary>
-        public long DeadlineHour { get; internal set; } = -1;
-        /// <summary>모래폭풍·공사 인원 부족 지연 누적(1이 되면 완공이 한 시간 늦어짐).</summary>
-        internal double DelayCarry { get; set; }
-        /// <summary>아직 완공 시각에 반영되지 않은 지연(0~1시간). 진행률 표시가 한 시간씩 뒤로 튀지 않게 더해 쓴다.</summary>
-        public double PendingDelayHours => DelayCarry;
+        /// <summary>착공 시각(게임 시간, 분 단위까지). 12:30 명령이면 12.5.</summary>
+        public double StartTime { get; internal set; } = -1;
+        /// <summary>완공 시각 = 착공 시각 + 공사 시간 + 지연(결정 JQ4). 이 시각이 되면 정각을 기다리지 않고 완공된다.</summary>
+        public double EndTime { get; internal set; } = -1;
+        /// <summary>모래폭풍·공사 인원 부족으로 늘어난 시간의 합(완공 시각에 이미 더해져 있다).</summary>
+        public double DelayHours { get; internal set; }
+        /// <summary>완공을 정산하는 게임 시간: 완공 시각이 든 시간(17:30 완공 → 17, 정각 17:00 완공 → 16). 그 시간의 생산부터 낸다.</summary>
+        public long DeadlineHour => EndTime < 0 ? -1 : (long)Math.Ceiling(EndTime - 1e-9) - 1;
 
         public override string ToString() => $"Job#{Id} {Type} {Kind} L{TargetLevel} {State}";
     }

@@ -116,11 +116,11 @@ namespace DesertSettlement.Runtime.UI
             _living.text = $"생활 수준 {Paint(s.LivingStandard.ToString("+0;-0;0"), c)} → 목표 {s.LivingTarget:+0;-0;0}   {why}";
         }
 
-        /// <summary>대기열 한 줄의 글자: 종류·시설·목표 레벨·상태(완공 시각 / 석재 부족 / 대기).</summary>
+        /// <summary>대기열 한 줄의 글자: 종류·시설·목표 레벨·상태(완공까지 남은 시간 / 석재 부족 / 대기).</summary>
         private static string JobText(Settlement s, ConstructionJob job)
         {
             string type = job.Type == JobType.Build ? "건설" : job.Type == JobType.Upgrade ? "개량" : "철거";
-            string state = job.State == JobState.InProgress ? Paint($"~{job.DeadlineHour}h", Theme.Good)
+            string state = job.State == JobState.InProgress ? Paint($"{FacilityInfo.TimeLeft(s, job)} 남음", Theme.Good)
                 : s.Stone + 1e-8 < job.StoneCost ? Paint($"석재 {job.StoneCost:0} 부족", Theme.Warn) : Paint("대기", Theme.Muted);
             // 공사 인원이 모자라면 그만큼 느려진다(결정 LB1~).
             if (job.State == JobState.InProgress && s.StaffRatio(job) < 0.999)
@@ -171,9 +171,9 @@ namespace DesertSettlement.Runtime.UI
             {
                 int free = s.FreeBuildsRemaining(kind);
                 if (free <= 0) continue;
-                // 주택은 정착지마다 첫 1채가 무료(결정 LB1~). 입찰자 혜택으로 더 받을 수도 있다.
-                string why = kind == BuildingKinds.House ? "무료 주택" : "입찰자 혜택";
-                list.Add(($"{why}: 완공된 {FacilityInfo.KindName(kind)} {free}개 바로 배치 (석재·공사 없음)", Theme.Good));
+                // 입찰자 혜택(이주 사업가의 주택 포함). 주택은 빈 채로 생겨 천천히 찬다(결정 HI1).
+                string empty = kind == BuildingKinds.House ? ", 주민은 0명부터" : "";
+                list.Add(($"입찰자 혜택: 완공된 {FacilityInfo.KindName(kind)} {free}개 바로 배치 (석재·공사 없음{empty})", Theme.Good));
             }
             if (s.Rules.LaborOn)
             {

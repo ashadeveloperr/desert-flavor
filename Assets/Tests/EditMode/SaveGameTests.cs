@@ -63,6 +63,36 @@ namespace DesertSettlement.Core.Tests
         }
 
         [Test]
+        public void SaveThenReplay_KeepsCommandMinutes()
+        {
+            // 결정 JQ4: 명령은 시간·분으로 기록되고, 그 분에 착공·완공한 결과가 불러오기 뒤에도 같다(저장도 분까지).
+            var campaign = new Campaign(_config, _maps, seed: 13);
+            Settlement s = campaign.StartNextSettlement();
+            double clock = 0;
+            s.TimeSource = () => clock;
+            clock = 0.25;
+            Assert.IsEmpty(campaign.CurrentMap.RequestSampleLayout(s)); // 0시 15분
+            for (int i = 0; i < 9; i++) s.AdvanceHour();
+            clock = s.CurrentHour + 40 / 60.0;
+            s.BuyStone(5);                                               // 9시 40분(석재가 생겨 착공하는 작업도 그 분)
+            for (int i = 0; i < 4; i++) s.AdvanceHour();
+            clock = s.CurrentHour + 50 / 60.0;
+            s.AdvanceTo(clock);                                          // 13시 50분에 저장
+            Assert.AreEqual(50, s.Minute);
+            Assert.IsTrue(campaign.CommandLog.Any(c => c.Minute == 15) && campaign.CommandLog.Any(c => c.Minute == 40), "명령에 분이 남는다");
+
+            SaveData save = SaveGame.Capture(campaign, "test");
+            SaveGame.ReplayResult restored = SaveGame.Replay(_config, _maps, null, SaveGameJson.Deserialize(SaveGameJson.Serialize(save)));
+
+            CollectionAssert.IsEmpty(restored.Problems);
+            Settlement r = restored.Campaign.Current;
+            Assert.AreEqual(Signature(campaign), Signature(restored.Campaign));
+            Assert.AreEqual(s.Minute, r.Minute, "저장한 분까지 되살림");
+            Assert.AreEqual(string.Join(",", s.Jobs.Select(j => $"{j.Id}:{j.State}:{j.StartTime:0.0000}:{j.EndTime:0.0000}")),
+                string.Join(",", r.Jobs.Select(j => $"{j.Id}:{j.State}:{j.StartTime:0.0000}:{j.EndTime:0.0000}")), "착공·완공 시각이 같다");
+        }
+
+        [Test]
         public void SaveInShop_RestoresShoppingState()
         {
             var campaign = new Campaign(_config, _maps, seed: 5);

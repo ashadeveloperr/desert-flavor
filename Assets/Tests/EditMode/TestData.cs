@@ -25,6 +25,18 @@ namespace DesertSettlement.Core.Tests
         public static EconomyConfig Economy() => EconomyConfigLoader.Parse(EconomyJson);
         public static ProceduralMapConfig Procedural() => ProceduralMapConfigLoader.Parse(ProceduralJson);
 
+        /// <summary>
+        /// 다 찬 주택이 필요한 테스트의 준비: 유입 속도를 잠깐 '한 시간에 정원 전부'로 올려 한 시간 진행한다.
+        /// 주택은 빈 채로 생기고 천천히 차기 때문(결정 HI1). 물·식량이 모자라면(시작 유예 밖) 차지 않는다.
+        /// </summary>
+        public static void MoveIn(Economy.Settlement s)
+        {
+            double speed = s.Rules.Labor.ReturnPerHour;
+            s.Rules.Labor.ReturnPerHour = 1000; // 목표 인원까지 한 번에
+            s.AdvanceHour();
+            s.Rules.Labor.ReturnPerHour = speed;
+        }
+
         /// <summary>고정 맵 파일 경로(이름순 = 캠페인 순서).</summary>
         public static IEnumerable<string> MapPaths => Directory.GetFiles(MapsFolder, "*.json").OrderBy(p => p, StringComparer.Ordinal);
 

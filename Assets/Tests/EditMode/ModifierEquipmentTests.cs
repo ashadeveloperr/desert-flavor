@@ -212,10 +212,19 @@ namespace DesertSettlement.Core.Tests
         [Test]
         public void Campaign_LateDifficulty_ScalesWeaknessesUpkeepAndDisasters()
         {
-            // D가 lateStartD(4)를 넘으면 약점·운영비·재해가 세진다(LD1~LD3). 후보 카드에 보이는 약점 값 = 실제 규칙 값.
+            // D가 lateStartD를 넘으면 약점·운영비·재해가 세진다(LD1~LD3). 후보 카드에 보이는 약점 값 = 실제 규칙 값.
+            // 설정의 약점 가속은 꺼져 있으므로(결정 LD5) 이 테스트에서만 켜서 배율이 걸리는 길을 확인한다.
+            DifficultyCurve curve = _proc.Difficulty;
+            double weaknessLate = curve.WeaknessLatePerD;
+            curve.WeaknessLatePerD = 0.5;
+            try { LateDifficultyScales(curve); }
+            finally { curve.WeaknessLatePerD = weaknessLate; }
+        }
+
+        private void LateDifficultyScales(DifficultyCurve curve)
+        {
             Campaign c = CampaignAfterSale(cashBoost: 90000);
             RegionOffer offer = c.NextOffers()[0];
-            DifficultyCurve curve = _proc.Difficulty;
             double d = offer.Params.D;
             Assert.Greater(d, curve.LateStartD + 1, "후반 난이도 후보");
             double s = 1 + curve.WeaknessLatePerD * (d - curve.LateStartD);

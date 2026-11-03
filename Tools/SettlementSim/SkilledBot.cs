@@ -11,7 +11,7 @@ namespace SettlementSim
 {
     /// <summary>
     /// 숙련 봇(2026-10-23 로드맵 2-④, Docs/decision_log_auto.md O5~O8). 기준 봇(<see cref="ReferenceBot"/>, 다중 계획)에 더해:
-    /// - 개량: 6시간마다 석재·자금이 넉넉하면 광산을 한 단계 올리고, 식량 계수가 떨어지면 농장을 올린다.
+    /// - 개량: 6시간마다 석재·자금이 넉넉하면 (광산 물이 모자라면) 우물 → 광산을 한 단계 올리고, 식량 계수가 떨어지면 농장을 올린다.
     /// - 보류: 첫 정기 경매에서 '보류 + 광산 개량'의 예상 가치(시세 감소 포함)가 지금 파는 것보다 크면 한 번 보류한다.
     /// - 병원: 전염병 예고가 뜨면 병원을 짓는다(병상만큼 환자가 빨리 회복, 위치는 상관없어 광산 옆 빈 사막).
     /// 물탱크는 상황 판단이 많아 넣지 않았다(O8). 기존 측정과 비교할 수 있도록 기준 봇은 그대로 둔다.
@@ -28,6 +28,9 @@ namespace SettlementSim
 
         /// <summary>매각 시점 측정(`-- selltime`): 0 이상이면 HoldPays 대신 정기 경매를 이 횟수만큼 보류한 뒤 판다. -1 = 보통 판단.</summary>
         public static int ForceHolds = -1;
+
+        /// <summary>매 시간 정산 뒤 부르는 측정용 관찰자(`-- bottleneck`). null이면 아무것도 안 함.</summary>
+        public static Action<Settlement> AfterHour;
 
         public static bool PlayCampaignSettlement(Campaign c, int maxHours = 900)
         {
@@ -63,6 +66,7 @@ namespace SettlementSim
                 if (!hospital && EpidemicWarned(s)) hospital = BuildHospital(s);
                 if (h % 6 == 0) Improve(s);
                 s.AdvanceHour();
+                AfterHour?.Invoke(s);
             }
             return false;
         }
@@ -129,12 +133,13 @@ namespace SettlementSim
             s.OperatingOf(kind).Where(f => s.CanUpgrade(f.Id).Success).OrderBy(f => f.Level).ToList();
 
         /// <summary>
-        /// 6시간마다: 석재·자금이 넉넉하면 (사람이 모자라면) 주택 → 광산 → (식량이 모자라면) 농장 순으로 하나.
+        /// 6시간마다: 석재·자금이 넉넉하면 (광산 물이 모자라면) 우물 → (사람이 모자라면) 주택 → 광산 → (식량이 모자라면) 농장 순으로 하나.
         /// 식량 부족 신호는 노동력이 켜져 있으면 직전 시간 식량 적자·재고 부족, 꺼져 있으면 식량 계수 F(원본).
         /// </summary>
         private static void Improve(Settlement s)
         {
             if (s.Jobs.Any(j => j.State == JobState.Queued) || s.Cash < CashReserve + 200) return;
+            if (UpgradeWells && UpgradeWell(s)) return;
             if (s.Rules.LaborOn && AddHouse(s)) return;
             if (UpgradeMines(s, force: false)) return;
             HourRecord last = s.History.Count > 0 ? s.History[s.History.Count - 1] : null;
@@ -207,6 +212,20 @@ namespace SettlementSim
                 .Select(t => (HexCoord?)t.Coord).FirstOrDefault();
             if (site == null || !s.RequestBuild(BuildingKinds.House, site.Value).Success) return false;
             Houses++;
+            return true;
+        }
+
+        /// <summary>광산 물이 모자라면 우물 개량(측정 인자 `wells=0`으로 끔)과 누적 횟수(측정 출력용).</summary>
+        public static bool UpgradeWells = true;
+        public static int WellUpgrades;
+
+        /// <summary>운영 중인 광산 하나라도 물을 95% 못 받으면 레벨이 가장 낮은 우물을 한 단계 올린다(석재가 넉넉할 때만).</summary>
+        private static bool UpgradeWell(Settlement s)
+        {
+            if (!s.OperatingOf(BuildingKinds.Mine).Any(m => s.WaterRateOf(m) < 0.95)) return false;
+            Facility well = Upgradable(s, BuildingKinds.Well).FirstOrDefault();
+            if (well == null || !Enough(s, well) || !s.RequestUpgrade(well.Id).Success) return false;
+            WellUpgrades++;
             return true;
         }
 

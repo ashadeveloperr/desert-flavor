@@ -26,7 +26,7 @@
     "upkeepPerD": 0.5,
     "lateStartD": 4,
     "upkeepLatePerD2": 0.2,
-    "weaknessLatePerD": 0.5,
+    "weaknessLatePerD": 0,
     "disasterLatePerD": 0.5,
     "baseRadius": 3,
     "firstRadiusStepD": 1.0,
@@ -42,7 +42,7 @@
     "obstacleAtD1": 0.30,
     "maxObstacleDensity": 0.40,
     "distanceAtD0": 3,
-    "distanceAtD1": 4
+    "distanceAtD1": 3.5
   },
   "generator": {
     "formationMinSize": 3,

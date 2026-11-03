@@ -1,6 +1,6 @@
 # 이어서 작업하기 (다른 PC·새 Claude 세션용 인계)
 
-마지막 정리: 2026-11-03(#37~#46 모두 닫음 · 모디파이어 최대 중첩 BM4 · 체크리스트 4차에 M~P절 추가, 그 전 2026-10-30 주택·노동력 #31~#33, 식품·생활 수준·향신료 #34~#36, 밸런스 QA BQ1~BQ4, 넘침 자동 판매 AS1~AS3) · 최신 커밋은 `git log -1`로 확인 (origin = 개인 포크 `ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`, main)
+마지막 정리: 2026-11-03(#37~#46 모두 닫음 · 모디파이어 최대 중첩 BM4 · 중후반 절벽 완화 LD5·LD6 · 체크리스트 4차에 M~P절 추가, 그 전 2026-10-30 주택·노동력 #31~#33, 식품·생활 수준·향신료 #34~#36, 밸런스 QA BQ1~BQ4, 넘침 자동 판매 AS1~AS3) · 최신 커밋은 `git log -1`로 확인 (origin = 개인 포크 `ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr`, main)
 
 > **2026-10-26부터 남은 작업은 GitHub 이슈로 관리한다.** 먼저 고정된 순서표 이슈 **#14**를 읽는다:
 > `gh issue view 14 -R ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr --comments` (또는 https://github.com/ashadeveloperr/3rd_3D_1-3D-Project-ashadeveloperr/issues/14)
@@ -32,7 +32,7 @@
    dotnet run --project Tools/SettlementSim
    bash Tools/unity-tests.sh All
    ```
-   시뮬레이터 마지막 줄 '모든 검증 통과', 테스트는 **EditMode 221 · PlayMode 10 통과**가 기준(2026-11-03 BM4 뒤, 화면 캡처 `ScreenCaptureTests`는 [Explicit]이라 건너뜀·따로 실행).
+   시뮬레이터 마지막 줄 '모든 검증 통과', 테스트는 **EditMode 221 · PlayMode 10 통과**가 기준(2026-11-03 LD5·LD6 뒤, 화면 캡처 `ScreenCaptureTests`는 [Explicit]이라 건너뜀·따로 실행).
    `unity-tests.sh` 첫 실행은 테스트 사본(`.unity-testcopy/`) 임포트로 몇 분 걸린다.
 
 ## 2. 작업 방식 (사용자 선호)
@@ -63,8 +63,10 @@
 
 **들어간 것:** 이슈마다 #14 순서표에 체크와 정한 내용 한 줄이 있고, 결정 표(`Docs/implementation_notes.md`)·근거(`Docs/decision_log_auto.md`, 결정 번호로 찾기)에 자세히 있다. 커밋은 `git log --oneline`에서 이슈 번호로 찾는다.
 
-**현재 기준값**(숙련 봇 `dotnet run --project Tools/SettlementSim -- mods campaign 0.25 14000 30 smart`, 2026-11-03 #44~#46·BM4 뒤, 모디파이어 ×1 + 최대 중첩):
-D 구간별 정착지 순이익 평균 D0~1 +700 · D1~2 +589 · D2~3 −91 · D3~4 −188 · D4~5 −982, 처음 적자 D2.0~2.3(5회 중 2회는 두 번째 정착지 D0.0 파산). 장비 상점이 있던 #40~#43 직후는 +682 · +889 · +459 · +10 · −540(처음 적자 D2.6~3.9). 세기 후보(`modscale=k`)는 결정 기록 BM 절. 봇은 인접 배치·주택 추가를 일부러 하지 않는다.
+**2026-11-03 중후반 절벽 완화(LD5·LD6·SB1)**: 새 측정 `-- bottleneck`(병목·파산, 스테이지마다 후보 맵 5곳 더)으로 D5 맵의 광산 물 끊김을 찾고, 약점 후반 가속을 끄고(`weaknessLatePerD` 0) 우물–광맥 거리 기울기를 줄임(`distanceAtD1` 3.5). 숙련 봇은 광산 물이 모자라면 우물을 개량한다.
+
+**현재 기준값**(숙련 봇 `dotnet run --project Tools/SettlementSim -- mods campaign 0.25 14000 30 smart`, 2026-11-03 LD5·LD6·SB1 뒤):
+D 구간별 정착지 순이익 평균 D0~1 +945 · D1~2 +1480 · D2~3 +1186 · D3~4 −2 · D4~5 −249 · D5~6 −1226, 처음 적자 D1.3~3.4(5회 중 2회는 두 번째 정착지 D0.0 파산). 병목·파산 기준(`-- bottleneck maps=5`): 파산 13/20(중앙값 #32 D7.5), 처음 평균 적자 #13, D3 +31 · D4 −289 · D5 −1046. 봇은 인접 배치를 일부러 하지 않는다.
 매각 시점 측정은 `-- selltime`(보류 시세 감소는 AN1로 없어짐).
 숙련 봇은 사람보다 훨씬 못 번다(사람은 2차 플레이에서 D8 자산 1만 이상, 봇은 보류를 거의 안 하고 물탱크·창고를 안 지음). #12 후반 세기는 3차 플레이에서 확인됐다(F절 모두 확인).
 그 밖의 흐름 값: 1배속 하루 180초(FL1), 건설·개량·철거 시간 ×0.5(FL2), 시작 자금 500(FB1), 첫 경매 72h·재경매 36h(AN1).
@@ -79,7 +81,7 @@ D 구간별 정착지 순이익 평균 D0~1 +700 · D1~2 +589 · D2~3 −91 · D
 
 1. **4차 플레이테스트 이어 하기:** 최신 main을 받아, 체크리스트 웹 페이지 맨 위 "4차 — 고친 부분과 새 기능"(A~P, 68개)으로 확인한다(위쪽 진행률도 4차 기준). 샘플 배치에 주택 3채가 들어 있고 시장은 없으니 "기반시설 → 시장"으로 직접 짓는다. 끝나면 새 세션에서 "4차 결과 읽고 기록해 줘" — 페이지의 체크·메모(db `checks`·`notes`, 키는 절 id·항목 번호)를 읽어 #14에 기록하고 문제는 이슈로 만든다. 이미 확인한 것은 다시 묻지 않는다.
 2. **4차 플레이테스트 결과 기록:** 확인·문제·메모를 #14에 남기고, 문제는 이슈로 만든다. 시장 판매가 지나치거나 약하면 `economy_balance_v0.8_config.json`의 `purchase.*.sellLimit`·`purchase.trade.recoveryPerHour`부터 조정. #12 후반 세기가 지나치거나 약하면 `procedural_map_config.json`의 `difficulty.lateStartD`·`upkeepLatePerD2`·`weaknessLatePerD`·`disasterLatePerD`부터 조정.
-3. 그 뒤: 측정 봇 보완(주택·우물을 먼저 챙기고, 가공 시설을 지을 때 물을 늘리고, 보류·개량·물탱크를 사람처럼 — #39 뒤 봇 캠페인이 초반에 파산해서 우선), 폴리싱.
+3. 그 뒤: 측정 봇 보완(첫 정착지에서 석재를 사들여 33시간쯤 자금이 바닥나는 문제, 주택을 먼저 챙기고, 가공 시설을 지을 때 물을 늘리고, 보류·개량·물탱크를 사람처럼 — #39 뒤 봇 캠페인이 초반에 파산해서 우선), 폴리싱.
 
 ## 5. 주의할 것
 

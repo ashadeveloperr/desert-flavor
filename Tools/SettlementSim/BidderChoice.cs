@@ -40,13 +40,15 @@ namespace SettlementSim
         }
 
         /// <summary>행선지를 고르고 다음 정착지에 들어간다.</summary>
-        public static void ChooseNext(Campaign c)
+        public static void ChooseNext(Campaign c) => c.StartNextSettlement(PickOffer(c));
+
+        /// <summary>고를 행선지 후보 번호: 받은 모디파이어로 막지 못하는 약점이 적은 곳, 같으면 강점이 많은 곳.</summary>
+        public static int PickOffer(Campaign c)
         {
             var owned = new HashSet<string>(c.Modifiers.Select(m => m.Id));
-            RegionOffer pick = c.NextOffers()
+            return c.NextOffers()
                 .OrderBy(o => o.Weaknesses.Count(w => !CounterOf.ContainsKey(w.Id) || !owned.Contains(CounterOf[w.Id])))
-                .ThenByDescending(o => o.Strengths.Count()).First();
-            c.StartNextSettlement(pick.Index);
+                .ThenByDescending(o => o.Strengths.Count()).First().Index;
         }
 
         /// <summary>id로 모디파이어 효과(측정용).</summary>

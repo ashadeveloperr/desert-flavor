@@ -38,6 +38,8 @@ namespace SettlementSim
             if (args.Length > 0 && args[0] == "labor") return LaborTuning(args.Skip(1).ToArray());
             // dotnet run --project Tools/SettlementSim -- selltime : 매각 시점별 이익 곡선(SellTiming.cs).
             if (args.Length > 0 && args[0] == "selltime") return SellTiming(args.Skip(1).ToArray());
+            // dotnet run --project Tools/SettlementSim -- bottleneck : 캠페인 안에서 겪는 병목과 긴급 매각·파산 시점(Bottlenecks.cs).
+            if (args.Length > 0 && args[0] == "bottleneck") return Bottlenecks(args.Skip(1).ToArray());
             if (args.Length > 0 && args[0] == "qa") return BalanceQa(args.Skip(1).ToArray());
 
             EconomyRegression();

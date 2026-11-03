@@ -320,14 +320,19 @@ namespace DesertSettlement.Core.Config
         public static BidderProfile Neutral => new BidderProfile { Id = "neutral", Name = "기준" };
     }
 
-    /// <summary>입찰자가 매각 보상으로 주는 영구 모디파이어 목록(결정 BM1~BM3).</summary>
+    /// <summary>입찰자가 매각 보상으로 주는 영구 모디파이어 목록(결정 BM1~BM4).</summary>
     public sealed class BidderModifierSettings
     {
         /// <summary>범용 목록의 pool 이름.</summary>
         public const string GeneralPool = "general";
         /// <summary>입찰자 전용 목록에서 뽑을 확률(나머지는 범용). 전용 목록이 비어 있으면 늘 범용.</summary>
         public double ExclusiveChance { get; set; } = 0.7;
+        /// <summary>maxStacks를 적지 않은 모디파이어의 최대 중첩 수.</summary>
+        public int DefaultMaxStacks { get; set; } = 5;
         public List<BidderModifierDefinition> Definitions { get; set; }
+
+        /// <summary>이 모디파이어를 캠페인에서 최대 몇 번 받을 수 있나(그만큼 받으면 더 뽑히지 않음, 결정 BM4).</summary>
+        public int MaxStacksOf(BidderModifierDefinition d) => d.MaxStacks ?? DefaultMaxStacks;
     }
 
     /// <summary>모디파이어 하나. 효과는 곱연산으로 쌓인다(같은 것을 또 받으면 다시 곱함, 결정 BM3).</summary>
@@ -338,6 +343,8 @@ namespace DesertSettlement.Core.Config
         public string Pool { get; set; }
         /// <summary>같은 목록 안에서 뽑힐 비중(기본 1).</summary>
         public double Weight { get; set; } = 1;
+        /// <summary>최대 중첩 수. 없으면 <see cref="BidderModifierSettings.DefaultMaxStacks"/>.</summary>
+        public int? MaxStacks { get; set; }
         public DesertSettlement.Core.Economy.EconomyEffects Effects { get; set; } = new DesertSettlement.Core.Economy.EconomyEffects();
         /// <summary>화면 문구(효과 요약).</summary>
         public string Describe() => Effects.Describe();

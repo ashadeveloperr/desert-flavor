@@ -133,7 +133,7 @@ JSON `adjacency`(군집 대상 `clusterKinds`·칸당 생산, 가공 시설 → 
 배율은 다른 배율(인접 보너스·생활 수준·지역 특성)과 **곱한다** — 합으로 더하면 비용이 0에 가까워질 수 있다(결정 BM3).
 
 ### 새 입찰자 모디파이어(결정 BM1)
-JSON `bidderModifiers.definitions`에 한 줄: `id`, `pool`(입찰자 id = 전용, `general` = 범용), `weight`(뽑힐 비중, 기본 1), `effects`. 전용·범용 비율은 `bidderModifiers.exclusiveChance`. 뽑기는 `AuctionManager.RollModifier`(예고 때), 받기는 `Campaign.OnSold`, 적용은 `Campaign.StartNextSettlement`. 측정 봇의 평가는 `Tools/SettlementSim/BidderChoice.cs`의 점수표(없으면 0.01).
+JSON `bidderModifiers.definitions`에 한 줄: `id`, `pool`(입찰자 id = 전용, `general` = 범용), `weight`(뽑힐 비중, 기본 1), `maxStacks`(캠페인 최대 중첩, 없으면 `bidderModifiers.defaultMaxStacks`), `effects`. 전용·범용 비율은 `bidderModifiers.exclusiveChance`. 뽑기는 `AuctionManager.RollModifier`(예고 때), 받기는 `Campaign.OnSold`, 적용은 `Campaign.StartNextSettlement`. 측정 봇의 평가는 `Tools/SettlementSim/BidderChoice.cs`의 점수표(없으면 0.01).
 `Combine`·`Scaled`·`Describe`·`ApplyEffects` 중 하나를 빠뜨리면 `ModifierEquipmentTests.Effects_EveryPropertySurvivesCombineScaledDescribeAndApply`가 실패한다. `Scaled`가 일부러 바꾸지 않는 속성이면 그 테스트의 `notScaled`에 더한다.
 
 ### 새 재해

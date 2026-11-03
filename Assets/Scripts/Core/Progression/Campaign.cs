@@ -128,7 +128,7 @@ namespace DesertSettlement.Core.Progression
             _pendingFreeBuilds.Clear();
 
             Current = new Settlement(CurrentMap.CreateMap(), rules);
-            Auctions = new AuctionManager(Current, SeedSalts.Auction(_seed, SettlementNumber));
+            Auctions = new AuctionManager(Current, SeedSalts.Auction(_seed, SettlementNumber), _modifiers);
             // 후반 가속(LD3, 이슈 #12): 생성 맵은 D가 LateStartD를 넘은 만큼 재해가 세진다.
             double disasterIntensity = CurrentGenerated != null ? 1 + _procedural.Difficulty.DisasterLatePerD * _procedural.Difficulty.LateExcess(CurrentGenerated.Params.D) : 1;
             Disasters = DisasterManager.Attach(Current, _config.Disasters, SeedSalts.Disasters(_seed, SettlementNumber), CurrentModifiers.Select(m => m.Id), disasterIntensity);

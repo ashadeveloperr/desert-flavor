@@ -1065,5 +1065,14 @@ JQ2의 '첫 1시간으로 셈'과 JQ3(완공 시각에서 거꾸로 잰 진행�
 | ×1.5 | +693 | +641 | −31 | −91 | −906 | D2.1~2.7 |
 | ×2 | +695 | +674 | −23 | −57 | −813 | D2.1~2.8 |
 
-5회 중 2회는 두 번째 정착지(D0.0)에서 파산(바꾸기 전에는 1회 적자). 장비는 자금으로 몇 개씩 사고 Lv3(×1.5)까지 올릴 수 있었지만 모디파이어는 정착지마다 하나씩, 한 번에 장비 Lv1의 절반~3분의 2라 중반(D2~) 버티는 힘이 줄었다. 세기 결정은 [미정] — 사용자에게 후보 표로 물음.
+5회 중 2회는 두 번째 정착지(D0.0)에서 파산(바꾸기 전에는 1회 적자). 장비는 자금으로 몇 개씩 사고 Lv3(×1.5)까지 올릴 수 있었지만 모디파이어는 정착지마다 하나씩, 한 번에 장비 Lv1의 절반~3분의 2라 중반(D2~) 버티는 힘이 줄었다. 세기는 아래 BM4로 정함(×1 + 최대 중첩).
+
+**세기 결정**(2026-11-03, 사용자: "1배 그대로 가되 바뀐 시스템에 맞게 난이도를 조정할 장치가 있어야함. 최대 중첩을 넘기면 그 모디파이어는 더 뜨지 않도록. 예를 들어 전염병 세기를 -30%로 버프가 있다면 3번만 겹쳐도 -90%임. 이런 경우는 -20%로 낮추고 3번까지만 중첩되도록")
+
+| # | 정한 것 | 구분 | 이유·영향 | 위치 |
+|---|---|---|---|---|
+| BM4 | 세기는 ×1(BM2 목록). 모디파이어마다 최대 중첩 `maxStacks`(없으면 `bidderModifiers.defaultMaxStacks`, 지금 5): 캠페인에서 그만큼 받은 모디파이어는 예고 때 뽑지 않는다. 전용 목록이 모두 한도면 범용, 둘 다 한도면 모디파이어 없이 입찰. 한도 3 = 재해 피해(작물 재해·모래폭풍·메뚜기, ×0.7 → ×0.8)·감염 ×0.85·수로 손실 ×0.85·부패(×0.8 → ×0.85)·물탱크 +20%·창고 한도 +15%·효율 상한 ×1.03, 건설 슬롯 +1은 2, 나머지(3~8%)는 기본 5 | [사용자 결정(Claude 초안 표 그대로)] | 곱연산(BM3)이라 한도가 없으면 감소형이 0에 가까워진다(×0.7 세 번 = ×0.34 → ×0.8 세 번 = ×0.51). 한도에 닿으면 다른 모디파이어가 뜨므로 고르는 폭도 유지된다 | `BidderModifierSettings.MaxStacksOf`, `AuctionManager.RollModifier`(생성자에 받은 모디파이어), `Campaign.StartNextSettlement` |
+
+측정(`-- mods campaign 0.25 14000 30 smart`, 5회): D0~1 +700 · D1~2 +589 · D2~3 −91 · D3~4 −188 · D4~5 −982, 처음 적자 D2.0~2.3 — 한도 없는 ×1과 거의 같다. 봇은 캠페인당 모디파이어 21~24개를 30종에서 받아 한도에 닿는 일이 드물고, 한도는 긴 캠페인 후반의 폭주를 막는 장치다. 중반(D2~) 적자를 줄이는 조정은 따로(난이도 곡선 `procedural_map_config.json`의 `difficulty.*`).
+검증: 새 `ModifierAtMaxStacks_IsNoLongerOffered`, 설정 불러오기에서 `maxStacks`·`defaultMaxStacks` 1 미만은 오류.
 검증: 시뮬레이터(v0.8 회귀 그대로)·`savecheck` 통과, EditMode 220 · PlayMode 10 통과(새 `FirstAuction_IsScheduledAtStart_OneBidderPlusOnePerAuctionHall`, `SellingToABidder_GrantsItsModifier_AndTheNextSettlementGetsIt`, `Modifiers_StackMultiplicatively_WithEachOtherAndAdjacency`, `SaveGameTests.OldVersionSave_IsRejectedWithAMessage`, 장비 테스트는 삭제·효과 배율 테스트로 바꿈).

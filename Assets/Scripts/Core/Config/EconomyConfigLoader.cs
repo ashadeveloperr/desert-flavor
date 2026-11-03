@@ -113,12 +113,14 @@ namespace DesertSettlement.Core.Config
             {
                 BidderModifierSettings bm = config.BidderModifiers;
                 if (bm.ExclusiveChance < 0 || bm.ExclusiveChance > 1) problems.Add("bidderModifiers.exclusiveChance는 0~1이어야 합니다.");
+                if (bm.DefaultMaxStacks < 1) problems.Add("bidderModifiers.defaultMaxStacks는 1 이상이어야 합니다.");
                 var poolIds = new HashSet<string>((config.Auction?.Bidders ?? new List<BidderProfile>()).Select(b => b.Id)) { BidderModifierSettings.GeneralPool };
                 foreach (BidderModifierDefinition d in bm.Definitions ?? new List<BidderModifierDefinition>())
                 {
                     if (string.IsNullOrEmpty(d.Id)) problems.Add("bidderModifiers.definitions에 id 없는 모디파이어가 있습니다.");
                     if (!poolIds.Contains(d.Pool ?? "")) problems.Add($"bidderModifiers.{d.Id}.pool '{d.Pool}'은 입찰자 id나 general이어야 합니다.");
                     if (d.Weight <= 0) problems.Add($"bidderModifiers.{d.Id}.weight는 0보다 커야 합니다.");
+                    if (d.MaxStacks < 1) problems.Add($"bidderModifiers.{d.Id}.maxStacks는 1 이상이어야 합니다.");
                 }
             }
 

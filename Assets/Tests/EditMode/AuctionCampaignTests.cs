@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace DesertSettlement.Core.Tests
 {
-    /// <summary>4단계: 가치 평가(개발 중 자산·입찰자), 경매 진행(예고·시세·긴급·파산), 캠페인(매각·장비·다음 정착지).</summary>
+    /// <summary>4단계: 가치 평가(개발 중 자산·입찰자), 경매 진행(예고·시세·긴급·파산), 캠페인(매각·모디파이어·다음 정착지).</summary>
     public class AuctionCampaignTests
     {
         private static EconomyConfig _config;
@@ -192,6 +192,25 @@ namespace DesertSettlement.Core.Tests
             Assert.AreEqual(_config.Auction.AttendeesWithoutAuctionHall + 1, a.AnnouncedBidders.Count, "경매장 1개 = +1명");
             Assert.AreEqual(_config.Auction.FirstAuctionHour, a.NextAuctionHour, "경매장을 지어도 일정은 그대로");
             foreach (BidderProfile b in a.AnnouncedBidders) Assert.IsNotNull(a.ModifierOf(b), "예고 때 모디파이어도 정해진다(결정 BM1)");
+        }
+
+        [Test]
+        public void ModifierAtMaxStacks_IsNoLongerOffered()
+        {
+            // 결정 BM4: 최대 중첩만큼 받은 모디파이어는 뽑히지 않는다. 남은 게 범용 하나면 모두 그것을, 하나도 없으면 모디파이어 없이.
+            BidderModifierSettings mods = _config.BidderModifiers;
+            BidderModifierDefinition left = mods.Definitions.First(d => d.Pool == BidderModifierSettings.GeneralPool);
+            List<BidderModifierDefinition> Maxed(IEnumerable<BidderModifierDefinition> defs) =>
+                defs.SelectMany(d => Enumerable.Repeat(d, mods.MaxStacksOf(d))).ToList();
+            List<BidderModifierDefinition> allButOne = Maxed(mods.Definitions.Where(d => d != left));
+            allButOne.Add(left); // 한도 아래로 하나 받아 둔 것은 아직 뜬다
+            for (int seed = 1; seed <= 5; seed++)
+            {
+                var a = new AuctionManager(new Settlement(_maps[0].CreateMap(), SettlementRules.FromConfig(_config)), seed, allButOne);
+                foreach (BidderProfile b in _config.Auction.Bidders) Assert.AreSame(left, a.ModifierOf(b), $"시드 {seed} {b.Id}");
+                var none = new AuctionManager(new Settlement(_maps[0].CreateMap(), SettlementRules.FromConfig(_config)), seed, Maxed(mods.Definitions));
+                foreach (BidderProfile b in _config.Auction.Bidders) Assert.IsNull(none.ModifierOf(b), $"시드 {seed} {b.Id}");
+            }
         }
 
         [Test]

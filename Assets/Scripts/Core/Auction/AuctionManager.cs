@@ -71,6 +71,7 @@ namespace DesertSettlement.Core.Auction
     ///   철거·폐쇄하면 뒤에서부터 빠지며, 다시 열면 같은 사람이 돌아온다.
     /// - 경매 당일 시세(±10%) 공개, 입찰자별 가치·조건(현금 비율, 다음 정착지 혜택)으로 입찰.
     /// - 입찰자마다 영구 모디파이어 하나를 예고 때 뽑아 둔다(결정 BM1): bidderModifiers.exclusiveChance 확률로 그 입찰자 전용 목록, 아니면 범용 목록(비중대로).
+    ///   캠페인에서 이미 최대 중첩 수(maxStacks)만큼 받은 모디파이어는 뽑지 않는다(결정 BM4).
     /// - 자금 0 이하: 광산(공사 중 포함)이 있으면 긴급 매각 경매(−20%), 없으면 즉시 파산(팔 가치가 없음).
     ///   긴급 매각을 보류하고 자금 &lt; 0이 24시간 이어지면 파산. 자금이 다시 0보다 커지면 해제.
     /// 정착지의 정각 정산 직후(<see cref="Settlement.HourSettled"/>)에 판정한다. 무작위는 시드로 재현 가능.
@@ -84,6 +85,8 @@ namespace DesertSettlement.Core.Auction
         private readonly List<BidderProfile> _order = new List<BidderProfile>();
         /// <summary>예고 때 입찰자마다 뽑은 모디파이어(입찰자 id → 모디파이어).</summary>
         private readonly Dictionary<string, BidderModifierDefinition> _modifiers = new Dictionary<string, BidderModifierDefinition>();
+        /// <summary>캠페인에서 이미 받은 모디파이어 id별 개수(최대 중첩 판정용).</summary>
+        private readonly Dictionary<string, int> _ownedCounts;
         private bool _emergencyDeclined;
 
         public AuctionPhase Phase { get; private set; } = AuctionPhase.Scheduled;
@@ -130,9 +133,12 @@ namespace DesertSettlement.Core.Auction
         public event Action Held;
         public event Action<string> Bankrupted;
 
-        public AuctionManager(Settlement settlement, int seed)
+        /// <param name="ownedModifiers">캠페인에서 이미 받은 모디파이어(같은 것이 여러 번 있을 수 있음). 최대 중첩에 닿은 것은 뽑지 않는다.</param>
+        public AuctionManager(Settlement settlement, int seed, IEnumerable<BidderModifierDefinition> ownedModifiers = null)
         {
             _settlement = settlement ?? throw new ArgumentNullException(nameof(settlement));
+            _ownedCounts = (ownedModifiers ?? Enumerable.Empty<BidderModifierDefinition>())
+                .GroupBy(m => m.Id).ToDictionary(g => g.Key, g => g.Count());
             _settings = settlement.Rules.Config.Auction ?? throw new InvalidOperationException("설정에 auction이 없습니다.");
             _rng = new Random(seed);
             settlement.FacilityCompleted += OnFacilityCompleted;
@@ -284,11 +290,16 @@ namespace DesertSettlement.Core.Auction
             }
         }
 
-        /// <summary>전용 목록(exclusiveChance) 또는 범용 목록에서 비중대로 하나. 고른 목록이 비어 있으면 다른 목록.</summary>
+        /// <summary>
+        /// 전용 목록(exclusiveChance) 또는 범용 목록에서 비중대로 하나. 최대 중첩에 닿은 모디파이어는 목록에서 빼고,
+        /// 고른 목록이 비어 있으면 다른 목록, 둘 다 비면 없음(null).
+        /// </summary>
         private BidderModifierDefinition RollModifier(BidderModifierSettings mods, string bidderId)
         {
-            List<BidderModifierDefinition> own = mods.Definitions.Where(d => d.Pool == bidderId).ToList();
-            List<BidderModifierDefinition> general = mods.Definitions.Where(d => d.Pool == BidderModifierSettings.GeneralPool).ToList();
+            List<BidderModifierDefinition> available = mods.Definitions
+                .Where(d => (_ownedCounts.TryGetValue(d.Id, out int n) ? n : 0) < mods.MaxStacksOf(d)).ToList();
+            List<BidderModifierDefinition> own = available.Where(d => d.Pool == bidderId).ToList();
+            List<BidderModifierDefinition> general = available.Where(d => d.Pool == BidderModifierSettings.GeneralPool).ToList();
             bool exclusive = _rng.NextDouble() < mods.ExclusiveChance;
             List<BidderModifierDefinition> pool = exclusive && own.Count > 0 || general.Count == 0 ? own : general;
             if (pool.Count == 0) return null;

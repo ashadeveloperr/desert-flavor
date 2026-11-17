@@ -41,10 +41,12 @@ Assets/Scripts/
                          DebugSessionBuilder(씬 구성 한 벌을 코드로), RecordBook(최고 기록), HudInputBlocker(UI 위 클릭 차단)
     UI/                  정식 화면(uGUI를 코드로 만든다). GameUi가 뿌리, 구역마다 *View 하나, UiKit = 버튼·글자 만드는 도구 + Theme(색·크기), Icons(+ .Facilities 시설·도구) = 코드로 그리는 아이콘, Hotkeys = 단축키 표·? 버튼 안내,
                          HoverTip = UI 요소 툴팁(그리기는 TooltipView), HelpTexts = 도구 막대·자원 카드 툴팁 문구와 시설 아이콘 짝
-    View/                맵 표시: SettlementView(타일·시설·수로, + .Lanterns 등불·.Labels 머리 위 글자 — 정식 UI보다 아래 캔버스), FacilityModels(시설 모양), FacilityInfo(한국어 문구),
+    View/                맵 표시: SettlementView(타일·시설·수로, + .Ground 굴곡 모래 바닥, .Terrain 지형 장식(샘·광맥·암반·장애물), .Canals 수로 상태 색·물, .Greenery 녹지 풀·야자수, .Lanterns 등불, .Labels 머리 위 글자 — 정식 UI보다 아래 캔버스), FacilityModels(시설 모양 = 구운 메시 + 비계·등불), CanalModel(수로 물길·둑·수면·수문), GroundMesh(높이 있는 육각형), NatureModels(풀·야자수·물웅덩이 메시, + .Rocks 바위·수정), FacilityInfo(한국어 문구),
                          DayNightLighting, WaterPathOverlay, BuildableOverlay, DesertBackdrop, WorldVisuals(머티리얼·메시 도우미)
     Tools/               MapSketch(예시 맵 그리기), HexMapDebugView(Gizmo 확인용)
-  Editor/              DebugSessionMenu(메뉴·SetupSampleScene), MapSketchEditor
+  Editor/              DebugSessionMenu(메뉴·SetupSampleScene), MapSketchEditor, BuildingModelBaker(원본 FBX → 건물별 메시 굽기) + BuildingModelPreview(구운 모델 한 장 캡처)
+Assets/Art/Buildings/  건물 원본 FBX(16개가 4×4로 놓인 메시 하나) + Textures/(FBX에서 꺼낸 base_color·normal)
+Assets/Resources/      WorldSolid.mat(단색 템플릿), Buildings/(구운 건물 메시 <시설 id>.asset + BuildingAtlas.mat)
 Assets/Tests/EditMode/ Core 단위 테스트(영역별 파일)       Assets/Tests/PlayMode/ 스모크 테스트·화면 캡처
 Assets/Data/Config/    economy_balance_v0.8_config.json(경제), procedural_map_config.json(절차 맵)
 Assets/Data/Maps/      고정 맵 JSON(지형 + 샘플 배치)       Assets/Data/MapSketches/ 맵 스케치 저장본
@@ -98,7 +100,7 @@ UI 버튼·마우스 도구 → Settlement의 공개 명령(Settlement.Commands.
 
 ### 새 시설 종류
 1. JSON `buildingLevels`에 레벨표 2. `Core/Economy/FacilityCatalog.cs`에 한 줄(이름·분류·지형·색) — 둘이 어긋나면 설정 검증과 `FacilityCatalogTests`가 실패
-3. (선택) 모양 `Runtime/View/FacilityModels.cs`(없으면 상자) + 도구 막대 아이콘·툴팁 `Runtime/UI/HelpTexts.cs`의 `Facilities`에 한 줄(빠뜨리면 `HelpTextsTests` 실패, 새 그림은 `Icons.Facilities.cs`)
+3. 모양: 모델을 원본 FBX에 넣거나 새 FBX를 만들어 `Editor/BuildingModelBaker.cs`의 `Grid`에 시설 id를 넣고 메뉴 **건물 모델 굽기**(없으면 상자, `DebugSessionSmokeTests`가 메시 없는 시설을 잡는다) + 도구 막대 아이콘·툴팁 `Runtime/UI/HelpTexts.cs`의 `Facilities`에 한 줄(빠뜨리면 `HelpTextsTests` 실패, 새 그림은 `Icons.Facilities.cs`)
 4. 생산 시설이면: `SettlementRules.ResourceOf`(만드는 자원)와 `MaxOutput`(레벨표 × 배율)에 한 줄씩. 정산(`AdvanceHour`)·화면 예상치(`OutputOf`)·경매 가치(개발 중 자산·채석장 능력)·재해 배율이 모두 이 둘을 쓴다(결정 PR1). 식량·석재·광물이 아닌 새 자원이면 `ResourceKind`, `AdvanceHour`의 자원별 합계, `HourRecord`, 경매 가치까지 손대야 한다
 5. 경매 가치 인프라 보너스가 있으면: `InfraMultipliers`(EconomyConfig) + `SettlementValuation.InfraTable`에 한 줄(운영 중 합계와 공사 중 보너스가 함께 씀, 몇 개든 한 번만 세면 Once)
 6. 노동력(이슈 #31): 레벨마다 `buildWorkers`(공사 인원, 없으면 0명)를 넣는다. 운영에 사람이 필요하면 `workers`도 — 그러면 배치 순서·우선 고용·배치율이 저절로 걸린다(`SettlementRules.NeedsWorkers`). ⚠ `buildWorkers`를 빠뜨리면 공사에 사람이 안 들어 노동력 규칙을 건너뛴다. 봇 계획(`ReferenceBot.Plan`)이 그 시설을 지으면 주택 수도 따라 늘어난다
@@ -179,8 +181,14 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 | 맵 지형·샘플 배치, 맵 추가 | `Assets/Data/Maps/*.json` (새 파일은 `GameSession`의 Maps 목록에) |
 | 예시 맵 그리기 · 생성 맵 눈으로 보기 | 메뉴 Tools > Desert Settlement > 맵 스케치 씬 열기 → `MapSketch` 인스펙터 |
 | 경매 입찰자·시세 시드 | `GameSession` 인스펙터 → Campaign Seed |
-| 지형·시설·수로 색, 수로 폭, 머리 위 글자, 녹지화, 등불 | `SettlementView` 인스펙터 (시설 기본 색은 `FacilityCatalog`, 종류별 덮어쓰기는 `facilityColors`) |
-| 시설 모양(부품 위치·크기·레벨 부품·비계·등불 위치) | `Runtime/View/FacilityModels.cs` |
+| 모래·시설 색, 수로 폭·둑·바닥·수면·수문 색(인스펙터 '수로'), 머리 위 글자, 등불, 폐쇄 시설 어둡기(`closedDim`) | `SettlementView` 인스펙터 (시설 기본 색은 `FacilityCatalog`, 종류별 덮어쓰기는 `facilityColors`) |
+| 모래 굴곡·시설이 묻히는 깊이 · 샘 크기·장애물 둔덕·암반 평평함 · 녹지(풀·야자수 수, 야자수가 돋는 푸름, 자라는 속도) | `SettlementView` 인스펙터 '바닥 모래'·'지형 장식'·'녹지' (코드 `SettlementView.Ground.cs`·`.Terrain.cs`·`.Greenery.cs`) |
+| 지형 장식의 배치(바위·수정·판석 수와 크기) | `SettlementView.Terrain.cs`의 `Spring`·`OreVein`·`Bedrock`·`Obstacle` |
+| 풀·야자수·샘 물웅덩이·바위·층 바위·수정 모양과 색 | `Runtime/View/NatureModels.cs`, `NatureModels.Rocks.cs`(돌 색은 건물 텍스처의 돌 색에 맞춘 값 — 모델을 바꾸면 함께 본다) |
+| 폐쇄 시설의 채도 | `FacilityModels.MutedSaturation` → 다시 굽기(채도 낮춘 텍스처를 굽기에서 만든다) |
+| 시설 모양(어느 칸이 어느 시설인지, 타일 안 크기, 방향) | `Editor/BuildingModelBaker.cs`의 `Grid`·`FootprintRadius`·`BaseYaw`/`ExtraYaw` → 메뉴 Tools > Desert Settlement > 건물 모델 굽기 → 미리보기 캡처(`Captures/building_models*.png`·`building_levels.png`, git 무시) |
+| 개량할 때 커지는 비율, 작물 시듦 색 | `SettlementView` 인스펙터 `upgradeScalePerLevel`·`witheredCrop`·`witherTint` |
+| 비계·등불 위치 | `Runtime/View/FacilityModels.cs` |
 | 건설 가능 타일 강조 색·주기 · 맵 바깥 모래언덕 | `BuildableOverlay` · `DesertBackdrop` 인스펙터(GameSession 오브젝트) |
 | 팝업·정보창 문구, 지형 이름, 재해 문구 | `Runtime/View/FacilityInfo.cs` (시설 이름은 `FacilityCatalog`) |
 | UI 색·글자 크기·간격 | `Runtime/UI/UiKit.cs`의 `Theme` |
@@ -224,5 +232,8 @@ v0.8 원본 값(테스트의 `V08Golden`, `Assets/Tests/EditMode/TestData.cs`)�
 - **UI 오브젝트 이름:** 코드로 만든 글자·버튼은 '종류 + 처음 문구'로 이름이 붙는다(예: `Button 저장 F5`, 결정 UK1). 플레이 중 Hierarchy 검색창에 화면 문구를 치면 찾을 수 있다. 처음에 비어 있다가 채워지는 글자는 이름이 'Text'로 남는다.
 - **가운데 창·알림의 다시 그리기(결정 UK2):** `ModalView`는 캠페인 명령 기록이 늘거나 캠페인 상태·열린 경매가 바뀌거나 창 안 버튼이 `MarkDirty`를 부를 때 다시 그린다. 창에 새 버튼을 넣으면 그 동작이 명령으로 기록되지 않는 한(화면 안의 선택 등) `_changed()`를 부른다. `AlertsView`는 그릴 글자·색 자체를 비교하므로 따로 할 일이 없다.
 - **시드 상수:** `Core/Progression/SeedSalts`의 숫자를 바꾸면 같은 시드로 다른 게임이 나와 저장 파일과 골든 값이 깨진다(결정 SD1).
+- ⚠ **이름으로 찾는 셰이더(`Shader.Find`)는 빌드에서 빠진다** — 어떤 에셋도 그 셰이더를 참조하지 않으면 에디터에서는 되고 빌드에서만 null이 된다(맵·시설이 안 그려짐). 단색은 `Resources/WorldSolid.mat`(URP Lit)을 복사해 만들고, 새 셰이더가 필요하면 `Resources`에 그 셰이더를 쓰는 머티리얼을 두거나 '항상 포함' 셰이더를 쓴다.
+- ⚠ **타일 위에 까는 표시는 바닥 굴곡을 따라야 한다** — 맵 바닥은 평평하지 않아서, 평평한 육각형(`WorldVisuals.HexTile`)을 타일 위에 놓으면 모래에 군데군데 묻힌다. `SettlementView.GroundOverlay`/`GroundMeshFor`(같은 굴곡 + 띄울 높이)를 쓴다. 바닥 위에 세우는 장식은 `GroundHeight`로 높이를 잰다. 수로 지류가 생기거나 없어지면 그 칸 바닥을 파내 메시를 다시 만들므로(`SetCarves`), 칸 바닥 메시를 오래 들고 있는 표시는 갱신 때 `GroundMeshFor`로 다시 받아야 한다(예: `BuildableOverlay`).
+- ⚠ **건물 모델은 구운 결과물이다** — `Resources/Buildings/*.asset`을 손으로 고치지 말고 `BuildingModelBaker`를 고쳐 다시 굽는다. 굽기는 같은 에셋을 다시 채워 GUID를 지킨다. 원본 FBX를 바꾸면 텍스처도 다시 꺼내야 하므로 `Art/Buildings/Textures/`를 지우고 굽는다.
 - **반투명·발광 머티리얼**은 `WorldVisuals.Unlit`(`Sprites/Default`)로 만든다. URP Lit 반투명을 코드로 켜면 빌드에서 셰이더 변형이 빠질 수 있다.
 - **배치 모드 Unity**는 에디터가 이 프로젝트를 열고 있으면 바로 실패한다. 테스트는 `unity-tests.sh`(사본)로, 빌드·씬 재구성만 원본에서.

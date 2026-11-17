@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using DesertSettlement.Core.Config;
 using DesertSettlement.Core.Economy;
+using DesertSettlement.Core.Hex;
 using DesertSettlement.Runtime;
 using DesertSettlement.Runtime.UI;
 using NUnit.Framework;
@@ -142,6 +143,29 @@ namespace DesertSettlement.PlayMode.Tests
             // 화면 비율별 배치(2026-10-27 이슈 #5): 16:10은 그대로, 5:4는 위쪽 띠·도구 막대가 통째로 줄어든다(LY3).
             yield return Capture("03b_16x10", 1920, 1200);
             yield return Capture("03c_5x4", 1280, 1024);
+            // 폐쇄 시설은 채도가 낮아지고(결정 FC1), 수로 옆에 풀·야자수가 자란다(GR4). 가까이 당겨 모래 굴곡·샘(GR1~GR3)도 본다.
+            Facility closed = s.Facilities.FirstOrDefault(f => f.Kind == BuildingKinds.Quarry && f.IsOperating);
+            if (closed != null) s.SetClosed(closed.Id, true);
+            Facility gate = s.Facilities.LastOrDefault(f => f.Kind == BuildingKinds.CanalEdge && f.IsOperating); // 닫힌 수로 = 수문(CN1)
+            if (gate != null) s.SetClosed(gate.Id, true);
+            _result.Session.GetComponent<BuildInputController>().SelectedFacilityId = -1;
+            yield return new WaitForSecondsRealtime(0.3f);
+            yield return Capture("03e_closed_greenery");
+            distanceField.SetValue(_result.CameraRig, (float)framed * 0.55f);
+            yield return new WaitForSecondsRealtime(0.6f);
+            yield return Capture("03f_closeup");
+            // 녹지가 다 자란 모습(GR4): 화면용 푸름 값만 잠시 채워 찍고 되돌린다(다음 정산 때 어차피 다시 계산된다).
+            var greenField = typeof(SettlementView).GetField("_green", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var green = (System.Collections.Generic.Dictionary<HexCoord, float>)greenField.GetValue(session.GetComponent<SettlementView>());
+            var savedGreen = new System.Collections.Generic.Dictionary<HexCoord, float>(green);
+            foreach (HexTile t in s.Map.Tiles.Where(t => t.Terrain == TerrainType.Desert && t.Coord.DistanceTo(new HexCoord(0, 0)) <= 2)) green[t.Coord] = 0.4f + 0.15f * (t.Coord.Q & 3);
+            yield return new WaitForSecondsRealtime(0.3f);
+            yield return Capture("03g_greenery_grown");
+            green.Clear();
+            foreach (var kv in savedGreen) green[kv.Key] = kv.Value;
+            distanceField.SetValue(_result.CameraRig, framed);
+            if (closed != null) s.SetClosed(closed.Id, false);
+            if (gate != null) s.SetClosed(gate.Id, false);
             // 밤(2026-10-27 이슈 #13): 달빛·환경광 최소값·시설 등불. 첫 경매(69h) 전인 58h 22:00.
             session.Clock.AdvanceGameHours((22 - session.Clock.HourOfDay + 24) % 24);
             _result.Session.GetComponent<BuildInputController>().SelectedFacilityId = -1;

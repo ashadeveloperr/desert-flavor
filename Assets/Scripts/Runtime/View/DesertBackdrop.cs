@@ -87,16 +87,15 @@ namespace DesertSettlement.Runtime
             }
         }
 
-        private float Size => _session.TileSize;
+        // 맵 타일이 이 컴포넌트의 Awake보다 먼저 잔물결 UV를 물을 수 있어 세션을 늦게 찾는다.
+        private float Size => (_session != null ? _session : _session = GetComponent<GameSession>()).TileSize;
 
         private void Rebuild()
         {
             for (int i = _root.childCount - 1; i >= 0; i--) Destroy(_root.GetChild(i).gameObject);
             if (_sandMaterial == null)
             {
-                _rippleTexture = RippleTexture(rippleStrength);
-                _sandMaterial = WorldVisuals.Solid(duneColor);
-                _sandMaterial = new Material(_sandMaterial) { name = "Desert Backdrop Sand", mainTexture = _rippleTexture };
+                _sandMaterial = new Material(WorldVisuals.Solid(duneColor)) { name = "Desert Backdrop Sand", mainTexture = Ripples };
                 // 반투명 띠(빌드에서도 빠지지 않는 셰이더, 정점 알파 × 색 알파).
                 _borderMaterial = WorldVisuals.Unlit("Desert Backdrop Border", borderColor);
             }
@@ -150,15 +149,24 @@ namespace DesertSettlement.Runtime
             return rise * amplitude * (0.65f * profile * crest + 0.35f * swell) + baseHeight * t;
         }
 
+        /// <summary>잔물결 텍스처(처음 쓸 때 만든다). 맵 타일 모래(<see cref="SettlementView"/>)도 같은 것을 쓴다.</summary>
+        public Texture2D Ripples => _rippleTexture != null ? _rippleTexture : _rippleTexture = RippleTexture(rippleStrength);
+
+        /// <summary>맵 평면 좌표의 잔물결 UV(바람에 수직인 줄이 바람 방향으로 반복). 바깥 언덕과 맵 타일이 같은 무늬로 이어진다.</summary>
+        public Vector2 RippleUv(Vector2 p)
+        {
+            float rippleTile = rippleSpacing * Size * 8f; // 텍스처 한 장에 잔물결 8줄
+            float a = windDegrees * Mathf.Deg2Rad;
+            var wind = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
+            var across = new Vector2(wind.y, -wind.x);
+            return new Vector2(Vector2.Dot(p, across) / rippleTile, Vector2.Dot(p, wind) / rippleTile);
+        }
+
         private Mesh DuneMesh(List<Vector2> centers)
         {
             float half = extentTiles * Size;
             int n = gridCells;
             float step = 2f * half / n;
-            float rippleTile = rippleSpacing * Size * 8f; // 텍스처 한 장에 잔물결 8줄
-            float a = windDegrees * Mathf.Deg2Rad;
-            var wind = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
-            var across = new Vector2(wind.y, -wind.x);
 
             var vertices = new Vector3[(n + 1) * (n + 1)];
             var uv = new Vector2[vertices.Length];
@@ -179,8 +187,7 @@ namespace DesertSettlement.Runtime
                     }
                     int i = z * (n + 1) + x;
                     vertices[i] = new Vector3(p.x, DuneHeight(p, nearest), p.y);
-                    // 잔물결은 바람에 수직(바람 방향으로 반복).
-                    uv[i] = new Vector2(Vector2.Dot(p, across) / rippleTile, Vector2.Dot(p, wind) / rippleTile);
+                    uv[i] = RippleUv(p);
                 }
             }
 

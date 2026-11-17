@@ -78,7 +78,7 @@ namespace DesertSettlement.Core.Economy
     /// 시설 정의를 한곳에(2026-10-24 검토 개선 5, Docs/decision_log_auto.md CL1~CL3): 이름·도구 막대 분류·지을 수 있는 지형·기본 색.
     /// 지형 규칙(<see cref="SettlementRules.AllowedTerrain"/>), 도구 막대, 한국어 이름표, 시설 색이 모두 이 목록을 읽는다.
     /// <para><b>새 시설 추가</b>: ① 설정 JSON <c>buildingLevels</c>에 레벨표, ② 아래 목록에 한 줄,
-    /// ③ (선택) 모양 <c>Runtime/FacilityModels.cs</c>(없으면 상자), ④ 특별한 효과가 있으면 그 규칙 코드(예: 가치 평가 배율).</para>
+    /// ③ 모양: 원본 모델을 <c>Editor/BuildingModelBaker.cs</c>의 Grid에 넣고 굽기(없으면 상자), ④ 특별한 효과가 있으면 그 규칙 코드(예: 가치 평가 배율).</para>
     /// </summary>
     public static class FacilityCatalog
     {

@@ -165,7 +165,7 @@ namespace DesertSettlement.PlayMode.Tests
             Facility farm = s.Facilities.First(f => f.Kind == BuildingKinds.Farm);
             Assert.IsTrue(farm.IsOperating);
             FacilityModel Model(Facility f) => session.transform.Find("Facilities").GetComponentsInChildren<FacilityModel>()
-                .First(m => (m.transform.position - session.ToWorld(session.Layout.TileCenter(f.Tile))).sqrMagnitude < 1e-4f);
+                .First(m => Vector3.ProjectOnPlane(m.transform.position - session.ToWorld(session.Layout.TileCenter(f.Tile)), Vector3.up).sqrMagnitude < 1e-4f);
             Assert.IsFalse(Model(farm).LanternLightOn, "낮에는 꺼짐");
 
             session.Clock.AdvanceGameHours(12); // 22:00
@@ -240,17 +240,36 @@ namespace DesertSettlement.PlayMode.Tests
                 if (shown.name.StartsWith("Canal")) continue;
                 FacilityModel model = shown.GetComponent<FacilityModel>();
                 Assert.IsNotNull(model, shown.name);
-                Assert.GreaterOrEqual(model.PartCount, 3, $"{shown.name}: 도형을 조합한 모양(M1)");
-                Assert.Less(model.VisiblePartCount, model.PartCount, $"{shown.name}: 비계·레벨 부품은 L1 운영 중에 숨는다(SG1·SG2)");
+                Assert.IsTrue(model.Textured, $"{shown.name}: 구운 텍스처 모델(Resources/Buildings)");
+                Assert.Less(model.VisiblePartCount, model.PartCount, $"{shown.name}: 비계는 운영 중에 숨는다(SG1)");
             }
+            foreach (string kind in BuildingKinds.All.Where(k => k != BuildingKinds.CanalEdge))
+                Assert.IsNotNull(FacilityModels.MeshOf(kind), $"{kind}: 모델 메시가 없으면 상자로 보인다 — BuildingModelBaker.Grid에 넣고 다시 굽기");
             int building = s.Facilities.Count(f => !f.Edge.HasValue && (f.State == FacilityState.Constructing || f.State == FacilityState.Upgrading));
             Assert.AreEqual(building, session.transform.Find("Facilities").GetComponentsInChildren<FacilityModel>().Count(m => m.ScaffoldVisible),
                 "비계는 공사·개량 중인 시설에만(SG1)");
             SettlementView view = session.GetComponent<SettlementView>();
-            var terrainColors = System.Enum.GetValues(typeof(TerrainType)).Cast<TerrainType>().Select(t => (Color32)view.TerrainColor(t)).ToList();
-            Assert.IsTrue(session.transform.Find("Tiles").GetComponentsInChildren<MeshRenderer>()
-                    .Any(r => !terrainColors.Contains((Color32)r.sharedMaterial.color)),
-                "물이 흐르는 수로 옆 사막이 푸르게 바뀐다(SG4): 지형 색이 아닌 타일이 있어야 한다");
+            Assert.Greater(view.GreenTileCount, 0, "물이 흐르는 수로 옆 사막에 풀이 돋는다(SG4·GR4)");
+            // 지형은 색 대신 장식으로 보이고, 시설이 들어선 칸의 장식은 숨는다(GR3·GR5).
+            Transform nature = session.transform.Find("Nature");
+            var featureNames = new System.Collections.Generic.Dictionary<TerrainType, string>
+            {
+                [TerrainType.WaterSource] = "Spring", [TerrainType.OreVein] = "Ore Vein", [TerrainType.Bedrock] = "Bedrock", [TerrainType.Obstacle] = "Obstacle",
+            };
+            foreach (HexTile t in s.Map.Tiles.Where(t => t.Terrain != TerrainType.Desert))
+            {
+                Transform feature = nature.Find($"{featureNames[t.Terrain]} {t.Coord}");
+                Assert.IsNotNull(feature, $"{t.Terrain} {t.Coord}: 지형 장식");
+                bool occupied = s.Facilities.Any(f => !f.Edge.HasValue && f.Tile.Equals(t.Coord));
+                Assert.AreEqual(!occupied, feature.gameObject.activeSelf, $"{t.Terrain} {t.Coord}: 시설이 있으면 숨고 없으면 보인다");
+            }
+            Assert.IsTrue(s.Facilities.Any(f => f.Kind == BuildingKinds.Mine), "샘플 배치에 광맥 위 광산이 있어 숨김을 확인한다");
+            // 수로(CN1): 물이 흐르는 수로에만 수면이 보이고, 닫힌 수로에만 수문.
+            CanalModel[] canals = session.transform.Find("Facilities").GetComponentsInChildren<CanalModel>(true);
+            Assert.AreEqual(s.Facilities.Count(f => f.Kind == BuildingKinds.CanalEdge), canals.Length, "수로마다 물길 모양");
+            Assert.IsTrue(canals.Any(c => c.WaterVisible), "물이 흐르는 수로에는 수면이 보인다");
+            Assert.IsTrue(canals.All(c => !c.GateVisible), "닫힌 수로가 없으면 수문도 없다");
+            Assert.Greater(view.CanalSpurCount, 0, "수로가 닿은 우물·물 쓰는 시설에는 지류가 뻗는다(CN2)");
 
             FastForwardToAuction(session);
             Assert.IsTrue(session.Auctions.IsOpen, "정기 경매(정착지 시작 72h, AN1)");

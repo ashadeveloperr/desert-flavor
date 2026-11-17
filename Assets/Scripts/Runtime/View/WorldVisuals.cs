@@ -4,30 +4,45 @@ using UnityEngine;
 namespace DesertSettlement.Runtime
 {
     /// <summary>
-    /// 임시 그래픽용 도우미: 색별 머티리얼 캐시와 납작한 육각형 메시.
-    /// 정식 모델·머티리얼이 생기면 이 파일을 쓰는 곳(SettlementView, BuildInputController)만 바꾸면 된다.
+    /// 그래픽 도우미: 색별 단색 머티리얼 캐시, 텍스처 머티리얼에 상태 색 입히기, 납작한 육각형 메시.
     /// </summary>
     public static class WorldVisuals
     {
         // 키는 8비트 색: 개량 깜빡임·수로 물결처럼 매 프레임 바뀌는 색도 머티리얼 수가 일정 이상 늘지 않는다.
         private static readonly Dictionary<Color32, Material> Materials = new Dictionary<Color32, Material>();
-        private static Shader _shader;
+        // Resources 폴더의 URP Lit 머티리얼. 이름으로 찾는 셰이더(Shader.Find)는 어떤 에셋도 참조하지 않으면
+        // 빌드에서 빠지므로, 이 에셋이 셰이더를 빌드에 끌고 들어오게 한다.
+        private const string SolidTemplatePath = "WorldSolid";
+        private static Material _solidTemplate;
         private static Mesh _hexMesh;
 
-        /// <summary>단색 머티리얼(URP Lit). 같은 색은 하나를 공유한다.</summary>
+        /// <summary>단색 머티리얼(URP Lit, `Resources/WorldSolid.mat` 복사본). 같은 색은 하나를 공유한다.</summary>
         public static Material Solid(Color color)
         {
             Color32 key = color;
             if (Materials.TryGetValue(key, out Material m) && m != null) return m;
             color = key;
-            if (_shader == null)
-            {
-                _shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-            }
-            m = new Material(_shader) { color = color, name = "Solid " + ColorUtility.ToHtmlStringRGB(color) };
+            if (_solidTemplate == null) _solidTemplate = Resources.Load<Material>(SolidTemplatePath);
+            m = new Material(_solidTemplate) { color = color, name = "Solid " + ColorUtility.ToHtmlStringRGB(color) };
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.1f);
             Materials[key] = m;
+            return m;
+        }
+
+        private static readonly Dictionary<(Material, Color32), Material> TintedMaterials = new Dictionary<(Material, Color32), Material>();
+
+        /// <summary>
+        /// 텍스처 머티리얼 <paramref name="template"/>에 색 <paramref name="tint"/>를 곱한 사본(흰색이면 원본 그대로).
+        /// 시설 상태 색(공사·폐쇄·개량·철거)을 텍스처 모델에 입힐 때 쓴다. 같은 (원본, 8비트 색)은 하나를 공유한다.
+        /// </summary>
+        public static Material Tinted(Material template, Color tint)
+        {
+            Color32 key = tint;
+            if (key.r == 255 && key.g == 255 && key.b == 255) return template;
+            if (TintedMaterials.TryGetValue((template, key), out Material m) && m != null) return m;
+            m = new Material(template) { name = template.name + " " + ColorUtility.ToHtmlStringRGB(key) };
+            m.SetColor("_BaseColor", (Color)key);
+            TintedMaterials[(template, key)] = m;
             return m;
         }
 
@@ -79,7 +94,7 @@ namespace DesertSettlement.Runtime
         private static readonly Dictionary<Mesh, Mesh> WhiteMeshes = new Dictionary<Mesh, Mesh>();
 
         /// <summary>
-        /// 조명을 받지 않는 반투명 가능 머티리얼(2026-10-27 이슈 #7·#13). `Sprites/Default`는 그래픽 설정의 '항상 포함' 셰이더라 빌드에서 빠지지 않는다.
+        /// 조명을 받지 않는 반투명 가능 머티리얼. `Sprites/Default`는 그래픽 설정의 '항상 포함' 셰이더라 빌드에서 빠지지 않는다.
         /// 색이 1보다 크면(HDR) 블룸으로 빛나 보인다. 매번 새 머티리얼이므로 색을 바꿔 쓰는 쪽이 가지고 있는다.
         /// </summary>
         public static Material Unlit(string name, Color color) =>

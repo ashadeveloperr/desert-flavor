@@ -123,3 +123,6 @@ Thumbs.db
 
 # 테스트 전용 Unity 프로젝트 사본(Tools/unity-tests.sh)
 /.unity-testcopy/
+
+# 에디터 메뉴 "건물 모델 미리보기 캡처"의 결과
+/Captures/

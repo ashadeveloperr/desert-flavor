@@ -32,7 +32,6 @@ namespace DesertSettlement.Runtime
         private BuildInputController _input;
         private Transform _root;
         private Material _material;
-        private Mesh _mesh;
         private readonly List<(HexCoord tile, GameObject hex)> _hexes = new List<(HexCoord, GameObject)>();
         private HexMap _builtFor;
         private float _nextRefresh;
@@ -47,7 +46,6 @@ namespace DesertSettlement.Runtime
             _root.SetParent(transform, false);
             // 반투명·조명 없음(빌드에서도 빠지지 않는 셰이더, WorldVisuals.Unlit).
             _material = WorldVisuals.Unlit("Buildable Overlay", buildableColor);
-            _mesh = WorldVisuals.WithWhiteVertexColors(WorldVisuals.HexMesh);
         }
 
         private void OnDestroy()
@@ -71,7 +69,13 @@ namespace DesertSettlement.Runtime
             {
                 _shownKind = kind;
                 _nextRefresh = Time.unscaledTime + refreshSeconds;
-                foreach ((HexCoord tile, GameObject hex) in _hexes) hex.SetActive(s.CanBuild(kind, tile).Success);
+                var view = GetComponent<SettlementView>();
+                foreach ((HexCoord tile, GameObject hex) in _hexes)
+                {
+                    hex.SetActive(s.CanBuild(kind, tile).Success);
+                    // 수로 지류가 모래를 파내면 그 칸 바닥이 바뀌므로 새 굴곡을 따른다(같으면 캐시된 같은 메시).
+                    if (hex.activeSelf) hex.GetComponent<MeshFilter>().sharedMesh = view.GroundMeshFor(tile, inset, 0.012f);
+                }
                 _ready = s.FreeBuildsRemaining(kind) > 0 || s.Stone >= StoneCost(s, kind);
             }
             float wave = 0.5f - 0.5f * Mathf.Cos(Time.unscaledTime * 2f * Mathf.PI / Mathf.Max(0.1f, periodSeconds));
@@ -90,19 +94,12 @@ namespace DesertSettlement.Runtime
             foreach ((HexCoord _, GameObject hex) in _hexes) Destroy(hex);
             _hexes.Clear();
             _builtFor = map;
-            float size = _session.TileSize * inset;
+            var view = GetComponent<SettlementView>();
             foreach (HexTile t in map.Tiles)
             {
-                var go = new GameObject("Buildable " + t.Coord);
-                go.transform.SetParent(_root, false);
-                // 마우스를 올린 타일 표시(높이 0.02)보다 아래, 지면보다 위.
-                go.transform.position = _session.ToWorld(_session.Layout.TileCenter(t.Coord), 0.012f);
-                go.transform.localScale = new Vector3(size, 1f, size);
-                go.AddComponent<MeshFilter>().sharedMesh = _mesh;
-                var r = go.AddComponent<MeshRenderer>();
-                r.sharedMaterial = _material;
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                r.receiveShadows = false;
+                // 모래 굴곡을 따라 덮는다. 마우스를 올린 타일 표시(바닥 + 0.02)보다 아래, 바닥보다 위.
+                GameObject go = view.GroundOverlay("Buildable " + t.Coord, _root, t.Coord, inset, 0.012f, _material);
+                go.GetComponent<MeshRenderer>().receiveShadows = false;
                 _hexes.Add((t.Coord, go));
             }
         }

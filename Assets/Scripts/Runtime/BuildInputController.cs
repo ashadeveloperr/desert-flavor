@@ -187,8 +187,10 @@ namespace DesertSettlement.Runtime
             _edgeHighlight.SetActive(pickEdge && HoverEdge.HasValue);
             if (_tileHighlight.activeSelf)
             {
-                _tileHighlight.transform.position = _session.ToWorld(_session.Layout.TileCenter(tile), 0.02f);
-                _tileHighlight.transform.localScale = new Vector3(_session.TileSize * 0.9f, 1f, _session.TileSize * 0.9f);
+                // 모래 굴곡을 따라 덮는 육각형(바닥 + 0.02).
+                _tileHighlight.transform.position = _session.ToWorld(_session.Layout.TileCenter(tile));
+                _tileHighlight.transform.localScale = Vector3.one * _session.TileSize;
+                _tileHighlight.GetComponent<MeshFilter>().sharedMesh = GetComponent<SettlementView>().GroundMeshFor(tile, 0.9f, 0.02f);
                 WorldVisuals.SetColor(_tileHighlight, color);
             }
             if (_edgeHighlight.activeSelf)
